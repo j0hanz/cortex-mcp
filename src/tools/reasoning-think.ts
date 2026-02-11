@@ -108,7 +108,7 @@ function formatThoughtsToMarkdown(session: Readonly<Session>): string {
 - **Session ID:** ${session.id}
 - **Level:** ${session.level}
 - **Thoughts:** ${session.thoughts.length}
-- **Token Budget:** ${session.tokenBudget} (Used: ${session.tokensUsed})
+- **Token Budget:** ${session.tokenBudget} [Used: ${session.tokensUsed}]
 - **Created:** ${new Date(session.createdAt).toISOString()}
 - **Updated:** ${new Date(session.updatedAt).toISOString()}
 
@@ -447,7 +447,7 @@ export function registerReasoningThinkTool(
     {
       title: 'Reasoning Think',
       description:
-        'Perform multi-step reasoning on a query. Supports three depth levels: basic (3-5 thoughts), normal (6-10 thoughts), and high (15-25 thoughts). Optionally continue an existing session with sessionId and override step count with targetThoughts.',
+        'Perform multi-level reasoning on a query with configurable depth and thought count. Supports progress updates and task cancellation.',
       inputSchema: ReasoningThinkInputSchema,
       outputSchema: ReasoningThinkResultSchema,
       annotations: {
