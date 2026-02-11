@@ -1,6 +1,6 @@
 # CORTEX-MCP INSTRUCTIONS
 
-These instructions are available as a resource (`internal://instructions`) or prompt (`get-help`). Load them when unsure about tool usage.
+These instructions are available as a resource (internal://instructions) or prompt (get-help). Load them when unsure about tool usage.
 
 ---
 
