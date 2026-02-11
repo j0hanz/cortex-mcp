@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { z } from 'zod';
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -13,6 +15,18 @@ function formatTargetThoughts(targetThoughts: number | undefined): string {
     return '';
   }
   return `, targetThoughts=${String(targetThoughts)}`;
+}
+
+function loadInstructions(): string {
+  try {
+    const text = readFileSync(
+      new URL('../instructions.md', import.meta.url),
+      'utf8'
+    ).trim();
+    return text.length > 0 ? text : '(Instructions not available)';
+  } catch {
+    return '(Instructions not available)';
+  }
 }
 
 function registerLevelPrompt(server: McpServer, level: PromptLevel): void {
@@ -57,6 +71,25 @@ export function registerAllPrompts(server: McpServer): void {
   registerLevelPrompt(server, 'basic');
   registerLevelPrompt(server, 'normal');
   registerLevelPrompt(server, 'high');
+
+  const instructions = loadInstructions();
+
+  server.registerPrompt(
+    'get-help',
+    {
+      title: 'Get Help',
+      description: 'Return the server usage instructions.',
+    },
+    () => ({
+      description: 'Server usage instructions',
+      messages: [
+        {
+          role: 'user',
+          content: { type: 'text', text: instructions },
+        },
+      ],
+    })
+  );
 
   server.registerPrompt(
     'reasoning.continue',
