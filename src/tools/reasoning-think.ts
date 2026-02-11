@@ -106,7 +106,7 @@ function shouldEmitProgress(
 function formatThoughtHeading(thought: Readonly<Thought>): string {
   const thoughtNumber = thought.index + 1;
   const suffix = thought.revision > 0 ? ' [Revised]' : '';
-  return `## 𖦹 Thought [${String(thoughtNumber)}]${suffix}`;
+  return `𖦹 Thought [${String(thoughtNumber)}]${suffix}`;
 }
 
 export function formatThoughtsToMarkdown(

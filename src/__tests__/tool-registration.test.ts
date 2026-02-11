@@ -171,7 +171,7 @@ describe('server registration', () => {
       'Trace should contain session header'
     );
     assert.ok(
-      traceText.includes('## 𖦹 Thought [1]'),
+      traceText.includes('𖦹 Thought [1]'),
       'Trace should contain first thought heading'
     );
 
@@ -182,11 +182,11 @@ describe('server registration', () => {
     assert.equal(thought1.contents.length, 1);
     const text1 = thought1.contents[0].text as string;
     assert.ok(
-      text1.includes('## 𖦹 Thought [1]'),
+      text1.includes('𖦹 Thought [1]'),
       'Single thought should contain heading'
     );
     assert.ok(
-      !text1.includes('## 𖦹 Thought [2]'),
+      !text1.includes('𖦹 Thought [2]'),
       'Single thought should not contain other thoughts'
     );
 
@@ -204,7 +204,7 @@ describe('server registration', () => {
       assert.equal(thoughtLast.contents.length, 1);
       const textLast = thoughtLast.contents[0].text as string;
       assert.ok(
-        textLast.includes(`## 𖦹 Thought [${count}]`),
+        textLast.includes(`𖦹 Thought [${count}]`),
         `Last thought should contain heading for Thought ${count}`
       );
     }
