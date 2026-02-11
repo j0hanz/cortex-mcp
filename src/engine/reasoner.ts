@@ -8,6 +8,8 @@ import { engineEvents } from './events.js';
 import { SessionStore } from './session-store.js';
 
 const sessionStore = new SessionStore();
+const graphemeSegmenter = createSegmenter('grapheme');
+const sentenceSegmenter = createSegmenter('sentence');
 
 export { sessionStore };
 
@@ -112,15 +114,51 @@ function resolveThoughtCount(
   // Heuristic: longer and more structurally complex prompts get deeper reasoning.
   const queryByteLength = Buffer.byteLength(queryText, 'utf8');
   const lengthScore = Math.min(1, queryByteLength / 400);
-  const markerMatches = queryText.match(/[?:;,\n]/g)?.length ?? 0;
-  const markerScore = Math.min(0.4, markerMatches * 0.05);
+  const structureScore = Math.min(0.4, getStructureDensityScore(queryText));
   const keywordScore =
     /\b(compare|analy[sz]e|trade[- ]?off|design|plan)\b/i.test(queryText)
       ? 0.15
       : 0;
-  const score = Math.min(1, lengthScore + markerScore + keywordScore);
+  const score = Math.min(1, lengthScore + structureScore + keywordScore);
 
   return config.minThoughts + Math.round(span * score);
+}
+
+function createSegmenter(
+  granularity: 'grapheme' | 'sentence'
+): Intl.Segmenter | undefined {
+  if (typeof Intl !== 'object' || typeof Intl.Segmenter !== 'function') {
+    return undefined;
+  }
+  try {
+    return new Intl.Segmenter(undefined, { granularity });
+  } catch {
+    return undefined;
+  }
+}
+
+function countSentences(queryText: string): number {
+  if (!sentenceSegmenter) {
+    return 0;
+  }
+
+  let count = 0;
+  for (const sentence of sentenceSegmenter.segment(queryText)) {
+    if (sentence.segment.trim().length > 0) {
+      count++;
+    }
+  }
+  return count;
+}
+
+function getStructureDensityScore(queryText: string): number {
+  const sentenceCount = countSentences(queryText);
+  if (sentenceCount > 1) {
+    return (sentenceCount - 1) * 0.08;
+  }
+
+  const markerMatches = queryText.match(/[?:;,\n]/g)?.length ?? 0;
+  return markerMatches * 0.05;
 }
 
 function throwIfReasoningAborted(signal?: AbortSignal): void {
@@ -185,11 +223,42 @@ function truncate(str: string, maxLength: number): string {
   }
 
   const targetBytes = maxBytes - suffixBytes;
+  const truncated = truncateByGrapheme(str, targetBytes);
+  return truncated + suffix;
+}
+
+function truncateByGrapheme(str: string, maxBytes: number): string {
+  if (!graphemeSegmenter) {
+    return truncateByUtf8Boundary(str, maxBytes);
+  }
+
+  let result = '';
+  let usedBytes = 0;
+  for (const part of graphemeSegmenter.segment(str)) {
+    const segmentBytes = Buffer.byteLength(part.segment, 'utf8');
+    if (usedBytes + segmentBytes > maxBytes) {
+      break;
+    }
+    result += part.segment;
+    usedBytes += segmentBytes;
+  }
+
+  return result;
+}
+
+function truncateByUtf8Boundary(str: string, maxBytes: number): string {
+  const safeMaxBytes = Math.max(0, maxBytes);
   const encoder = new TextEncoder();
   const encoded = encoder.encode(str);
+  if (encoded.length <= safeMaxBytes) {
+    return str;
+  }
+  if (safeMaxBytes === 0) {
+    return '';
+  }
 
   // Backtrack to find a clean cut point for UTF-8
-  let end = targetBytes;
+  let end = safeMaxBytes;
   while (end > 0) {
     const byte = encoded[end - 1];
     if (byte === undefined || (byte & 0xc0) !== 0x80) {
@@ -203,17 +272,17 @@ function truncate(str: string, maxLength: number): string {
     const lastByte = encoded[end - 1];
     if (lastByte !== undefined) {
       const charBytes = getUtf8CharLength(lastByte);
-      const available = targetBytes - (end - 1);
+      const available = safeMaxBytes - (end - 1);
       if (available < charBytes) {
         end--; // Incomplete character, drop it
       } else {
-        end = targetBytes; // Complete character, restore full length
+        end = safeMaxBytes; // Complete character, restore full length
       }
     }
   }
 
   const decoder = new TextDecoder('utf-8');
-  return decoder.decode(encoded.subarray(0, end)) + suffix;
+  return decoder.decode(encoded.subarray(0, end));
 }
 
 function getUtf8CharLength(byte: number): number {

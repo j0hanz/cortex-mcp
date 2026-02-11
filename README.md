@@ -2,7 +2,6 @@
 
 [![npm version](https://img.shields.io/npm/v/cortex-mcp?style=flat-square)](https://www.npmjs.com/package/cortex-mcp) [![Node.js](https://img.shields.io/badge/Node.js->=24-3c873a?style=flat-square)](https://nodejs.org) [![TypeScript](https://img.shields.io/badge/TypeScript-5.9+-3178c6?style=flat-square)](https://www.typescriptlang.org) [![MCP SDK](https://img.shields.io/badge/MCP_SDK-1.26+-ff6600?style=flat-square)](https://modelcontextprotocol.io) [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
-
 [![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](vscode:mcp/install?%7B%22name%22%3A%22cortex-mcp%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22cortex-mcp%40latest%22%5D%7D) [![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_Server-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](vscode-insiders:mcp/install?%7B%22name%22%3A%22cortex-mcp%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22cortex-mcp%40latest%22%5D%7D)
 
 ## Overview

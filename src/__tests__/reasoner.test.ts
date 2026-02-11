@@ -122,4 +122,21 @@ describe('reason', () => {
 
     sessionStore.delete(session.id);
   });
+
+  it('truncates emoji-heavy queries on grapheme boundaries', async () => {
+    const session = await reason('👩‍👩‍👧‍👦'.repeat(300), 'basic', {
+      targetThoughts: 3,
+    });
+
+    const firstThought = session.thoughts[0];
+    assert.ok(firstThought);
+    const match = firstThought.content.match(/"(?<value>.*)"$/u);
+    assert.ok(match?.groups?.value);
+    const displayed = match.groups.value;
+    assert.equal(displayed.endsWith('...'), true);
+    const withoutSuffix = displayed.slice(0, -3);
+    assert.match(withoutSuffix, /^(?:👩‍👩‍👧‍👦)+$/u);
+
+    sessionStore.delete(session.id);
+  });
 });
