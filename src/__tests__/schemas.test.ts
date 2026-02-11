@@ -1,0 +1,113 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+import { ReasoningThinkInputSchema } from '../schemas/inputs.js';
+import {
+  DefaultOutputSchema,
+  ReasoningThinkResultSchema,
+} from '../schemas/outputs.js';
+
+describe('ReasoningThinkInputSchema', () => {
+  it('accepts valid input', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'What is 2+2?',
+      level: 'basic',
+    });
+    assert.equal(result.success, true);
+  });
+
+  it('accepts valid input with sessionId', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'Continue reasoning',
+      level: 'high',
+      sessionId: 'abc-123',
+    });
+    assert.equal(result.success, true);
+  });
+
+  it('rejects empty query', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: '',
+      level: 'basic',
+    });
+    assert.equal(result.success, false);
+  });
+
+  it('rejects invalid level', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'test',
+      level: 'invalid',
+    });
+    assert.equal(result.success, false);
+  });
+
+  it('rejects query that is too long', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'x'.repeat(10001),
+      level: 'basic',
+    });
+    assert.equal(result.success, false);
+  });
+
+  it('rejects unknown fields', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'test',
+      level: 'basic',
+      unknown: 'field',
+    });
+    assert.equal(result.success, false);
+  });
+
+  it('rejects missing query', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      level: 'basic',
+    });
+    assert.equal(result.success, false);
+  });
+});
+
+describe('DefaultOutputSchema', () => {
+  it('accepts valid success shape', () => {
+    const result = DefaultOutputSchema.safeParse({
+      ok: true,
+      result: { data: 'test' },
+    });
+    assert.equal(result.success, true);
+  });
+
+  it('accepts valid error shape', () => {
+    const result = DefaultOutputSchema.safeParse({
+      ok: false,
+      error: { code: 'E_TEST', message: 'Test error' },
+    });
+    assert.equal(result.success, true);
+  });
+});
+
+describe('ReasoningThinkResultSchema', () => {
+  it('accepts valid result', () => {
+    const result = ReasoningThinkResultSchema.safeParse({
+      ok: true,
+      result: {
+        sessionId: 'abc-123',
+        level: 'basic',
+        thoughts: [{ index: 0, content: 'Step 1', revision: 0 }],
+        totalThoughts: 1,
+        tokenBudget: 2048,
+        tokensUsed: 6,
+      },
+    });
+    assert.equal(result.success, true);
+  });
+
+  it('rejects malformed result', () => {
+    const result = ReasoningThinkResultSchema.safeParse({
+      ok: true,
+      result: {
+        sessionId: 'abc-123',
+        // missing required fields
+      },
+    });
+    assert.equal(result.success, false);
+  });
+});

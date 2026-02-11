@@ -1,0 +1,15 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Create plan directory",
+      "type": "shell",
+      "command": "mkdir plan 2>nul & echo. > plan\\feature-cortex-mcp-1.md"
+    },
+    {
+      "label": "Create plan directory and file",
+      "type": "shell",
+      "command": "New-Item -ItemType Directory -Force -Path plan; New-Item -ItemType File -Force -Path plan\\feature-cortex-mcp-1.md"
+    }
+  ]
+}

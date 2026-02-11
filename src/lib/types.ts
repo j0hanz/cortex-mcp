@@ -1,0 +1,23 @@
+export type ReasoningLevel = 'basic' | 'normal' | 'high';
+
+export interface Thought {
+  index: number;
+  content: string;
+  revision: number;
+}
+
+export interface Session {
+  id: string;
+  level: ReasoningLevel;
+  thoughts: Thought[];
+  tokenBudget: number;
+  tokensUsed: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface LevelConfig {
+  minThoughts: number;
+  maxThoughts: number;
+  tokenBudget: number;
+}
