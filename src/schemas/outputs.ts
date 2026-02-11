@@ -24,7 +24,7 @@ const ReasoningThinkSuccessSchema = z.strictObject({
       })
     ),
     generatedThoughts: z.number(),
-    requestedThoughts: z.number().nullable(),
+    requestedThoughts: z.number(),
     totalThoughts: z.number(),
     tokenBudget: z.number(),
     tokensUsed: z.number(),

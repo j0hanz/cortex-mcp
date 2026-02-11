@@ -49,10 +49,10 @@ function registerLevelPrompt(
           .number()
           .int()
           .min(1)
-          .max(100)
+          .max(25)
           .optional()
           .describe(
-            'Optional exact step count within the selected level range'
+            'Optional exact step count within the selected level range (max 25)'
           ),
       },
     },
@@ -144,10 +144,10 @@ export function registerAllPrompts(
           .number()
           .int()
           .min(1)
-          .max(100)
+          .max(25)
           .optional()
           .describe(
-            'Optional exact step count within the selected level range'
+            'Optional exact step count within the selected level range (max 25)'
           ),
       },
     },

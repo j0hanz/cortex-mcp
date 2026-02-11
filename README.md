@@ -140,7 +140,7 @@ Perform multi-step reasoning on a query. Supports three depth levels and optiona
 | ---------------- | ------------------------------- | -------- | ------- | ----------------------------------------------------------------- |
 | `query`          | `string`                        | Yes      | —       | The question or problem to reason about (1–10,000 chars)          |
 | `level`          | `"basic" \| "normal" \| "high"` | Yes      | —       | Reasoning depth level                                             |
-| `targetThoughts` | `integer`                       | No       | Auto    | Explicit thought count; must fit the selected level range (1–100) |
+| `targetThoughts` | `integer`                       | No       | Auto    | Explicit thought count; must fit the selected level range (1–25)  |
 | `sessionId`      | `string`                        | No       | —       | Session ID to continue a previous reasoning session (1–128 chars) |
 
 **Success Response**
@@ -164,7 +164,7 @@ Perform multi-step reasoning on a query. Supports three depth levels and optiona
       }
     ],
     "generatedThoughts": 6,
-    "requestedThoughts": null,
+    "requestedThoughts": 6,
     "totalThoughts": 6,
     "tokenBudget": 8192,
     "tokensUsed": 384,
@@ -172,7 +172,7 @@ Perform multi-step reasoning on a query. Supports three depth levels and optiona
     "expiresAt": 1739289524000,
     "createdAt": 1739287724000,
     "updatedAt": 1739287724000,
-    "summary": "Generated 6 thought(s) at normal depth."
+    "summary": "Generated 6 out of 6 thoughts at level \"normal\"."
   }
 }
 ```

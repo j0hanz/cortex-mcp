@@ -238,7 +238,7 @@ function createProgressHandler(args: {
         progressToken,
         progress,
         total,
-        message: `𖦹 Thought [${String(progress)}/${String(total)}]`,
+        message: `Thought [${String(progress)}/${String(total)}]`,
       },
     });
   };
