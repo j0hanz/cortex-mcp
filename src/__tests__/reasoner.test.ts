@@ -5,24 +5,27 @@ import { describe, it } from 'node:test';
 import { reason, sessionStore } from '../engine/reasoner.js';
 
 describe('reason', () => {
-  it('produces range-bounded thoughts for basic level', async () => {
+  it('produces range-bounded totalThoughts for basic level', async () => {
     const session = await reason('What is 2+2?', 'basic');
-    assert.ok(session.thoughts.length >= 3);
-    assert.ok(session.thoughts.length <= 5);
+    assert.equal(session.thoughts.length, 1);
+    assert.ok(session.totalThoughts >= 3);
+    assert.ok(session.totalThoughts <= 5);
     sessionStore.delete(session.id);
   });
 
-  it('produces range-bounded thoughts for normal level', async () => {
+  it('produces range-bounded totalThoughts for normal level', async () => {
     const session = await reason('Explain gravity', 'normal');
-    assert.ok(session.thoughts.length >= 6);
-    assert.ok(session.thoughts.length <= 10);
+    assert.equal(session.thoughts.length, 1);
+    assert.ok(session.totalThoughts >= 6);
+    assert.ok(session.totalThoughts <= 10);
     sessionStore.delete(session.id);
   });
 
-  it('produces range-bounded thoughts for high level', async () => {
+  it('produces range-bounded totalThoughts for high level', async () => {
     const session = await reason('Solve world peace', 'high');
-    assert.ok(session.thoughts.length >= 15);
-    assert.ok(session.thoughts.length <= 25);
+    assert.equal(session.thoughts.length, 1);
+    assert.ok(session.totalThoughts >= 15);
+    assert.ok(session.totalThoughts <= 25);
     sessionStore.delete(session.id);
   });
 
@@ -45,14 +48,14 @@ describe('reason', () => {
       },
     });
 
-    assert.equal(progressCalls.length, session.thoughts.length);
+    assert.equal(progressCalls.length, 1);
     assert.deepEqual(progressCalls[0], {
       progress: 1,
-      total: session.thoughts.length,
+      total: session.totalThoughts,
     });
     assert.deepEqual(progressCalls.at(-1), {
-      progress: session.thoughts.length,
-      total: session.thoughts.length,
+      progress: 1,
+      total: session.totalThoughts,
     });
     sessionStore.delete(session.id);
   });
@@ -65,7 +68,8 @@ describe('reason', () => {
     });
 
     assert.equal(second.id, first.id);
-    assert.ok(second.thoughts.length > initialThoughtCount);
+    assert.equal(second.thoughts.length, initialThoughtCount + 1);
+    assert.equal(second.totalThoughts, first.totalThoughts);
     sessionStore.delete(first.id);
   });
 
@@ -95,7 +99,8 @@ describe('reason', () => {
     const session = await reason('Break this down in detail', 'normal', {
       targetThoughts: 8,
     });
-    assert.equal(session.thoughts.length, 8);
+    assert.equal(session.totalThoughts, 8);
+    assert.equal(session.thoughts.length, 1);
     sessionStore.delete(session.id);
   });
 
@@ -111,7 +116,8 @@ describe('reason', () => {
 
   it('heuristic: short query produces minThoughts', async () => {
     const session = await reason('hi', 'basic');
-    assert.equal(session.thoughts.length, 3); // basic minThoughts
+    assert.equal(session.totalThoughts, 3); // basic minThoughts
+    assert.equal(session.thoughts.length, 1);
     sessionStore.delete(session.id);
   });
 
@@ -122,9 +128,10 @@ describe('reason', () => {
       'Each sentence adds depth to the analysis. ' +
       'The reasoning should consider many factors.';
     const session = await reason(longQuery, 'basic');
-    // Should produce 4 or 5 thoughts (near maxThoughts = 5)
-    assert.ok(session.thoughts.length >= 4);
-    assert.ok(session.thoughts.length <= 5);
+    // Should produce 4 or 5 total thoughts (near maxThoughts = 5)
+    assert.ok(session.totalThoughts >= 4);
+    assert.ok(session.totalThoughts <= 5);
+    assert.equal(session.thoughts.length, 1);
     sessionStore.delete(session.id);
   });
 
@@ -134,8 +141,8 @@ describe('reason', () => {
       'compare the advantages and disadvantages',
       'normal'
     );
-    // Keyword query should produce more thoughts than short query
-    assert.ok(keywordSession.thoughts.length > shortSession.thoughts.length);
+    // Keyword query should produce more total thoughts than short query
+    assert.ok(keywordSession.totalThoughts > shortSession.totalThoughts);
     sessionStore.delete(shortSession.id);
     sessionStore.delete(keywordSession.id);
   });
@@ -157,7 +164,7 @@ describe('reason', () => {
 
     const beforeCount = sessionStore.get(session.id)!.thoughts.length;
 
-    // Request 3 more thoughts — budget should cut it short to 1 or 0 new thoughts
+    // Request another thought — budget should cut it short to 1 or 0 new thoughts
     const continued = await reason('continue', 'basic', {
       sessionId: session.id,
       targetThoughts: 3,
@@ -165,8 +172,8 @@ describe('reason', () => {
 
     const newThoughts = continued.thoughts.length - beforeCount;
     assert.ok(
-      newThoughts < 3,
-      `Expected fewer than 3 new thoughts due to budget, got ${String(newThoughts)}`
+      newThoughts <= 1,
+      `Expected at most 1 new thought due to budget, got ${String(newThoughts)}`
     );
     sessionStore.delete(session.id);
   });

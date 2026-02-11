@@ -32,13 +32,14 @@ export class SessionStore {
     this.cleanupInterval.unref();
   }
 
-  create(level: ReasoningLevel): Session {
+  create(level: ReasoningLevel, totalThoughts: number): Session {
     const config: LevelConfig = LEVEL_CONFIGS[level];
     const now = Date.now();
     const session: Session = {
       id: randomUUID(),
       level,
       thoughts: [],
+      totalThoughts,
       tokenBudget: config.tokenBudget,
       tokensUsed: 0,
       createdAt: now,

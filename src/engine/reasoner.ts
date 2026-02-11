@@ -11,6 +11,8 @@ const sessionStore = new SessionStore();
 const graphemeSegmenter = createSegmenter('grapheme');
 const sentenceSegmenter = createSegmenter('sentence');
 
+const sessionLocks = new Map<string, Promise<void>>();
+
 export { sessionStore };
 
 interface ReasonOptions {
@@ -20,6 +22,12 @@ interface ReasonOptions {
   onProgress?: (progress: number, total: number) => void | Promise<void>;
 }
 
+interface LevelConfig {
+  minThoughts: number;
+  maxThoughts: number;
+  tokenBudget: number;
+}
+
 export async function reason(
   query: string,
   level: ReasoningLevel,
@@ -27,28 +35,49 @@ export async function reason(
 ): Promise<Readonly<Session>> {
   const { sessionId, targetThoughts, abortSignal, onProgress } = options ?? {};
 
-  const session = resolveSession(level, sessionId);
-
   const config = LEVEL_CONFIGS[level];
-  const totalThoughts = resolveThoughtCount(query, config, targetThoughts);
+  const session = resolveSession(
+    level,
+    sessionId,
+    query,
+    config,
+    targetThoughts
+  );
+  const { totalThoughts } = session;
 
   return runWithContext(
     { sessionId: session.id, ...(abortSignal ? { abortSignal } : {}) },
-    async () => {
-      const checkAbort = (): void => {
+    () =>
+      withSessionLock(session.id, async () => {
         throwIfReasoningAborted(abortSignal);
-      };
 
-      checkAbort();
-      const steps = generateReasoningSteps(query, totalThoughts);
+        const current = getSessionOrThrow(session.id);
+        if (current.tokensUsed >= config.tokenBudget) {
+          emitBudgetExhausted({
+            sessionId: session.id,
+            tokensUsed: current.tokensUsed,
+            tokenBudget: config.tokenBudget,
+            generatedThoughts: 0,
+            requestedThoughts: totalThoughts,
+          });
+          return current;
+        }
 
-      for (let i = 0; i < steps.length; i++) {
-        checkAbort();
+        const nextIndex = current.thoughts.length;
+        if (nextIndex >= totalThoughts) {
+          return current;
+        }
 
-        const stepContent = steps[i];
+        const stepContent = generateReasoningStep(
+          query,
+          nextIndex,
+          totalThoughts
+        );
         if (!stepContent) {
           throw new Error(
-            `Step content missing at index ${String(i)}/${String(steps.length)}`
+            `Step content missing at index ${String(nextIndex)}/${String(
+              totalThoughts
+            )}`
           );
         }
 
@@ -59,38 +88,76 @@ export async function reason(
           content: thought.content,
         });
 
-        // Stop generating if the token budget has been exhausted.
-        const current = sessionStore.get(session.id);
-        if (current && current.tokensUsed >= config.tokenBudget) {
-          engineEvents.emit('thought:budget-exhausted', {
+        const updated = getSessionOrThrow(session.id);
+        if (updated.tokensUsed >= config.tokenBudget) {
+          emitBudgetExhausted({
             sessionId: session.id,
-            tokensUsed: current.tokensUsed,
+            tokensUsed: updated.tokensUsed,
             tokenBudget: config.tokenBudget,
-            generatedThoughts: i + 1,
+            generatedThoughts: thought.index + 1,
             requestedThoughts: totalThoughts,
           });
-          if (onProgress) {
-            await onProgress(i + 1, totalThoughts);
-          }
-          break;
         }
 
         if (onProgress) {
-          await onProgress(i + 1, totalThoughts);
-          checkAbort();
+          await onProgress(thought.index + 1, totalThoughts);
+          throwIfReasoningAborted(abortSignal);
         }
-      }
 
-      const result = sessionStore.get(session.id);
-      if (!result) throw new Error(`Session not found: ${session.id}`);
-      return result;
-    }
+        return getSessionOrThrow(session.id);
+      })
   );
+}
+
+async function withSessionLock<T>(
+  sessionId: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  const previous = sessionLocks.get(sessionId) ?? Promise.resolve();
+
+  let release: (() => void) | undefined;
+  const next = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  const currentTail = previous.then(() => next);
+  sessionLocks.set(sessionId, currentTail);
+
+  await previous;
+  try {
+    return await fn();
+  } finally {
+    release?.();
+    if (sessionLocks.get(sessionId) === currentTail) {
+      sessionLocks.delete(sessionId);
+    }
+  }
+}
+
+function getSessionOrThrow(sessionId: string): Readonly<Session> {
+  const session = sessionStore.get(sessionId);
+  if (!session) {
+    throw new Error(`Session not found: ${sessionId}`);
+  }
+  return session;
+}
+
+function emitBudgetExhausted(data: {
+  sessionId: string;
+  tokensUsed: number;
+  tokenBudget: number;
+  generatedThoughts: number;
+  requestedThoughts: number;
+}): void {
+  engineEvents.emit('thought:budget-exhausted', data);
 }
 
 function resolveSession(
   level: ReasoningLevel,
-  sessionId?: string
+  sessionId: string | undefined,
+  query: string,
+  config: LevelConfig,
+  targetThoughts?: number
 ): Readonly<Session> {
   if (sessionId) {
     const existing = sessionStore.get(sessionId);
@@ -102,10 +169,21 @@ function resolveSession(
         `Session level mismatch: requested ${level}, existing ${existing.level}`
       );
     }
+    if (
+      targetThoughts !== undefined &&
+      targetThoughts !== existing.totalThoughts
+    ) {
+      throw new Error(
+        `targetThoughts must be ${String(
+          existing.totalThoughts
+        )} for the existing session`
+      );
+    }
     return existing;
   }
 
-  const session = sessionStore.create(level);
+  const totalThoughts = resolveThoughtCount(query, config, targetThoughts);
+  const session = sessionStore.create(level, totalThoughts);
   engineEvents.emit('session:created', {
     sessionId: session.id,
     level,
@@ -115,7 +193,7 @@ function resolveSession(
 
 function resolveThoughtCount(
   query: string,
-  config: { minThoughts: number; maxThoughts: number },
+  config: Pick<LevelConfig, 'minThoughts' | 'maxThoughts'>,
   targetThoughts?: number
 ): number {
   if (targetThoughts !== undefined) {
@@ -140,7 +218,6 @@ function resolveThoughtCount(
   const queryText = query.trim();
   const span = config.maxThoughts - config.minThoughts;
 
-  // Heuristic: longer and more structurally complex prompts get deeper reasoning.
   const queryByteLength = Buffer.byteLength(queryText, 'utf8');
   const lengthScore = Math.min(1, queryByteLength / 400);
   const structureScore = Math.min(0.4, getStructureDensityScore(queryText));
@@ -231,25 +308,27 @@ const MIDDLE_TEMPLATES: readonly string[] = [
 
 const CONCLUSION_TEMPLATE =
   'Consolidating the final answer with supporting evidence';
-function generateReasoningSteps(query: string, count: number): string[] {
-  if (count <= 0) return [];
-
-  const steps: string[] = [];
-  const truncatedQuery = truncate(query, 200);
-
-  steps.push(formatStep(1, count, `${OPENING_TEMPLATE}: "${truncatedQuery}"`));
-
-  if (count <= 1) return steps;
-
-  const middleCount = count - 2;
-  for (let i = 0; i < middleCount; i++) {
-    const template = MIDDLE_TEMPLATES[i % MIDDLE_TEMPLATES.length] ?? '';
-    steps.push(formatStep(i + 2, count, template));
+function generateReasoningStep(
+  query: string,
+  index: number,
+  total: number
+): string {
+  if (total <= 0) {
+    return '';
   }
 
-  steps.push(formatStep(count, count, CONCLUSION_TEMPLATE));
+  const step = index + 1;
+  if (step === 1) {
+    const truncatedQuery = truncate(query, 200);
+    return formatStep(step, total, `${OPENING_TEMPLATE}: "${truncatedQuery}"`);
+  }
 
-  return steps;
+  if (step === total) {
+    return formatStep(step, total, CONCLUSION_TEMPLATE);
+  }
+
+  const template = MIDDLE_TEMPLATES[(step - 2) % MIDDLE_TEMPLATES.length] ?? '';
+  return formatStep(step, total, template);
 }
 
 function formatStep(step: number, total: number, description: string): string {

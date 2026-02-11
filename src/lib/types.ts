@@ -10,6 +10,7 @@ export interface Session {
   id: string;
   level: ReasoningLevel;
   thoughts: Thought[];
+  totalThoughts: number;
   tokenBudget: number;
   tokensUsed: number;
   createdAt: number;
