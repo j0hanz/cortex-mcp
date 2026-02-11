@@ -22,10 +22,10 @@ export async function reason(
   query: string,
   level: ReasoningLevel,
   options?: ReasonOptions
-): Promise<Session> {
+): Promise<Readonly<Session>> {
   const { sessionId, targetThoughts, abortSignal, onProgress } = options ?? {};
 
-  let session: Session;
+  let session: Readonly<Session>;
   if (sessionId) {
     const existing = sessionStore.get(sessionId);
     if (!existing) {
@@ -185,17 +185,40 @@ function truncate(str: string, maxLength: number): string {
   }
 
   const targetBytes = maxBytes - suffixBytes;
-  let current = '';
-  let usedBytes = 0;
+  const encoder = new TextEncoder();
+  const encoded = encoder.encode(str);
 
-  for (const codePoint of str) {
-    const codePointBytes = Buffer.byteLength(codePoint, 'utf8');
-    if (usedBytes + codePointBytes > targetBytes) {
+  // Backtrack to find a clean cut point for UTF-8
+  let end = targetBytes;
+  while (end > 0) {
+    const byte = encoded[end - 1];
+    if (byte === undefined || (byte & 0xc0) !== 0x80) {
       break;
     }
-    current += codePoint;
-    usedBytes += codePointBytes;
+    end--;
   }
 
-  return `${current}${suffix}`;
+  // If we landed on a start byte, check if the sequence is complete
+  if (end > 0) {
+    const lastByte = encoded[end - 1];
+    if (lastByte !== undefined) {
+      const charBytes = getUtf8CharLength(lastByte);
+      const available = targetBytes - (end - 1);
+      if (available < charBytes) {
+        end--; // Incomplete character, drop it
+      } else {
+        end = targetBytes; // Complete character, restore full length
+      }
+    }
+  }
+
+  const decoder = new TextDecoder('utf-8');
+  return decoder.decode(encoded.subarray(0, end)) + suffix;
+}
+
+function getUtf8CharLength(byte: number): number {
+  if ((byte & 0xe0) === 0xc0) return 2;
+  if ((byte & 0xf0) === 0xe0) return 3;
+  if ((byte & 0xf8) === 0xf0) return 4;
+  return 1;
 }

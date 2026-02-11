@@ -22,11 +22,17 @@ function estimateTokens(text: string): number {
 
 export class SessionStore {
   private readonly sessions = new Map<string, Session>();
-  private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly cleanupInterval: NodeJS.Timeout;
   private readonly ttlMs: number;
 
   constructor(ttlMs: number = DEFAULT_TTL_MS) {
     this.ttlMs = ttlMs;
+    // Sweep every minute or matching TTL if smaller (for tests)
+    const sweepInterval = Math.max(10, Math.min(60 * 1000, ttlMs));
+    this.cleanupInterval = setInterval(() => {
+      this.sweep();
+    }, sweepInterval);
+    this.cleanupInterval.unref();
   }
 
   create(level: ReasoningLevel): Session {
@@ -42,11 +48,10 @@ export class SessionStore {
       updatedAt: now,
     };
     this.sessions.set(session.id, session);
-    this.scheduleTtl(session.id);
     return session;
   }
 
-  get(id: string): Session | undefined {
+  get(id: string): Readonly<Session> | undefined {
     return this.sessions.get(id);
   }
 
@@ -69,7 +74,6 @@ export class SessionStore {
   }
 
   delete(id: string): boolean {
-    this.clearTtl(id);
     return this.sessions.delete(id);
   }
 
@@ -86,7 +90,6 @@ export class SessionStore {
     session.thoughts.push(thought);
     session.tokensUsed += estimateTokens(content);
     session.updatedAt = Date.now();
-    this.resetTtl(sessionId);
     return thought;
   }
 
@@ -115,36 +118,16 @@ export class SessionStore {
     session.tokensUsed =
       session.tokensUsed - oldTokens + estimateTokens(content);
     session.updatedAt = Date.now();
-    this.resetTtl(sessionId);
     return revised;
   }
 
-  private scheduleTtl(sessionId: string): void {
-    const timer = setTimeout(() => {
-      const didExpire = this.sessions.delete(sessionId);
-      this.timers.delete(sessionId);
-      if (didExpire) {
-        engineEvents.emit('session:expired', { sessionId });
+  private sweep(): void {
+    const now = Date.now();
+    for (const session of this.sessions.values()) {
+      if (session.updatedAt + this.ttlMs < now) {
+        this.sessions.delete(session.id);
+        engineEvents.emit('session:expired', { sessionId: session.id });
       }
-    }, this.ttlMs);
-    timer.unref();
-    this.timers.set(sessionId, timer);
-  }
-
-  private clearTtl(sessionId: string): void {
-    const timer = this.timers.get(sessionId);
-    if (timer) {
-      clearTimeout(timer);
-      this.timers.delete(sessionId);
     }
-  }
-
-  private resetTtl(sessionId: string): void {
-    const timer = this.timers.get(sessionId);
-    if (!timer) {
-      this.scheduleTtl(sessionId);
-      return;
-    }
-    timer.refresh();
   }
 }

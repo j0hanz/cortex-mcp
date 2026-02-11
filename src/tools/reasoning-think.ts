@@ -97,7 +97,7 @@ function shouldEmitProgress(
 }
 
 function buildStructuredResult(
-  session: Session,
+  session: Readonly<Session>,
   generatedThoughts: number,
   requestedThoughts: number | undefined
 ): ReasoningStructuredResult {
