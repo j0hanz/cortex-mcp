@@ -20,6 +20,7 @@ describe('ReasoningThinkInputSchema', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'Continue reasoning',
       level: 'high',
+      targetThoughts: 20,
       sessionId: 'abc-123',
     });
     assert.equal(result.success, true);
@@ -45,6 +46,15 @@ describe('ReasoningThinkInputSchema', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'x'.repeat(10001),
       level: 'basic',
+    });
+    assert.equal(result.success, false);
+  });
+
+  it('rejects non-integer targetThoughts', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'test',
+      level: 'basic',
+      targetThoughts: 3.5,
     });
     assert.equal(result.success, false);
   });
@@ -92,9 +102,16 @@ describe('ReasoningThinkResultSchema', () => {
         sessionId: 'abc-123',
         level: 'basic',
         thoughts: [{ index: 0, content: 'Step 1', revision: 0 }],
+        generatedThoughts: 1,
+        requestedThoughts: 1,
         totalThoughts: 1,
         tokenBudget: 2048,
         tokensUsed: 6,
+        ttlMs: 1800000,
+        expiresAt: Date.now() + 1800000,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        summary: 'Generated 1 thought(s) at basic depth.',
       },
     });
     assert.equal(result.success, true);

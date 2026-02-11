@@ -91,7 +91,7 @@ describe('SessionStore', () => {
 
       store.addThought(session.id, 'Hello');
       const updated = store.get(session.id)!;
-      assert.equal(updated.tokensUsed, 5);
+      assert.equal(updated.tokensUsed, 2);
     });
 
     it('throws for non-existent session', () => {
@@ -117,11 +117,11 @@ describe('SessionStore', () => {
       const store = new SessionStore();
       const session = store.create('basic');
 
-      store.addThought(session.id, 'Hello'); // 5 chars
-      store.reviseThought(session.id, 0, 'Hi'); // 2 chars
+      store.addThought(session.id, 'Hello'); // ~2 tokens
+      store.reviseThought(session.id, 0, 'Hi'); // ~1 token
 
       const updated = store.get(session.id)!;
-      assert.equal(updated.tokensUsed, 2);
+      assert.equal(updated.tokensUsed, 1);
     });
 
     it('throws for non-existent thought index', () => {

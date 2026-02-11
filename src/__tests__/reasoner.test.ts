@@ -4,21 +4,24 @@ import { describe, it } from 'node:test';
 import { reason, sessionStore } from '../engine/reasoner.js';
 
 describe('reason', () => {
-  it('produces correct number of thoughts for basic level', async () => {
+  it('produces range-bounded thoughts for basic level', async () => {
     const session = await reason('What is 2+2?', 'basic');
-    assert.equal(session.thoughts.length, 5); // maxThoughts for basic
+    assert.ok(session.thoughts.length >= 3);
+    assert.ok(session.thoughts.length <= 5);
     sessionStore.delete(session.id);
   });
 
-  it('produces correct number of thoughts for normal level', async () => {
+  it('produces range-bounded thoughts for normal level', async () => {
     const session = await reason('Explain gravity', 'normal');
-    assert.equal(session.thoughts.length, 10); // maxThoughts for normal
+    assert.ok(session.thoughts.length >= 6);
+    assert.ok(session.thoughts.length <= 10);
     sessionStore.delete(session.id);
   });
 
-  it('produces correct number of thoughts for high level', async () => {
+  it('produces range-bounded thoughts for high level', async () => {
     const session = await reason('Solve world peace', 'high');
-    assert.equal(session.thoughts.length, 25); // maxThoughts for high
+    assert.ok(session.thoughts.length >= 15);
+    assert.ok(session.thoughts.length <= 25);
     sessionStore.delete(session.id);
   });
 
@@ -41,20 +44,27 @@ describe('reason', () => {
       },
     });
 
-    assert.equal(progressCalls.length, 5);
-    assert.deepEqual(progressCalls[0], { progress: 1, total: 5 });
-    assert.deepEqual(progressCalls[4], { progress: 5, total: 5 });
+    assert.equal(progressCalls.length, session.thoughts.length);
+    assert.deepEqual(progressCalls[0], {
+      progress: 1,
+      total: session.thoughts.length,
+    });
+    assert.deepEqual(progressCalls.at(-1), {
+      progress: session.thoughts.length,
+      total: session.thoughts.length,
+    });
     sessionStore.delete(session.id);
   });
 
   it('reuses existing session via sessionId', async () => {
     const first = await reason('Initial query', 'basic');
+    const initialThoughtCount = first.thoughts.length;
     const second = await reason('Follow-up', 'basic', {
       sessionId: first.id,
     });
 
     assert.equal(second.id, first.id);
-    assert.equal(second.thoughts.length, 10); // 5 + 5
+    assert.ok(second.thoughts.length > initialThoughtCount);
     sessionStore.delete(first.id);
   });
 
@@ -77,6 +87,24 @@ describe('reason', () => {
           sessionId: 'non-existent-session',
         }),
       { message: /Session not found/ }
+    );
+  });
+
+  it('honors explicit targetThoughts within level range', async () => {
+    const session = await reason('Break this down in detail', 'normal', {
+      targetThoughts: 8,
+    });
+    assert.equal(session.thoughts.length, 8);
+    sessionStore.delete(session.id);
+  });
+
+  it('rejects targetThoughts outside the level range', async () => {
+    await assert.rejects(
+      () =>
+        reason('test', 'basic', {
+          targetThoughts: 9,
+        }),
+      { message: /targetThoughts must be between 3 and 5/ }
     );
   });
 });

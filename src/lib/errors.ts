@@ -5,6 +5,12 @@ const INSPECT_OPTIONS = {
   breakLength: 120,
 } as const;
 
+export interface ErrorResponse {
+  content: { type: 'text'; text: string }[];
+  structuredContent: { ok: false; error: { code: string; message: string } };
+  isError: true;
+}
+
 function stringifyUnknown(value: unknown): string {
   try {
     const serialized = JSON.stringify(value);
@@ -39,11 +45,7 @@ export function getErrorMessage(error: unknown): string {
 export function createErrorResponse(
   code: string,
   message: string
-): {
-  content: { type: 'text'; text: string }[];
-  structuredContent: { ok: false; error: { code: string; message: string } };
-  isError: true;
-} {
+): ErrorResponse {
   const structured = { ok: false as const, error: { code, message } };
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(structured) }],

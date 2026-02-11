@@ -10,7 +10,12 @@ import type {
 import { LEVEL_CONFIGS } from './config.js';
 import { engineEvents } from './events.js';
 
-const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes
+export const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+function estimateTokens(text: string): number {
+  // Fast, deterministic approximation suitable for relative budget tracking.
+  return Math.max(1, Math.ceil(text.length / 4));
+}
 
 export class SessionStore {
   private readonly sessions = new Map<string, Session>();
@@ -42,6 +47,24 @@ export class SessionStore {
     return this.sessions.get(id);
   }
 
+  list(): Session[] {
+    return [...this.sessions.values()].sort(
+      (a, b) => b.updatedAt - a.updatedAt
+    );
+  }
+
+  getTtlMs(): number {
+    return this.ttlMs;
+  }
+
+  getExpiresAt(sessionId: string): number | undefined {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      return undefined;
+    }
+    return session.updatedAt + this.ttlMs;
+  }
+
   delete(id: string): boolean {
     this.clearTtl(id);
     return this.sessions.delete(id);
@@ -58,7 +81,7 @@ export class SessionStore {
       revision: 0,
     };
     session.thoughts.push(thought);
-    session.tokensUsed += content.length;
+    session.tokensUsed += estimateTokens(content);
     session.updatedAt = Date.now();
     this.resetTtl(sessionId);
     return thought;
@@ -79,14 +102,15 @@ export class SessionStore {
         `Thought index ${String(thoughtIndex)} not found in session ${sessionId}`
       );
     }
-    const oldLength = existing.content.length;
+    const oldTokens = estimateTokens(existing.content);
     const revised: Thought = {
       index: thoughtIndex,
       content,
       revision: existing.revision + 1,
     };
     session.thoughts[thoughtIndex] = revised;
-    session.tokensUsed = session.tokensUsed - oldLength + content.length;
+    session.tokensUsed =
+      session.tokensUsed - oldTokens + estimateTokens(content);
     session.updatedAt = Date.now();
     this.resetTtl(sessionId);
     return revised;

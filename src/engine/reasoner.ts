@@ -11,6 +11,7 @@ export { sessionStore };
 
 export interface ReasonOptions {
   sessionId?: string;
+  targetThoughts?: number;
   abortSignal?: AbortSignal;
   onProgress?: (progress: number, total: number) => void | Promise<void>;
 }
@@ -20,7 +21,7 @@ export async function reason(
   level: ReasoningLevel,
   options?: ReasonOptions
 ): Promise<Session> {
-  const { sessionId, abortSignal, onProgress } = options ?? {};
+  const { sessionId, targetThoughts, abortSignal, onProgress } = options ?? {};
 
   let session: Session;
   if (sessionId) {
@@ -43,7 +44,7 @@ export async function reason(
   }
 
   const config = LEVEL_CONFIGS[level];
-  const totalThoughts = config.maxThoughts;
+  const totalThoughts = resolveThoughtCount(query, config, targetThoughts);
 
   return runWithContext(
     { sessionId: session.id, ...(abortSignal ? { abortSignal } : {}) },
@@ -77,6 +78,46 @@ export async function reason(
       return result;
     }
   );
+}
+
+function resolveThoughtCount(
+  query: string,
+  config: { minThoughts: number; maxThoughts: number },
+  targetThoughts?: number
+): number {
+  if (targetThoughts !== undefined) {
+    if (!Number.isInteger(targetThoughts)) {
+      throw new Error('targetThoughts must be an integer');
+    }
+    if (
+      targetThoughts < config.minThoughts ||
+      targetThoughts > config.maxThoughts
+    ) {
+      throw new Error(
+        `targetThoughts must be between ${String(config.minThoughts)} and ${String(config.maxThoughts)} for the selected level`
+      );
+    }
+    return targetThoughts;
+  }
+
+  if (config.minThoughts === config.maxThoughts) {
+    return config.minThoughts;
+  }
+
+  const queryText = query.trim();
+  const span = config.maxThoughts - config.minThoughts;
+
+  // Heuristic: longer and more structurally complex prompts get deeper reasoning.
+  const lengthScore = Math.min(1, queryText.length / 400);
+  const markerMatches = queryText.match(/[?:;,\n]/g)?.length ?? 0;
+  const markerScore = Math.min(0.4, markerMatches * 0.05);
+  const keywordScore =
+    /\b(compare|analy[sz]e|trade[- ]?off|design|plan)\b/i.test(queryText)
+      ? 0.15
+      : 0;
+  const score = Math.min(1, lengthScore + markerScore + keywordScore);
+
+  return config.minThoughts + Math.round(span * score);
 }
 
 function throwIfReasoningAborted(signal?: AbortSignal): void {

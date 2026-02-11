@@ -5,8 +5,11 @@ Multi-level reasoning MCP server that performs structured step-by-step reasoning
 ## Features
 
 - **Three reasoning levels**: basic (3-5 steps), normal (6-10 steps), high (15-25 steps)
+- **Optional exact step count**: set `targetThoughts` within the selected level range
 - **Session management**: Continue reasoning across multiple calls
 - **Progress reporting**: Real-time progress notifications via MCP protocol
+- **Task-capable tool execution**: Supports task-augmented `tools/call`
+- **Prompts + resources**: Guided prompts and session resources for workflow reuse
 - **Structured output**: Both JSON text and structured content in responses
 
 ## Prerequisites
@@ -90,11 +93,12 @@ Perform multi-step reasoning on a query.
 
 #### Parameters
 
-| Parameter   | Type                            | Required | Description                                             |
-| ----------- | ------------------------------- | -------- | ------------------------------------------------------- |
-| `query`     | `string`                        | Yes      | The question or problem to reason about (1-10000 chars) |
-| `level`     | `"basic" \| "normal" \| "high"` | Yes      | Reasoning depth level                                   |
-| `sessionId` | `string`                        | No       | Session ID to continue previous reasoning               |
+| Parameter        | Type                            | Required | Description                                             |
+| ---------------- | ------------------------------- | -------- | ------------------------------------------------------- |
+| `query`          | `string`                        | Yes      | The question or problem to reason about (1-10000 chars) |
+| `level`          | `"basic" \| "normal" \| "high"` | Yes      | Reasoning depth level                                   |
+| `targetThoughts` | `number`                        | No       | Exact thought count (must fit level range)              |
+| `sessionId`      | `string`                        | No       | Session ID to continue previous reasoning               |
 
 #### Levels
 
@@ -113,12 +117,31 @@ Perform multi-step reasoning on a query.
     "sessionId": "uuid",
     "level": "basic",
     "thoughts": [{ "index": 0, "content": "Step 1/5: ...", "revision": 0 }],
+    "generatedThoughts": 5,
+    "requestedThoughts": null,
     "totalThoughts": 5,
     "tokenBudget": 2048,
-    "tokensUsed": 256
+    "tokensUsed": 256,
+    "ttlMs": 1800000,
+    "expiresAt": 1739300000000,
+    "createdAt": 1739298200000,
+    "updatedAt": 1739298300000,
+    "summary": "Generated 5 thought(s) at basic depth."
   }
 }
 ```
+
+## Prompts
+
+- `reasoning.basic`
+- `reasoning.normal`
+- `reasoning.high`
+- `reasoning.continue`
+
+## Resources
+
+- `reasoning://sessions` (session index)
+- `reasoning://sessions/{sessionId}` (single session detail)
 
 ## Architecture
 

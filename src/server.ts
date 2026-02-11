@@ -1,8 +1,13 @@
 import { readFileSync } from 'node:fs';
 
+import { InMemoryTaskStore } from '@modelcontextprotocol/sdk/experimental/tasks';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import { registerAllTools } from './tools/index.js';
+
+import { registerAllPrompts } from './prompts/index.js';
+
+import { registerAllResources } from './resources/index.js';
 
 function loadInstructions(): string | undefined {
   try {
@@ -27,6 +32,7 @@ function loadVersion(): string {
 export function createServer(): McpServer {
   const instructions = loadInstructions();
   const version = loadVersion();
+  const taskStore = new InMemoryTaskStore();
 
   const server = new McpServer(
     {
@@ -37,12 +43,29 @@ export function createServer(): McpServer {
       version,
     },
     {
-      capabilities: { tools: {}, logging: {} },
+      capabilities: {
+        tools: {},
+        logging: {},
+        prompts: {},
+        resources: {},
+        tasks: {
+          list: {},
+          cancel: {},
+          requests: {
+            tools: {
+              call: {},
+            },
+          },
+        },
+      },
+      taskStore,
       ...(instructions ? { instructions } : {}),
     }
   );
 
   registerAllTools(server);
+  registerAllPrompts(server);
+  registerAllResources(server);
 
   return server;
 }
