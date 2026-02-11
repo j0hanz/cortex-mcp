@@ -1,11 +1,37 @@
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { Variables } from '@modelcontextprotocol/sdk/shared/uriTemplate.js';
 import { McpError } from '@modelcontextprotocol/sdk/types.js';
 
 import { sessionStore } from '../engine/reasoner.js';
 
 import { loadInstructions } from '../lib/instructions.js';
-import type { IconMeta } from '../lib/types.js';
+import type { IconMeta, Session } from '../lib/types.js';
+
+import { formatThoughtsToMarkdown } from '../tools/reasoning-think.js';
+
+// --- Helpers ---
+
+function extractStringVariable(
+  variables: Variables,
+  name: string,
+  uri: URL
+): string {
+  const raw = variables[name];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new McpError(-32602, `Invalid ${name} in URI: ${uri.toString()}`);
+  }
+  return value;
+}
+
+function resolveSession(sessionId: string, uri: URL): Readonly<Session> {
+  const session = sessionStore.get(sessionId);
+  if (!session) {
+    throw new McpError(-32002, `Resource not found: ${uri.toString()}`);
+  }
+  return session;
+}
 
 function buildSessionSummary(sessionId: string): {
   id: string;
@@ -38,6 +64,33 @@ function buildSessionSummary(sessionId: string): {
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     expiresAt,
+  };
+}
+
+const THOUGHT_NAME_PATTERN = /^Thought-(\d+)(?:-Revised)?$/;
+
+function parseThoughtName(
+  thoughtName: string,
+  session: Readonly<Session>
+): { index: number; requestedRevised: boolean } {
+  const match = THOUGHT_NAME_PATTERN.exec(thoughtName);
+  if (!match?.[1]) {
+    throw new McpError(
+      -32602,
+      `Invalid thought name format: ${thoughtName}. Expected "Thought-N" or "Thought-N-Revised".`
+    );
+  }
+
+  const oneBasedIndex = parseInt(match[1], 10);
+  const zeroBasedIndex = oneBasedIndex - 1;
+
+  if (zeroBasedIndex < 0 || zeroBasedIndex >= session.thoughts.length) {
+    throw new McpError(-32002, `Thought not found: ${thoughtName}`);
+  }
+
+  return {
+    index: oneBasedIndex,
+    requestedRevised: thoughtName.endsWith('-Revised'),
   };
 }
 
@@ -129,6 +182,89 @@ export function registerAllResources(
     }
   );
 
+  // Template for full trace
+  server.registerResource(
+    'reasoning.trace',
+    new ResourceTemplate('file:///cortex/sessions/{sessionId}/trace.md', {
+      list: undefined,
+    }),
+    {
+      title: 'Reasoning Trace',
+      description: 'Markdown trace of a reasoning session (full content).',
+      mimeType: 'text/markdown',
+      ...(iconMeta
+        ? {
+            icons: [iconMeta],
+          }
+        : {}),
+    },
+    (uri, variables) => {
+      const sessionId = extractStringVariable(variables, 'sessionId', uri);
+      const session = resolveSession(sessionId, uri);
+      return {
+        contents: [
+          {
+            uri: uri.toString(),
+            mimeType: 'text/markdown',
+            text: formatThoughtsToMarkdown(session),
+          },
+        ],
+      };
+    }
+  );
+
+  // Template for individual thoughts
+  server.registerResource(
+    'reasoning.thought',
+    new ResourceTemplate(
+      'file:///cortex/sessions/{sessionId}/{thoughtName}.md',
+      {
+        list: undefined,
+      }
+    ),
+    {
+      title: 'Reasoning Thought',
+      description: 'Markdown content of a single thought (e.g. Thought-1.md).',
+      mimeType: 'text/markdown',
+      ...(iconMeta
+        ? {
+            icons: [iconMeta],
+          }
+        : {}),
+    },
+    (uri, variables) => {
+      const sessionId = extractStringVariable(variables, 'sessionId', uri);
+      const session = resolveSession(sessionId, uri);
+      const thoughtName = extractStringVariable(variables, 'thoughtName', uri);
+
+      const { index, requestedRevised } = parseThoughtName(
+        thoughtName,
+        session
+      );
+
+      const thought = session.thoughts[index - 1];
+      if (thought && requestedRevised && thought.revision === 0) {
+        throw new McpError(
+          -32002,
+          `Thought ${String(index)} has not been revised.`
+        );
+      }
+
+      return {
+        contents: [
+          {
+            uri: uri.toString(),
+            mimeType: 'text/markdown',
+            text: formatThoughtsToMarkdown(session, {
+              start: index,
+              end: index,
+            }),
+          },
+        ],
+      };
+    }
+  );
+
   const sessionTemplate = new ResourceTemplate(
     'reasoning://sessions/{sessionId}',
     {
@@ -190,21 +326,8 @@ export function registerAllResources(
         : {}),
     },
     (uri, variables) => {
-      const value = variables.sessionId;
-      const sessionId = Array.isArray(value) ? value[0] : value;
-
-      if (typeof sessionId !== 'string' || sessionId.length === 0) {
-        throw new McpError(
-          -32602,
-          `Invalid sessionId in URI: ${uri.toString()}`
-        );
-      }
-
-      const session = sessionStore.get(sessionId);
-      if (!session) {
-        throw new McpError(-32002, `Resource not found: ${uri.toString()}`);
-      }
-
+      const sessionId = extractStringVariable(variables, 'sessionId', uri);
+      const session = resolveSession(sessionId, uri);
       const summary = buildSessionSummary(sessionId);
 
       return {

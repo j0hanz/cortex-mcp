@@ -109,6 +109,7 @@ describe('server registration', () => {
     assert.ok(promptNames.includes('reasoning.normal'));
     assert.ok(promptNames.includes('reasoning.high'));
     assert.ok(promptNames.includes('reasoning.continue'));
+    assert.ok(promptNames.includes('reasoning.retry'));
 
     const resources = await client.listResources();
     const resourceUris = resources.resources.map((resource) => resource.uri);
@@ -117,6 +118,14 @@ describe('server registration', () => {
     const templates = await client.listResourceTemplates();
     const templateUris = templates.resourceTemplates.map((t) => t.uriTemplate);
     assert.ok(templateUris.includes('reasoning://sessions/{sessionId}'));
+    assert.ok(
+      templateUris.includes('file:///cortex/sessions/{sessionId}/trace.md')
+    );
+    assert.ok(
+      templateUris.includes(
+        'file:///cortex/sessions/{sessionId}/{thoughtName}.md'
+      )
+    );
 
     const prompt = await client.getPrompt({
       name: 'reasoning.basic',
@@ -150,6 +159,55 @@ describe('server registration', () => {
       uri: `reasoning://sessions/${sessionId}`,
     });
     assert.equal(sessionDetail.contents.length, 1);
+
+    const trace = await client.readResource({
+      uri: `file:///cortex/sessions/${sessionId}/trace.md`,
+    });
+    assert.equal(trace.contents.length, 1);
+    assert.equal(trace.contents[0].mimeType, 'text/markdown');
+    const traceText = trace.contents[0].text as string;
+    assert.ok(
+      traceText.includes('# Reasoning Trace'),
+      'Trace should contain session header'
+    );
+    assert.ok(
+      traceText.includes('## 𖦹 Thought [1]'),
+      'Trace should contain first thought heading'
+    );
+
+    // Test individual thought resource
+    const thought1 = await client.readResource({
+      uri: `file:///cortex/sessions/${sessionId}/Thought-1.md`,
+    });
+    assert.equal(thought1.contents.length, 1);
+    const text1 = thought1.contents[0].text as string;
+    assert.ok(
+      text1.includes('## 𖦹 Thought [1]'),
+      'Single thought should contain heading'
+    );
+    assert.ok(
+      !text1.includes('## 𖦹 Thought [2]'),
+      'Single thought should not contain other thoughts'
+    );
+
+    // Test last thought (index 3, assumed from targetThoughts=3)
+    // Note: We need to know if we actually generated thoughts.
+    // The reason logic for 'basic' might generate 3-5.
+    // If it generated at least 3, we can check Thought-3.
+    // Let's check session detail to see actual count
+    const detailJson = JSON.parse(sessionDetail.contents[0].text as string);
+    const count = detailJson.totalThoughts as number;
+
+    if (count >= 1) {
+      const lastThoughtUri = `file:///cortex/sessions/${sessionId}/Thought-${count}.md`;
+      const thoughtLast = await client.readResource({ uri: lastThoughtUri });
+      assert.equal(thoughtLast.contents.length, 1);
+      const textLast = thoughtLast.contents[0].text as string;
+      assert.ok(
+        textLast.includes(`## 𖦹 Thought [${count}]`),
+        `Last thought should contain heading for Thought ${count}`
+      );
+    }
 
     await client.close();
     await server.close();

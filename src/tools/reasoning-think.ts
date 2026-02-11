@@ -103,17 +103,43 @@ function shouldEmitProgress(
   return progress % 2 === 0;
 }
 
-function formatThoughtsToMarkdown(session: Readonly<Session>): string {
-  return session.thoughts
-    .map((thought: Thought) => {
-      const revisionLabel = thought.revision > 0 ? ` [Revised]` : '';
-      const thoughtNumber = thought.index + 1;
-      return `𖦹 Thought [${String(thoughtNumber)}/${String(
-        session.totalThoughts
-      )}]${revisionLabel}
-${thought.content}`;
-    })
-    .join('\n\n');
+function formatThoughtHeading(thought: Readonly<Thought>): string {
+  const thoughtNumber = thought.index + 1;
+  const suffix = thought.revision > 0 ? ' [Revised]' : '';
+  return `## 𖦹 Thought [${String(thoughtNumber)}]${suffix}`;
+}
+
+export function formatThoughtsToMarkdown(
+  session: Readonly<Session>,
+  range?: { start: number; end: number }
+): string {
+  const { thoughts: allThoughts } = session;
+  const isFullTrace = range === undefined;
+
+  let thoughts: readonly Thought[];
+  if (range) {
+    const startIndex = Math.max(0, range.start - 1);
+    const endIndex = Math.min(allThoughts.length, range.end);
+    thoughts = allThoughts.slice(startIndex, endIndex);
+  } else {
+    thoughts = allThoughts;
+  }
+
+  const sections: string[] = [];
+
+  if (isFullTrace && thoughts.length > 0) {
+    sections.push(
+      `# Reasoning Trace — [${session.level}]\n` +
+        `> Session [${session.id}] · [${String(allThoughts.length)}] thoughts`
+    );
+  }
+
+  for (const thought of thoughts) {
+    const heading = formatThoughtHeading(thought);
+    sections.push(`${heading}\n\n${thought.content}`);
+  }
+
+  return sections.join('\n\n---\n\n');
 }
 
 function buildStructuredResult(
@@ -146,9 +172,7 @@ function buildStructuredResult(
       expiresAt,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
-      summary: `Generated ${String(generatedThoughts)} out of ${String(
-        requestedThoughts
-      )} thoughts at level "${session.level}".`,
+      summary: `Session [${session.id}] at level [${session.level}] with [${session.thoughts.length}] thoughts.`,
     },
   };
 }
@@ -163,7 +187,7 @@ async function emitLog(
     await server.sendLoggingMessage(
       {
         level,
-        logger: 'reasoning.think',
+        logger: TOOL_NAME,
         data,
       },
       sessionId
@@ -432,12 +456,14 @@ function getTaskId(extra: ReasoningTaskExtra): string {
   return extra.taskId;
 }
 
+export const TOOL_NAME = 'reasoning.think';
+
 export function registerReasoningThinkTool(
   server: McpServer,
   iconMeta?: IconMeta
 ): void {
   server.experimental.tasks.registerToolTask(
-    'reasoning.think',
+    TOOL_NAME,
     {
       title: 'Reasoning Think',
       description:
