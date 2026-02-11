@@ -16,8 +16,17 @@ function loadInstructions(): string | undefined {
   }
 }
 
+function loadVersion(): string {
+  const packageJson = readFileSync(
+    new URL('../package.json', import.meta.url),
+    'utf8'
+  );
+  return (JSON.parse(packageJson) as { version: string }).version;
+}
+
 export function createServer(): McpServer {
   const instructions = loadInstructions();
+  const version = loadVersion();
 
   const server = new McpServer(
     {
@@ -25,7 +34,7 @@ export function createServer(): McpServer {
       title: 'Cortex MCP',
       description:
         'Multi-level reasoning MCP server with configurable depth levels.',
-      version: '1.0.0',
+      version,
     },
     {
       capabilities: { tools: {}, logging: {} },
