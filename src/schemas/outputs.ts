@@ -48,3 +48,18 @@ export const ReasoningThinkResultSchema = z.discriminatedUnion('ok', [
   ReasoningThinkSuccessSchema,
   ReasoningThinkErrorSchema,
 ]);
+
+/**
+ * Tool-facing output schema kept as a strict object so SDK tooling
+ * can advertise outputSchema via tools/list.
+ */
+export const ReasoningThinkToolOutputSchema = z.strictObject({
+  ok: z.boolean(),
+  result: ReasoningThinkSuccessSchema.shape.result.optional(),
+  error: z
+    .strictObject({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
+});

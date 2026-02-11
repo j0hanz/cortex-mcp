@@ -4,6 +4,8 @@ import { describe, it } from 'node:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 
+import { engineEvents } from '../engine/events.js';
+
 import { createServer } from '../server.js';
 
 describe('server registration', () => {
@@ -23,6 +25,68 @@ describe('server registration', () => {
 
     assert.ok(tool, 'Expected reasoning.think to be registered');
     assert.equal(tool.execution?.taskSupport, 'optional');
+    assert.equal(tool.inputSchema?.type, 'object');
+    assert.equal(tool.outputSchema?.type, 'object');
+    assert.equal(tool.outputSchema?.additionalProperties, false);
+
+    await client.close();
+    await server.close();
+  });
+
+  it('cleans up engine event listeners on server close', async () => {
+    const resourcesBefore = engineEvents.listenerCount('resources:changed');
+    const budgetBefore = engineEvents.listenerCount('thought:budget-exhausted');
+
+    const server = createServer();
+
+    assert.equal(
+      engineEvents.listenerCount('resources:changed'),
+      resourcesBefore + 1
+    );
+    assert.equal(
+      engineEvents.listenerCount('thought:budget-exhausted'),
+      budgetBefore + 1
+    );
+
+    await server.close();
+
+    assert.equal(
+      engineEvents.listenerCount('resources:changed'),
+      resourcesBefore
+    );
+    assert.equal(
+      engineEvents.listenerCount('thought:budget-exhausted'),
+      budgetBefore
+    );
+  });
+
+  it('completes initialize handshake and exposes negotiated capabilities', async () => {
+    const server = createServer();
+    let initializedNotificationReceived = false;
+    server.server.oninitialized = () => {
+      initializedNotificationReceived = true;
+    };
+
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+
+    await server.connect(serverTransport);
+
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await client.connect(clientTransport);
+
+    assert.equal(initializedNotificationReceived, true);
+
+    const capabilities = client.getServerCapabilities();
+    assert.ok(capabilities);
+    assert.ok(capabilities.tools);
+    assert.ok(capabilities.resources);
+    assert.ok(capabilities.prompts);
+    assert.ok(capabilities.tasks);
+    assert.ok(capabilities.completions);
+
+    const serverInfo = client.getServerVersion();
+    assert.equal(serverInfo?.name, 'cortex-mcp');
 
     await client.close();
     await server.close();

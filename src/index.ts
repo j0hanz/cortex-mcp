@@ -5,6 +5,9 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 
 import { createServer } from './server.js';
 
+let activeServer: ReturnType<typeof createServer> | undefined;
+let shutdownPromise: Promise<void> | undefined;
+
 function assertMainThread(): void {
   if (isMainThread) {
     return;
@@ -16,15 +19,40 @@ function assertMainThread(): void {
 
 async function main(): Promise<void> {
   assertMainThread();
-  const server = createServer();
+  activeServer = createServer();
   const transport = new StdioServerTransport();
-  await server.connect(transport);
+  await activeServer.connect(transport);
+}
+
+async function shutdown(exitCode: number, reason: string): Promise<void> {
+  if (shutdownPromise) {
+    return shutdownPromise;
+  }
+
+  shutdownPromise = (async () => {
+    let resolvedCode = exitCode;
+
+    try {
+      await activeServer?.close();
+    } catch (err) {
+      resolvedCode = 1;
+      console.error(`Shutdown failure (${reason}):`, err);
+    } finally {
+      process.exit(resolvedCode);
+    }
+  })();
+
+  return shutdownPromise;
 }
 
 main().catch((err: unknown) => {
   console.error('Fatal error:', err);
-  process.exit(1);
+  void shutdown(1, 'fatal error');
 });
 
-process.on('SIGTERM', () => process.exit(0));
-process.on('SIGINT', () => process.exit(0));
+process.once('SIGTERM', () => {
+  void shutdown(0, 'SIGTERM');
+});
+process.once('SIGINT', () => {
+  void shutdown(0, 'SIGINT');
+});

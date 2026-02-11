@@ -19,6 +19,14 @@ import { registerAllResources } from './resources/index.js';
 const ICON_MIME = 'image/svg+xml';
 const ICON_SIZES: string[] = ['any'];
 
+interface BudgetExhaustedEvent {
+  sessionId: string;
+  tokensUsed: number;
+  tokenBudget: number;
+  generatedThoughts: number;
+  requestedThoughts: number;
+}
+
 function getLocalIconData(): string | undefined {
   const candidates = [
     new URL('../assets/logo.svg', import.meta.url),
@@ -45,6 +53,76 @@ function loadVersion(): string {
 
   const packageJson = readFileSync(packageJsonPath, 'utf8');
   return (JSON.parse(packageJson) as { version: string }).version;
+}
+
+function attachEngineEventHandlers(server: McpServer): () => void {
+  const onResourcesChanged = (): void => {
+    void server.server.sendResourceListChanged().catch((err: unknown) => {
+      void server
+        .sendLoggingMessage({
+          level: 'debug',
+          logger: 'cortex-mcp.server',
+          data: {
+            event: 'notification_failed',
+            method: 'resources/list_changed',
+            error: getErrorMessage(err),
+          },
+        })
+        .catch(() => {
+          // Never fail on logging errors.
+        });
+    });
+  };
+
+  const onBudgetExhausted = (data: BudgetExhaustedEvent): void => {
+    void server
+      .sendLoggingMessage({
+        level: 'notice',
+        logger: 'cortex-mcp.reasoner',
+        data: {
+          event: 'budget_exhausted',
+          sessionId: data.sessionId,
+          tokensUsed: data.tokensUsed,
+          tokenBudget: data.tokenBudget,
+          generatedThoughts: data.generatedThoughts,
+          requestedThoughts: data.requestedThoughts,
+        },
+      })
+      .catch((err: unknown) => {
+        // Never fail on logging errors - use stderr as last resort.
+        process.stderr.write(
+          `[cortex-mcp.server] Failed to log budget_exhausted: ${getErrorMessage(err)}\n`
+        );
+      });
+  };
+
+  engineEvents.on('resources:changed', onResourcesChanged);
+  engineEvents.on('thought:budget-exhausted', onBudgetExhausted);
+
+  let detached = false;
+  return (): void => {
+    if (detached) {
+      return;
+    }
+    detached = true;
+    engineEvents.off('resources:changed', onResourcesChanged);
+    engineEvents.off('thought:budget-exhausted', onBudgetExhausted);
+  };
+}
+
+function installCloseCleanup(server: McpServer, cleanup: () => void): void {
+  const originalClose = server.close.bind(server);
+  let closed = false;
+
+  server.close = async (): Promise<void> => {
+    if (closed) {
+      return;
+    }
+
+    closed = true;
+    cleanup();
+    await originalClose();
+  };
 }
 
 export function createServer(): McpServer {
@@ -101,50 +179,8 @@ export function createServer(): McpServer {
   registerAllPrompts(server, iconMeta);
   registerAllResources(server, iconMeta);
 
-  engineEvents.on('resources:changed', () => {
-    server.server
-      .notification({
-        method: 'notifications/resources/list_changed',
-        params: {},
-      })
-      .catch((err: unknown) => {
-        server
-          .sendLoggingMessage({
-            level: 'debug',
-            logger: 'cortex-mcp.server',
-            data: {
-              event: 'notification_failed',
-              method: 'resources/list_changed',
-              error: getErrorMessage(err),
-            },
-          })
-          .catch(() => {
-            // Never fail on logging errors
-          });
-      });
-  });
-
-  engineEvents.on('thought:budget-exhausted', (data) => {
-    server
-      .sendLoggingMessage({
-        level: 'notice',
-        logger: 'cortex-mcp.reasoner',
-        data: {
-          event: 'budget_exhausted',
-          sessionId: data.sessionId,
-          tokensUsed: data.tokensUsed,
-          tokenBudget: data.tokenBudget,
-          generatedThoughts: data.generatedThoughts,
-          requestedThoughts: data.requestedThoughts,
-        },
-      })
-      .catch((err: unknown) => {
-        // Never fail on logging errors - use stderr as last resort
-        process.stderr.write(
-          `[cortex-mcp.server] Failed to log budget_exhausted: ${getErrorMessage(err)}\n`
-        );
-      });
-  });
+  const detachEngineHandlers = attachEngineEventHandlers(server);
+  installCloseCleanup(server, detachEngineHandlers);
 
   return server;
 }

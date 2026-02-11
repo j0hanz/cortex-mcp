@@ -12,7 +12,7 @@ import {
   type ReasoningThinkInput,
   ReasoningThinkInputSchema,
 } from '../schemas/inputs.js';
-import { ReasoningThinkResultSchema } from '../schemas/outputs.js';
+import { ReasoningThinkToolOutputSchema } from '../schemas/outputs.js';
 
 import { createErrorResponse, getErrorMessage } from '../lib/errors.js';
 import { createToolResponse } from '../lib/tool-response.js';
@@ -443,7 +443,7 @@ export function registerReasoningThinkTool(
       description:
         'Perform multi-level reasoning on a query with configurable depth and thought count. Supports progress updates and task cancellation.',
       inputSchema: ReasoningThinkInputSchema,
-      outputSchema: ReasoningThinkResultSchema,
+      outputSchema: ReasoningThinkToolOutputSchema,
       annotations: {
         readOnlyHint: false,
         idempotentHint: false,
