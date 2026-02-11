@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer';
 
+import { createSegmenter, truncate } from '../lib/text.js';
 import type { ReasoningLevel, Session } from '../lib/types.js';
 
 import { LEVEL_CONFIGS } from './config.js';
@@ -230,18 +231,6 @@ function resolveThoughtCount(
   return config.minThoughts + Math.round(span * score);
 }
 
-function createSegmenter(
-  granularity: 'grapheme' | 'sentence'
-): Intl.Segmenter | undefined {
-  if (typeof Intl !== 'object' || typeof Intl.Segmenter !== 'function') {
-    return undefined;
-  }
-  try {
-    return new Intl.Segmenter(undefined, { granularity });
-  } catch {
-    return undefined;
-  }
-}
 
 function countSentences(queryText: string): number {
   if (!sentenceSegmenter) {
@@ -319,7 +308,7 @@ function generateReasoningStep(
 
   const step = index + 1;
   if (step === 1) {
-    const truncatedQuery = truncate(query, 200);
+    const truncatedQuery = truncate(query, 200, graphemeSegmenter);
     return formatStep(step, total, `${OPENING_TEMPLATE}: "${truncatedQuery}"`);
   }
 
@@ -335,84 +324,3 @@ function formatStep(step: number, total: number, description: string): string {
   return `Step ${String(step)}/${String(total)}: ${description}`;
 }
 
-function truncate(str: string, maxLength: number): string {
-  const suffix = '...';
-  const maxBytes = Math.max(0, maxLength);
-  const suffixBytes = Buffer.byteLength(suffix, 'utf8');
-
-  if (Buffer.byteLength(str, 'utf8') <= maxBytes) {
-    return str;
-  }
-  if (maxBytes <= suffixBytes) {
-    return suffix.slice(0, maxBytes);
-  }
-
-  const targetBytes = maxBytes - suffixBytes;
-  const truncated = truncateByGrapheme(str, targetBytes);
-  return truncated + suffix;
-}
-
-function truncateByGrapheme(str: string, maxBytes: number): string {
-  if (!graphemeSegmenter) {
-    return truncateByUtf8Boundary(str, maxBytes);
-  }
-
-  let result = '';
-  let usedBytes = 0;
-  for (const part of graphemeSegmenter.segment(str)) {
-    const segmentBytes = Buffer.byteLength(part.segment, 'utf8');
-    if (usedBytes + segmentBytes > maxBytes) {
-      break;
-    }
-    result += part.segment;
-    usedBytes += segmentBytes;
-  }
-
-  return result;
-}
-
-function truncateByUtf8Boundary(str: string, maxBytes: number): string {
-  const safeMaxBytes = Math.max(0, maxBytes);
-  const encoder = new TextEncoder();
-  const encoded = encoder.encode(str);
-  if (encoded.length <= safeMaxBytes) {
-    return str;
-  }
-  if (safeMaxBytes === 0) {
-    return '';
-  }
-
-  // Backtrack to find a clean cut point for UTF-8
-  let end = safeMaxBytes;
-  while (end > 0) {
-    const byte = encoded[end - 1];
-    if (byte === undefined || (byte & 0xc0) !== 0x80) {
-      break;
-    }
-    end--;
-  }
-
-  // If we landed on a start byte, check if the sequence is complete
-  if (end > 0) {
-    const lastByte = encoded[end - 1];
-    if (lastByte !== undefined) {
-      const charBytes = getUtf8CharLength(lastByte);
-      const available = safeMaxBytes - (end - 1);
-      if (available < charBytes) {
-        end--; // Incomplete character, drop it
-      } else {
-        end = safeMaxBytes; // Complete character, restore full length
-      }
-    }
-  }
-
-  const decoder = new TextDecoder('utf-8');
-  return decoder.decode(encoded.subarray(0, end));
-}
-
-function getUtf8CharLength(byte: number): number {
-  if ((byte & 0xe0) === 0xc0) return 2;
-  if ((byte & 0xf0) === 0xe0) return 3;
-  if ((byte & 0xf8) === 0xf0) return 4;
-  return 1;
-}
