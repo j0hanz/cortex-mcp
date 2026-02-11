@@ -13,7 +13,7 @@ const sentenceSegmenter = createSegmenter('sentence');
 
 export { sessionStore };
 
-export interface ReasonOptions {
+interface ReasonOptions {
   sessionId?: string;
   targetThoughts?: number;
   abortSignal?: AbortSignal;

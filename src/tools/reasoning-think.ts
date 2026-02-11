@@ -5,7 +5,7 @@ import type {
   Task,
 } from '@modelcontextprotocol/sdk/types.js';
 
-import { reason, sessionStore } from '../engine/index.js';
+import { reason, sessionStore } from '../engine/reasoner.js';
 
 import {
   type ReasoningThinkInput,
@@ -15,7 +15,7 @@ import { ReasoningThinkResultSchema } from '../schemas/outputs.js';
 
 import { createErrorResponse, getErrorMessage } from '../lib/errors.js';
 import { createToolResponse } from '../lib/tool-response.js';
-import type { ReasoningLevel, Session } from '../lib/types.js';
+import type { IconMeta, ReasoningLevel, Session } from '../lib/types.js';
 
 type ProgressToken = string | number;
 
@@ -48,6 +48,7 @@ interface ReasoningTaskExtra {
 }
 
 interface ReasoningStructuredResult {
+  [key: string]: unknown;
   ok: true;
   result: {
     sessionId: string;
@@ -257,7 +258,7 @@ async function handleTaskFailure(args: {
     await storeTaskFailure(
       taskStore,
       taskId,
-      createErrorResponse(errorCode, message) as unknown as CallToolResult
+      createErrorResponse(errorCode, message)
     );
     try {
       await taskStore.updateTaskStatus(
@@ -280,7 +281,7 @@ async function handleTaskFailure(args: {
   await storeTaskFailure(
     taskStore,
     taskId,
-    createErrorResponse(errorCode, message) as unknown as CallToolResult
+    createErrorResponse(errorCode, message)
   );
   await emitLog(
     server,
@@ -368,7 +369,7 @@ async function runReasoningTask(args: {
     await taskStore.storeTaskResult(
       taskId,
       'completed',
-      createToolResponse(result as unknown as Record<string, unknown>)
+      createToolResponse(result)
     );
     await emitLog(
       server,
@@ -401,7 +402,10 @@ function getTaskId(extra: ReasoningTaskExtra): string {
   return extra.taskId;
 }
 
-export function registerReasoningThinkTool(server: McpServer): void {
+export function registerReasoningThinkTool(
+  server: McpServer,
+  iconMeta?: IconMeta
+): void {
   server.experimental.tasks.registerToolTask(
     'reasoning.think',
     {
@@ -415,6 +419,17 @@ export function registerReasoningThinkTool(server: McpServer): void {
         idempotentHint: false,
       },
       execution: { taskSupport: 'optional' },
+      ...(iconMeta
+        ? {
+            icons: [
+              {
+                src: iconMeta.src,
+                mimeType: iconMeta.mimeType,
+                sizes: iconMeta.sizes,
+              },
+            ],
+          }
+        : {}),
     },
     {
       async createTask(rawParams, rawExtra) {

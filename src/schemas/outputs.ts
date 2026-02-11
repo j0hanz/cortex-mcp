@@ -48,5 +48,3 @@ export const ReasoningThinkResultSchema = z.discriminatedUnion('ok', [
   ReasoningThinkSuccessSchema,
   ReasoningThinkErrorSchema,
 ]);
-
-export type ReasoningThinkResult = z.infer<typeof ReasoningThinkResultSchema>;

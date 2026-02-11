@@ -4,6 +4,8 @@ import { z } from 'zod';
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
+import type { IconMeta } from '../lib/types.js';
+
 type PromptLevel = 'basic' | 'normal' | 'high';
 
 function levelTitle(level: PromptLevel): string {
@@ -29,12 +31,27 @@ function loadInstructions(): string {
   }
 }
 
-function registerLevelPrompt(server: McpServer, level: PromptLevel): void {
+function registerLevelPrompt(
+  server: McpServer,
+  level: PromptLevel,
+  iconMeta?: IconMeta
+): void {
   server.registerPrompt(
     `reasoning.${level}`,
     {
       title: `Reasoning ${levelTitle(level)}`,
       description: `Prepare a ${level}-depth reasoning request.`,
+      ...(iconMeta
+        ? {
+            icons: [
+              {
+                src: iconMeta.src,
+                mimeType: iconMeta.mimeType,
+                sizes: iconMeta.sizes,
+              },
+            ],
+          }
+        : {}),
       argsSchema: {
         query: z
           .string()
@@ -67,10 +84,13 @@ function registerLevelPrompt(server: McpServer, level: PromptLevel): void {
   );
 }
 
-export function registerAllPrompts(server: McpServer): void {
-  registerLevelPrompt(server, 'basic');
-  registerLevelPrompt(server, 'normal');
-  registerLevelPrompt(server, 'high');
+export function registerAllPrompts(
+  server: McpServer,
+  iconMeta?: IconMeta
+): void {
+  registerLevelPrompt(server, 'basic', iconMeta);
+  registerLevelPrompt(server, 'normal', iconMeta);
+  registerLevelPrompt(server, 'high', iconMeta);
 
   const instructions = loadInstructions();
 
@@ -79,6 +99,17 @@ export function registerAllPrompts(server: McpServer): void {
     {
       title: 'Get Help',
       description: 'Return the server usage instructions.',
+      ...(iconMeta
+        ? {
+            icons: [
+              {
+                src: iconMeta.src,
+                mimeType: iconMeta.mimeType,
+                sizes: iconMeta.sizes,
+              },
+            ],
+          }
+        : {}),
     },
     () => ({
       description: 'Server usage instructions',
@@ -97,6 +128,17 @@ export function registerAllPrompts(server: McpServer): void {
       title: 'Continue Reasoning',
       description:
         'Continue an existing reasoning session with a follow-up query.',
+      ...(iconMeta
+        ? {
+            icons: [
+              {
+                src: iconMeta.src,
+                mimeType: iconMeta.mimeType,
+                sizes: iconMeta.sizes,
+              },
+            ],
+          }
+        : {}),
       argsSchema: {
         sessionId: z
           .string()

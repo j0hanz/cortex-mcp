@@ -11,7 +11,7 @@ import type {
 import { LEVEL_CONFIGS } from './config.js';
 import { engineEvents } from './events.js';
 
-export const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 function estimateTokens(text: string): number {
   // Fast, deterministic approximation suitable for relative budget tracking.

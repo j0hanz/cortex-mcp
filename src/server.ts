@@ -3,11 +3,34 @@ import { readFileSync } from 'node:fs';
 import { InMemoryTaskStore } from '@modelcontextprotocol/sdk/experimental/tasks';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
-import { registerAllTools } from './tools/index.js';
+import type { IconMeta } from './lib/types.js';
+
+import { registerReasoningThinkTool } from './tools/reasoning-think.js';
 
 import { registerAllPrompts } from './prompts/index.js';
 
 import { registerAllResources } from './resources/index.js';
+
+const ICON_MIME = 'image/svg+xml';
+const ICON_SIZES: string[] = ['any'];
+
+function getLocalIconData(): string | undefined {
+  const candidates = [
+    new URL('../assets/logo.svg', import.meta.url),
+    new URL('./assets/logo.svg', import.meta.url),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const data = readFileSync(candidate);
+      return `data:${ICON_MIME};base64,${data.toString('base64')}`;
+    } catch {
+      continue;
+    }
+  }
+
+  return undefined;
+}
 
 function loadInstructions(): string | undefined {
   try {
@@ -33,6 +56,10 @@ export function createServer(): McpServer {
   const instructions = loadInstructions();
   const version = loadVersion();
   const taskStore = new InMemoryTaskStore();
+  const localIcon = getLocalIconData();
+  const iconMeta: IconMeta | undefined = localIcon
+    ? { src: localIcon, mimeType: ICON_MIME, sizes: ICON_SIZES }
+    : undefined;
 
   const server = new McpServer(
     {
@@ -41,6 +68,17 @@ export function createServer(): McpServer {
       description:
         'Multi-level reasoning MCP server with configurable depth levels.',
       version,
+      ...(iconMeta
+        ? {
+            icons: [
+              {
+                src: iconMeta.src,
+                mimeType: iconMeta.mimeType,
+                sizes: iconMeta.sizes,
+              },
+            ],
+          }
+        : {}),
     },
     {
       capabilities: {
@@ -63,9 +101,9 @@ export function createServer(): McpServer {
     }
   );
 
-  registerAllTools(server);
-  registerAllPrompts(server);
-  registerAllResources(server);
+  registerReasoningThinkTool(server, iconMeta);
+  registerAllPrompts(server, iconMeta);
+  registerAllResources(server, iconMeta);
 
   return server;
 }

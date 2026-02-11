@@ -6,6 +6,8 @@ import { McpError } from '@modelcontextprotocol/sdk/types.js';
 
 import { sessionStore } from '../engine/reasoner.js';
 
+import type { IconMeta } from '../lib/types.js';
+
 function loadInstructions(): string {
   try {
     const text = readFileSync(
@@ -56,7 +58,10 @@ function serializeJson(data: unknown): string {
   return JSON.stringify(data, null, 2);
 }
 
-export function registerAllResources(server: McpServer): void {
+export function registerAllResources(
+  server: McpServer,
+  iconMeta?: IconMeta
+): void {
   const instructions = loadInstructions();
 
   server.registerResource(
@@ -67,6 +72,17 @@ export function registerAllResources(server: McpServer): void {
       description: 'Guidance for using the cortex-mcp tools effectively.',
       mimeType: 'text/markdown',
       annotations: { audience: ['assistant'], priority: 0.8 },
+      ...(iconMeta
+        ? {
+            icons: [
+              {
+                src: iconMeta.src,
+                mimeType: iconMeta.mimeType,
+                sizes: iconMeta.sizes,
+              },
+            ],
+          }
+        : {}),
     },
     (uri) => ({
       contents: [
@@ -82,6 +98,17 @@ export function registerAllResources(server: McpServer): void {
       title: 'Reasoning Sessions',
       description: 'List all active reasoning sessions.',
       mimeType: 'application/json',
+      ...(iconMeta
+        ? {
+            icons: [
+              {
+                src: iconMeta.src,
+                mimeType: iconMeta.mimeType,
+                sizes: iconMeta.sizes,
+              },
+            ],
+          }
+        : {}),
     },
     () => {
       const ttlMs = sessionStore.getTtlMs();
@@ -140,6 +167,17 @@ export function registerAllResources(server: McpServer): void {
       title: 'Reasoning Session Detail',
       description: 'Inspect one reasoning session by sessionId.',
       mimeType: 'application/json',
+      ...(iconMeta
+        ? {
+            icons: [
+              {
+                src: iconMeta.src,
+                mimeType: iconMeta.mimeType,
+                sizes: iconMeta.sizes,
+              },
+            ],
+          }
+        : {}),
     },
     (uri, variables) => {
       const value = variables.sessionId;

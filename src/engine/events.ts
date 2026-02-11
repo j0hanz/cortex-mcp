@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 import { getErrorMessage } from '../lib/errors.js';
 import type { ReasoningLevel } from '../lib/types.js';
 
-export interface EngineEvents {
+interface EngineEvents {
   'thought:added': [{ sessionId: string; index: number; content: string }];
   'thought:revised': [
     { sessionId: string; index: number; content: string; revision: number },

@@ -5,7 +5,8 @@ const INSPECT_OPTIONS = {
   breakLength: 120,
 } as const;
 
-export interface ErrorResponse {
+interface ErrorResponse {
+  [key: string]: unknown;
   content: { type: 'text'; text: string }[];
   structuredContent: { ok: false; error: { code: string; message: string } };
   isError: true;

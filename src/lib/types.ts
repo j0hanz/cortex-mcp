@@ -21,3 +21,9 @@ export interface LevelConfig {
   maxThoughts: number;
   tokenBudget: number;
 }
+
+export interface IconMeta {
+  src: string;
+  mimeType: string;
+  sizes: string[];
+}

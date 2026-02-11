@@ -1,6 +1,8 @@
-export function createToolResponse(structured: Record<string, unknown>): {
+export function createToolResponse<T extends object>(
+  structured: T
+): {
   content: { type: 'text'; text: string }[];
-  structuredContent: Record<string, unknown>;
+  structuredContent: T;
 } {
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(structured) }],
