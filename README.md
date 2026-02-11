@@ -1,6 +1,6 @@
 # Cortex MCP
 
-[![npm version](https://img.shields.io/npm/v/cortex-mcp?style=flat-square)](https://www.npmjs.com/package/cortex-mcp) [![Generic badge](https://img.shields.io/badge/Node.js->=24-3c873a?style=flat-square)](https://nodejs.org) [![Generic badge](https://img.shields.io/badge/TypeScript-5.9+-3178c6?style=flat-square)](https://www.typescriptlang.org) [![Generic badge](https://img.shields.io/badge/MCP_SDK-1.26+-ff6600?style=flat-square)](https://modelcontextprotocol.io) [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/@j0hanz/cortex-mcp?style=flat-square)](https://www.npmjs.com/package/@j0hanz/cortex-mcp) [![Docker](https://img.shields.io/badge/Docker-ghcr.io-2496ED?style=flat-square&logo=docker&logoColor=white)](https://github.com/j0hanz/cortex-mcp/pkgs/container/cortex-mcp) [![Generic badge](https://img.shields.io/badge/Node.js->=24-3c873a?style=flat-square)](https://nodejs.org) [![Generic badge](https://img.shields.io/badge/TypeScript-5.9+-3178c6?style=flat-square)](https://www.typescriptlang.org) [![Generic badge](https://img.shields.io/badge/MCP_SDK-1.26+-ff6600?style=flat-square)](https://modelcontextprotocol.io) [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
 [![Install in VS Code](https://img.shields.io/badge/VS_Code-Install-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](vscode:mcp/install?config=%7B%22name%22%3A%22cortex-mcp%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22cortex-mcp%40latest%22%5D%7D) [![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](vscode-insiders:mcp/install?config=%7B%22name%22%3A%22cortex-mcp%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22cortex-mcp%40latest%22%5D%7D) [![Install in Cursor](https://img.shields.io/badge/Cursor-Install-000000?style=flat-square&logo=cursor&logoColor=white)](https://cursor.com/install-mcp?name=cortex-mcp&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsImNvcnRleC1tY3BAbGF0ZXN0Il19)
 
@@ -72,6 +72,13 @@ npx -y cortex-mcp@latest
 
 ```bash
 npx -y cortex-mcp@latest
+```
+
+### Docker
+
+```bash
+docker pull ghcr.io/j0hanz/cortex-mcp:latest
+docker run --rm -i ghcr.io/j0hanz/cortex-mcp:latest
 ```
 
 ### From Source
@@ -226,6 +233,22 @@ Add to your Cursor MCP settings:
 
 </details>
 
+<details>
+<summary><strong>Docker</strong></summary>
+
+```json
+{
+  "mcpServers": {
+    "cortex-mcp": {
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "ghcr.io/j0hanz/cortex-mcp:latest"]
+    }
+  }
+}
+```
+
+</details>
+
 ## Security
 
 - **Stdio Isolation**: The server writes all logs to `stderr` to avoid corrupting the JSON-RPC stream on `stdout`.
@@ -257,6 +280,75 @@ The project uses a custom task runner (`scripts/tasks.mjs`) for build orchestrat
 
 - **Build**: `npm run build` generates artifacts in `dist/`.
 - **Publish**: `npm run prepublishOnly` ensures linting, type-checking, and building before publish.
+
+### Automated Releases
+
+Releases are fully automated via a single GitHub Actions workflow (`release.yml`). No manual version edits are needed.
+
+**Trigger a release:**
+
+```bash
+# Via GitHub CLI
+gh workflow run release.yml -f bump=patch   # or minor / major
+
+# Custom pre-release version
+gh workflow run release.yml -f custom_version=2.0.0-beta.1
+```
+
+Or use the GitHub UI: **Actions** → **Release** → **Run workflow** → select bump type.
+
+**What the workflow does:**
+
+```text
+workflow_dispatch (patch/minor/major)
+    │
+    ▼
+  release ── bump versions → validate → commit → tag → GitHub Release
+    │
+    ├──► publish-npm ──► publish-mcp  (sequential: MCP Registry needs npm package)
+    │
+    └──► publish-docker              (parallel with npm)
+```
+
+1. **Bump** — Updates `package.json`, `package-lock.json`, and `server.json` atomically
+2. **Validate** — Runs lint, type-check, tests, and build
+3. **Tag & Release** — Commits, creates a git tag, and a GitHub Release with auto-generated notes
+4. **Publish to npm** — Uses OIDC Trusted Publishing (no `NPM_TOKEN` secret needed), with `--provenance` for signed SLSA attestations
+5. **Publish to MCP Registry** — Registers the new version via `mcp-publisher` with GitHub OIDC
+6. **Publish to Docker** — Builds and pushes a multi-platform image (`linux/amd64`, `linux/arm64`) to `ghcr.io/j0hanz/cortex-mcp`
+
+### Docker Image
+
+The project includes a multi-stage `Dockerfile` optimized for MCP servers:
+
+- **Builder stage**: Installs dependencies with `--ignore-scripts` (avoids `prepare` running before source is copied), rebuilds native modules, compiles TypeScript, then prunes dev dependencies
+- **Release stage**: Minimal `node:24-alpine` image running as non-root `mcp` user
+
+```bash
+# Build locally
+docker build -t cortex-mcp .
+
+# Run locally
+docker run --rm -i cortex-mcp
+
+# Or use docker-compose
+docker compose up --build
+```
+
+### Verify a release
+
+```bash
+# npm
+npm view @j0hanz/cortex-mcp dist-tags
+
+# Docker
+docker pull ghcr.io/j0hanz/cortex-mcp:latest
+
+# MCP protocol handshake
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' \
+  | npx -y @j0hanz/cortex-mcp@latest 2>/dev/null \
+  | head -1 | jq .result.serverInfo
+```
 
 ## Troubleshooting
 
