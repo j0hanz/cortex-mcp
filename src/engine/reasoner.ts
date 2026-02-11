@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer';
 import { createSegmenter, truncate } from '../lib/text.js';
 import type { ReasoningLevel, Session } from '../lib/types.js';
 
-import { LEVEL_CONFIGS } from './config.js';
+import { assertTargetThoughtsInRange, LEVEL_CONFIGS } from './config.js';
 import { runWithContext } from './context.js';
 import { engineEvents } from './events.js';
 import { SessionStore } from './session-store.js';
@@ -183,7 +183,12 @@ function resolveSession(
     return existing;
   }
 
-  const totalThoughts = resolveThoughtCount(query, config, targetThoughts);
+  const totalThoughts = resolveThoughtCount(
+    level,
+    query,
+    config,
+    targetThoughts
+  );
   const session = sessionStore.create(level, totalThoughts);
   engineEvents.emit('session:created', {
     sessionId: session.id,
@@ -193,22 +198,13 @@ function resolveSession(
 }
 
 function resolveThoughtCount(
+  level: ReasoningLevel,
   query: string,
   config: Pick<LevelConfig, 'minThoughts' | 'maxThoughts'>,
   targetThoughts?: number
 ): number {
   if (targetThoughts !== undefined) {
-    if (!Number.isInteger(targetThoughts)) {
-      throw new Error('targetThoughts must be an integer');
-    }
-    if (
-      targetThoughts < config.minThoughts ||
-      targetThoughts > config.maxThoughts
-    ) {
-      throw new Error(
-        `targetThoughts must be between ${String(config.minThoughts)} and ${String(config.maxThoughts)} for the selected level`
-      );
-    }
+    assertTargetThoughtsInRange(level, targetThoughts);
     return targetThoughts;
   }
 
@@ -230,7 +226,6 @@ function resolveThoughtCount(
 
   return config.minThoughts + Math.round(span * score);
 }
-
 
 function countSentences(queryText: string): number {
   if (!sentenceSegmenter) {
@@ -323,4 +318,3 @@ function generateReasoningStep(
 function formatStep(step: number, total: number, description: string): string {
   return `Step ${String(step)}/${String(total)}: ${description}`;
 }
-

@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
 import { describe, it } from 'node:test';
 
-import { createSegmenter, truncate, truncateByUtf8Boundary } from '../lib/text.js';
+import {
+  createSegmenter,
+  truncate,
+  truncateByUtf8Boundary,
+} from '../lib/text.js';
 
 describe('text utils', () => {
   describe('createSegmenter', () => {
@@ -13,10 +17,10 @@ describe('text utils', () => {
     });
 
     it('returns undefined if Intl is missing (simulated via explicit call if possible, otherwise mostly coverage)', () => {
-       // Ideally we'd mock Intl, but that's hard in global. 
-       // Just asserting it works in this env is enough.
-       const segmenter = createSegmenter('sentence');
-       assert.ok(segmenter);
+      // Ideally we'd mock Intl, but that's hard in global.
+      // Just asserting it works in this env is enough.
+      const segmenter = createSegmenter('sentence');
+      assert.ok(segmenter);
     });
   });
 
@@ -31,7 +35,7 @@ describe('text utils', () => {
     it('truncates and adds suffix', () => {
       // 'abc' is 3 bytes. Max 2 bytes -> 2 is less than suffix '...'.
       // Suffix is 3 bytes. If max=2, truncate returns '..'.
-      assert.equal(truncate('abc', 2, segmenter), '..'); 
+      assert.equal(truncate('abc', 2, segmenter), '..');
     });
 
     it('truncates with suffix when space allows', () => {
@@ -74,7 +78,7 @@ describe('text utils', () => {
     it('cuts clean ascii', () => {
       assert.equal(truncateByUtf8Boundary('hello', 3), 'hel');
     });
-    
+
     it('cuts multi-byte cleanly', () => {
       const str = '👍'; // 4 bytes: f0 9f 91 8d
       // cut at 1 -> f0 (start byte) -> drop -> ''
@@ -92,7 +96,7 @@ describe('text utils', () => {
       const str = 'a👍b';
       assert.equal(truncateByUtf8Boundary(str, 1), 'a');
       // cut at 2: 'a' (1) + 'f0' (1). 'f0' is incomplete. Drops 'f0'. Result 'a'.
-      assert.equal(truncateByUtf8Boundary(str, 2), 'a'); 
+      assert.equal(truncateByUtf8Boundary(str, 2), 'a');
       assert.equal(truncateByUtf8Boundary(str, 5), 'a👍');
       assert.equal(truncateByUtf8Boundary(str, 6), 'a👍b');
     });

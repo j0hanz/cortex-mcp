@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import { StringDecoder } from 'node:string_decoder';
 
 /**
  * Creates an Intl.Segmenter instance if available in the environment.
@@ -18,7 +19,7 @@ export function createSegmenter(
 }
 
 /**
- * Truncaties a string to a maximum byte length, respecting grapheme clusters if a segmenter is provided.
+ * Truncates a string to a maximum byte length, respecting grapheme clusters if a segmenter is provided.
  * Appends a suffix '...' if truncation occurs.
  *
  * @param str The string to truncate.
@@ -38,7 +39,7 @@ export function truncate(
   if (Buffer.byteLength(str, 'utf8') <= maxBytes) {
     return str;
   }
-  
+
   // If we can't even fit the suffix, just return the suffix truncated (e.g. "." or "..")
   if (maxBytes <= suffixBytes) {
     return suffix.slice(0, maxBytes);
@@ -78,8 +79,7 @@ function truncateByGrapheme(
  */
 export function truncateByUtf8Boundary(str: string, maxBytes: number): string {
   const safeMaxBytes = Math.max(0, maxBytes);
-  const encoder = new TextEncoder();
-  const encoded = encoder.encode(str);
+  const encoded = Buffer.from(str, 'utf8');
   if (encoded.length <= safeMaxBytes) {
     return str;
   }
@@ -87,37 +87,6 @@ export function truncateByUtf8Boundary(str: string, maxBytes: number): string {
     return '';
   }
 
-  // Backtrack to find a clean cut point for UTF-8
-  let end = safeMaxBytes;
-  while (end > 0) {
-    const byte = encoded[end - 1];
-    if (byte === undefined || (byte & 0xc0) !== 0x80) {
-      break;
-    }
-    end--;
-  }
-
-  // If we landed on a start byte, check if the sequence is complete
-  if (end > 0) {
-    const lastByte = encoded[end - 1];
-    if (lastByte !== undefined) {
-      const charBytes = getUtf8CharLength(lastByte);
-      const available = safeMaxBytes - (end - 1);
-      if (available < charBytes) {
-        end--; // Incomplete character, drop it
-      } else {
-        end = safeMaxBytes; // Complete character, restore full length
-      }
-    }
-  }
-
-  const decoder = new TextDecoder('utf-8');
-  return decoder.decode(encoded.subarray(0, end));
-}
-
-function getUtf8CharLength(byte: number): number {
-  if ((byte & 0xe0) === 0xc0) return 2;
-  if ((byte & 0xf0) === 0xe0) return 3;
-  if ((byte & 0xf8) === 0xf0) return 4;
-  return 1;
+  const decoder = new StringDecoder('utf8');
+  return decoder.write(encoded.subarray(0, safeMaxBytes));
 }

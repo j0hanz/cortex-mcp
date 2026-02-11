@@ -59,6 +59,33 @@ describe('ReasoningThinkInputSchema', () => {
     assert.equal(result.success, false);
   });
 
+  it('rejects targetThoughts below basic level minimum', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'test',
+      level: 'basic',
+      targetThoughts: 2,
+    });
+    assert.equal(result.success, false);
+  });
+
+  it('rejects targetThoughts above basic level maximum', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'test',
+      level: 'basic',
+      targetThoughts: 6,
+    });
+    assert.equal(result.success, false);
+  });
+
+  it('accepts targetThoughts at basic level maximum', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'test',
+      level: 'basic',
+      targetThoughts: 5,
+    });
+    assert.equal(result.success, true);
+  });
+
   it('rejects unknown fields', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'test',

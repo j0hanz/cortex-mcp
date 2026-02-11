@@ -386,7 +386,6 @@ const CLI = {
         args: rawArgs,
         allowPositionals: true,
         strict: false,
-        tokens: true,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -395,25 +394,12 @@ const CLI = {
       return;
     }
 
-    const tokens = parsed.tokens ?? [];
-    const positionalTokens = tokens.filter(
-      (token) => token.kind === 'positional'
-    );
-    let taskIndex = -1;
-
-    for (const token of positionalTokens) {
-      const candidate = String(token.value);
-      if (candidate in this.routes) {
-        taskIndex = token.index;
-        break;
-      }
-    }
-
-    if (taskIndex === -1 && positionalTokens.length > 0) {
-      taskIndex = positionalTokens[0].index;
-    }
-
-    const taskName = taskIndex >= 0 ? String(rawArgs[taskIndex]) : 'build';
+    const positionals = parsed.positionals ?? [];
+    const taskName =
+      positionals.find((candidate) => candidate in this.routes) ??
+      positionals[0] ??
+      'build';
+    const taskIndex = rawArgs.indexOf(taskName);
     const restArgs = taskIndex >= 0 ? rawArgs.slice(taskIndex + 1) : [];
     const action = this.routes[taskName];
 
