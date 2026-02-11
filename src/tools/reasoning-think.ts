@@ -117,7 +117,8 @@ function formatThoughtsToMarkdown(session: Readonly<Session>): string {
 
   const thoughts = session.thoughts
     .map((thought: Thought) => {
-      return `𖦹 Thought ${thought.index} (Revision ${thought.revision})
+      const revisionLabel = thought.revision > 0 ? ` [Revised]` : '';
+      return `𖦹 Thought ${thought.index}${revisionLabel}
 ${thought.content}`;
     })
     .join('\n\n');
