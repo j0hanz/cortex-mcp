@@ -104,26 +104,13 @@ function shouldEmitProgress(
 }
 
 function formatThoughtsToMarkdown(session: Readonly<Session>): string {
-  const header = `# Reasoning Trace
-- **Session ID:** ${session.id}
-- **Level:** ${session.level}
-- **Thoughts:** ${session.thoughts.length}
-- **Token Budget:** ${session.tokenBudget} [Used: ${session.tokensUsed}]
-- **Created:** ${new Date(session.createdAt).toISOString()}
-- **Updated:** ${new Date(session.updatedAt).toISOString()}
-
----
-`;
-
-  const thoughts = session.thoughts
+  return session.thoughts
     .map((thought: Thought) => {
       const revisionLabel = thought.revision > 0 ? ` [Revised]` : '';
-      return `𖦹 Thought ${thought.index}${revisionLabel}
+      return `𖦹 Thought [${String(thought.index)}]${revisionLabel}
 ${thought.content}`;
     })
     .join('\n\n');
-
-  return `${header}\n${thoughts}`;
 }
 
 function buildStructuredResult(
@@ -154,7 +141,9 @@ function buildStructuredResult(
       expiresAt,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
-      summary: `Generated ${String(generatedThoughts)} thought(s) at ${session.level} depth.`,
+      summary: `Generated ${String(generatedThoughts)} out of ${String(
+        requestedThoughts ?? session.thoughts.length
+      )} thoughts at level "${session.level}".`,
     },
   };
 }
@@ -244,7 +233,7 @@ function createProgressHandler(args: {
         progressToken,
         progress,
         total,
-        message: `Generated thought ${String(progress)}/${String(total)} (level: ${level}, task: ${taskId})`,
+        message: `𖦹 Generated thought [${String(progress)}/${String(total)}] [level: ${level}]`,
       },
     });
   };

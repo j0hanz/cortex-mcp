@@ -8,8 +8,19 @@ interface EngineEvents {
   'thought:revised': [
     { sessionId: string; index: number; content: string; revision: number },
   ];
+  'thought:budget-exhausted': [
+    {
+      sessionId: string;
+      tokensUsed: number;
+      tokenBudget: number;
+      generatedThoughts: number;
+      requestedThoughts: number;
+    },
+  ];
   'session:created': [{ sessionId: string; level: ReasoningLevel }];
   'session:expired': [{ sessionId: string }];
+  'session:deleted': [{ sessionId: string }];
+  'resources:changed': [{ uri: string }];
   error: [unknown];
 }
 
@@ -28,15 +39,6 @@ interface TypedEmitter<T> extends Omit<EventEmitter, 'on' | 'off' | 'emit'> {
   ): boolean;
 }
 
-/**
- * Engine event emitter.
- *
- * Events:
- * - 'thought:added': { sessionId, index, content }
- * - 'thought:revised': { sessionId, index, content, revision }
- * - 'session:created': { sessionId, level }
- * - 'session:expired': { sessionId }
- */
 export const engineEvents = new EventEmitter({
   captureRejections: true,
 }) as TypedEmitter<EngineEvents>;

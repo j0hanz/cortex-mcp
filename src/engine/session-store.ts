@@ -45,6 +45,7 @@ export class SessionStore {
       updatedAt: now,
     };
     this.sessions.set(session.id, session);
+    engineEvents.emit('resources:changed', { uri: 'reasoning://sessions' });
     return session;
   }
 
@@ -71,7 +72,12 @@ export class SessionStore {
   }
 
   delete(id: string): boolean {
-    return this.sessions.delete(id);
+    const deleted = this.sessions.delete(id);
+    if (deleted) {
+      engineEvents.emit('session:deleted', { sessionId: id });
+      engineEvents.emit('resources:changed', { uri: 'reasoning://sessions' });
+    }
+    return deleted;
   }
 
   addThought(sessionId: string, content: string): Thought {
@@ -120,11 +126,16 @@ export class SessionStore {
 
   private sweep(): void {
     const now = Date.now();
+    let changed = false;
     for (const session of this.sessions.values()) {
       if (session.updatedAt + this.ttlMs < now) {
         this.sessions.delete(session.id);
         engineEvents.emit('session:expired', { sessionId: session.id });
+        changed = true;
       }
+    }
+    if (changed) {
+      engineEvents.emit('resources:changed', { uri: 'reasoning://sessions' });
     }
   }
 }

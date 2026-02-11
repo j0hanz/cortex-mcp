@@ -4,6 +4,8 @@ import { findPackageJSON } from 'node:module';
 import { InMemoryTaskStore } from '@modelcontextprotocol/sdk/experimental/tasks';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
+import { engineEvents } from './engine/events.js';
+
 import { loadInstructions } from './lib/instructions.js';
 import type { IconMeta } from './lib/types.js';
 
@@ -97,6 +99,36 @@ export function createServer(): McpServer {
   registerAllTools(server, iconMeta);
   registerAllPrompts(server, iconMeta);
   registerAllResources(server, iconMeta);
+
+  engineEvents.on('resources:changed', () => {
+    server.server
+      .notification({
+        method: 'notifications/resources/list_changed',
+        params: {},
+      })
+      .catch(() => {
+        // Never fail on notification errors
+      });
+  });
+
+  engineEvents.on('thought:budget-exhausted', (data) => {
+    server
+      .sendLoggingMessage({
+        level: 'notice',
+        logger: 'cortex-mcp.reasoner',
+        data: {
+          event: 'budget_exhausted',
+          sessionId: data.sessionId,
+          tokensUsed: data.tokensUsed,
+          tokenBudget: data.tokenBudget,
+          generatedThoughts: data.generatedThoughts,
+          requestedThoughts: data.requestedThoughts,
+        },
+      })
+      .catch(() => {
+        // Never fail on logging errors
+      });
+  });
 
   return server;
 }

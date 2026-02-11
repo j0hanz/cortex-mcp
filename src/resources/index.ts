@@ -45,6 +45,13 @@ function serializeJson(data: unknown): string {
   return JSON.stringify(data, null, 2);
 }
 
+interface CompletionCacheEntry {
+  results: string[];
+  timestamp: number;
+}
+
+const completionCache = new Map<string, CompletionCacheEntry>();
+
 export function registerAllResources(
   server: McpServer,
   iconMeta?: IconMeta
@@ -138,12 +145,25 @@ export function registerAllResources(
         })),
       }),
       complete: {
-        sessionId: (value) =>
-          sessionStore
+        sessionId: (value) => {
+          const cacheKey = `sessionId:${value}`;
+          const cached = completionCache.get(cacheKey);
+          const now = Date.now();
+
+          // Cache for 1 second to prevent enumeration attacks
+          if (cached && now - cached.timestamp < 1000) {
+            return cached.results;
+          }
+
+          const results = sessionStore
             .list()
             .map((session) => session.id)
             .filter((sessionId) => sessionId.startsWith(value))
-            .slice(0, 20),
+            .slice(0, 20);
+
+          completionCache.set(cacheKey, { results, timestamp: now });
+          return results;
+        },
       },
     }
   );
