@@ -14,8 +14,6 @@ import { engineEvents } from './events.js';
 const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 function estimateTokens(text: string): number {
-  // Fast, deterministic approximation suitable for relative budget tracking.
-  // Use UTF-8 byte length so non-ASCII text is not systematically under-counted.
   const byteLength = Buffer.byteLength(text, 'utf8');
   return Math.max(1, Math.ceil(byteLength / 4));
 }
@@ -27,8 +25,7 @@ export class SessionStore {
 
   constructor(ttlMs: number = DEFAULT_TTL_MS) {
     this.ttlMs = ttlMs;
-    // Sweep every minute or matching TTL if smaller (for tests)
-    const sweepInterval = Math.max(10, Math.min(60 * 1000, ttlMs));
+    const sweepInterval = Math.max(10, Math.min(60_000, ttlMs));
     this.cleanupInterval = setInterval(() => {
       this.sweep();
     }, sweepInterval);

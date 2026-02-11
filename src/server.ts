@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { findPackageJSON } from 'node:module';
 
 import { InMemoryTaskStore } from '@modelcontextprotocol/sdk/experimental/tasks';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -34,10 +35,12 @@ function getLocalIconData(): string | undefined {
 }
 
 function loadVersion(): string {
-  const packageJson = readFileSync(
-    new URL('../package.json', import.meta.url),
-    'utf8'
-  );
+  const packageJsonPath = findPackageJSON(import.meta.url);
+  if (!packageJsonPath) {
+    throw new Error('Unable to locate package.json for cortex-mcp.');
+  }
+
+  const packageJson = readFileSync(packageJsonPath, 'utf8');
   return (JSON.parse(packageJson) as { version: string }).version;
 }
 
@@ -56,6 +59,7 @@ export function createServer(): McpServer {
       title: 'Cortex MCP',
       description:
         'Multi-level reasoning MCP server with configurable depth levels.',
+      websiteUrl: 'https://github.com/j0hanz/cortex-mcp',
       version,
       ...(iconMeta
         ? {

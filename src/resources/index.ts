@@ -56,7 +56,7 @@ export function registerAllResources(
     'internal://instructions',
     {
       title: 'Server Instructions',
-      description: 'Guidance for using the cortex-mcp tools effectively.',
+      description: 'Usage instructions for the MCP server.',
       mimeType: 'text/markdown',
       annotations: { audience: ['assistant'], priority: 0.8 },
       ...(iconMeta
@@ -83,7 +83,8 @@ export function registerAllResources(
     'reasoning://sessions',
     {
       title: 'Reasoning Sessions',
-      description: 'List all active reasoning sessions.',
+      description:
+        'List of active reasoning sessions with summaries. Updated in real-time as sessions progress.',
       mimeType: 'application/json',
       ...(iconMeta
         ? {
@@ -152,7 +153,8 @@ export function registerAllResources(
     sessionTemplate,
     {
       title: 'Reasoning Session Detail',
-      description: 'Inspect one reasoning session by sessionId.',
+      description:
+        'Detailed view of a single reasoning session, including all thoughts and metadata.',
       mimeType: 'application/json',
       ...(iconMeta
         ? {

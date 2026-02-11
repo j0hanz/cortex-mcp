@@ -190,42 +190,59 @@ function throwIfReasoningAborted(signal?: AbortSignal): void {
   }
 }
 
-function generateReasoningSteps(query: string, count: number): string[] {
-  const steps: string[] = [];
-  const templates = [
-    `Understanding the problem: "${truncate(query, 200)}"`,
-    `Identifying key components and constraints in the query`,
-    `Breaking down the problem into sub-problems`,
-    `Analyzing relationships between identified components`,
-    `Considering edge cases and boundary conditions`,
-    `Evaluating potential approaches and methodologies`,
-    `Selecting the most promising approach based on analysis`,
-    `Developing the solution framework step by step`,
-    `Validating intermediate results against requirements`,
-    `Checking logical consistency of the reasoning chain`,
-    `Refining the analysis with additional considerations`,
-    `Exploring alternative perspectives on the problem`,
-    `Synthesizing findings from multiple angles`,
-    `Evaluating trade-offs between competing solutions`,
-    `Assessing confidence levels in preliminary conclusions`,
-    `Identifying assumptions that need verification`,
-    `Testing the solution against known constraints`,
-    `Optimizing the reasoning path for completeness`,
-    `Cross-referencing conclusions with initial premises`,
-    `Performing final validation of the complete analysis`,
-    `Preparing a comprehensive summary of findings`,
-    `Documenting key insights and decision points`,
-    `Reviewing the logical flow from premises to conclusion`,
-    `Consolidating the final answer with supporting evidence`,
-    `Concluding the analysis with actionable recommendations`,
-  ];
+const OPENING_TEMPLATE = 'Parsing the query and identifying the core problem';
 
-  for (let i = 0; i < count; i++) {
-    const template = templates[i % templates.length] ?? '';
-    steps.push(`Step ${String(i + 1)}/${String(count)}: ${template}`);
+const MIDDLE_TEMPLATES: readonly string[] = [
+  'Identifying key components and constraints',
+  'Breaking down the problem into sub-problems',
+  'Mapping relationships between identified components',
+  'Considering edge cases and boundary conditions',
+  'Surveying the problem space for hidden assumptions',
+  'Clarifying ambiguous terms and scoping the question',
+  'Evaluating potential approaches and methodologies',
+  'Selecting the most promising approach based on trade-offs',
+  'Developing the solution framework step by step',
+  'Checking logical consistency of intermediate conclusions',
+  'Exploring alternative perspectives on the problem',
+  'Assessing confidence levels in preliminary findings',
+  'Identifying assumptions that require verification',
+  'Weighing trade-offs between competing solutions',
+  'Testing preliminary results against known constraints',
+  'Examining second-order effects and implications',
+  'Synthesizing findings from multiple angles of analysis',
+  'Cross-referencing conclusions with initial premises',
+  'Refining the analysis with additional considerations',
+  'Validating the complete reasoning chain for coherence',
+  'Optimizing the reasoning path for gaps or redundancies',
+  'Reviewing the logical flow from premises to conclusion',
+  'Documenting key insights and decision points',
+];
+
+const CONCLUSION_TEMPLATE =
+  'Consolidating the final answer with supporting evidence';
+function generateReasoningSteps(query: string, count: number): string[] {
+  if (count <= 0) return [];
+
+  const steps: string[] = [];
+  const truncatedQuery = truncate(query, 200);
+
+  steps.push(formatStep(1, count, `${OPENING_TEMPLATE}: "${truncatedQuery}"`));
+
+  if (count <= 1) return steps;
+
+  const middleCount = count - 2;
+  for (let i = 0; i < middleCount; i++) {
+    const template = MIDDLE_TEMPLATES[i % MIDDLE_TEMPLATES.length] ?? '';
+    steps.push(formatStep(i + 2, count, template));
   }
 
+  steps.push(formatStep(count, count, CONCLUSION_TEMPLATE));
+
   return steps;
+}
+
+function formatStep(step: number, total: number, description: string): string {
+  return `Step ${String(step)}/${String(total)}: ${description}`;
 }
 
 function truncate(str: string, maxLength: number): string {
