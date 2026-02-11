@@ -59,6 +59,13 @@ const TASK_TIMEOUT_MS =
     ? DEFAULT_TASK_TIMEOUT_MS
     : undefined;
 
+function getReasonText(reason) {
+  if (reason instanceof Error) {
+    return reason.message;
+  }
+  return reason ? String(reason) : undefined;
+}
+
 // --- Infrastructure Layer (IO & System) ---
 const Logger = {
   startGroup: (name) => process.stdout.write(`> ${name}... `),
@@ -122,13 +129,7 @@ const System = {
           : (options.signal ?? timeoutSignal);
 
       if (combinedSignal?.aborted) {
-        const reason = combinedSignal.reason;
-        const reasonText =
-          reason instanceof Error
-            ? reason.message
-            : reason
-              ? String(reason)
-              : undefined;
+        const reasonText = getReasonText(combinedSignal.reason);
         reject(
           new Error(
             `${command} aborted before start${reasonText ? `: ${reasonText}` : ''}`
@@ -169,18 +170,22 @@ const System = {
 
       proc.on('error', (error) => {
         cleanup();
+        if (aborted) {
+          const reasonText = getReasonText(abortReason);
+          reject(
+            new Error(
+              `${command} aborted${reasonText ? `: ${reasonText}` : ''}`
+            )
+          );
+          return;
+        }
         reject(error);
       });
 
       proc.on('close', (code, signal) => {
         cleanup();
         if (aborted) {
-          const reasonText =
-            abortReason instanceof Error
-              ? abortReason.message
-              : abortReason
-                ? String(abortReason)
-                : undefined;
+          const reasonText = getReasonText(abortReason);
           const suffix = signal ? ` (signal ${signal})` : '';
           reject(
             new Error(
@@ -222,14 +227,20 @@ const BuildTasks = {
     if (await System.isDirectory(CONFIG.paths.assets)) {
       try {
         const files = await readdir(CONFIG.paths.assets);
-        for (const file of files) {
-          if (/^logo\.(svg|png|jpe?g)$/i.test(file)) {
+        const iconFiles = files.filter((file) =>
+          /^logo\.(svg|png|jpe?g)$/i.test(file)
+        );
+        const sizes = await Promise.all(
+          iconFiles.map(async (file) => {
             const stats = await stat(join(CONFIG.paths.assets, file));
-            if (stats.size >= 2 * 1024 * 1024) {
-              Logger.info(
-                `[WARNING] Icon ${file} is size ${stats.size} bytes (>= 2MB). Large icons may be rejected by clients.`
-              );
-            }
+            return { file, size: stats.size };
+          })
+        );
+        for (const { file, size } of sizes) {
+          if (size >= 2 * 1024 * 1024) {
+            Logger.info(
+              `[WARNING] Icon ${file} is size ${size} bytes (>= 2MB). Large icons may be rejected by clients.`
+            );
           }
         }
       } catch {
@@ -249,13 +260,19 @@ const BuildTasks = {
 
 // --- Test Helpers (Pure Functions) ---
 async function detectTestLoader() {
-  if (await System.exists('node_modules/tsx')) {
+  try {
+    require.resolve('tsx/esm');
     return ['--import', 'tsx/esm'];
+  } catch {
+    // continue checking next loader
   }
-  if (await System.exists('node_modules/ts-node')) {
+
+  try {
+    require.resolve('ts-node/esm');
     return ['--loader', 'ts-node/esm'];
+  } catch {
+    return [];
   }
-  return [];
 }
 
 function getCoverageArgs(args) {
@@ -264,23 +281,9 @@ function getCoverageArgs(args) {
 
 async function findTestPatterns() {
   const matches = await Promise.all(
-    CONFIG.test.patterns.map(async (pattern) => {
-      const files = [];
-      for await (const entry of glob(pattern)) {
-        files.push(entry);
-      }
-      return files;
-    })
+    CONFIG.test.patterns.map((pattern) => Array.fromAsync(glob(pattern)))
   );
-
-  const files = new Set();
-  for (const group of matches) {
-    for (const file of group) {
-      files.add(file);
-    }
-  }
-
-  return [...files].sort();
+  return [...new Set(matches.flat())].sort();
 }
 
 const TestTasks = {

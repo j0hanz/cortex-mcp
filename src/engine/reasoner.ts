@@ -28,6 +28,11 @@ export async function reason(
     if (!existing) {
       throw new Error(`Session not found: ${sessionId}`);
     }
+    if (existing.level !== level) {
+      throw new Error(
+        `Session level mismatch: requested ${level}, existing ${existing.level}`
+      );
+    }
     session = existing;
   } else {
     session = sessionStore.create(level);
@@ -43,12 +48,11 @@ export async function reason(
   return runWithContext(
     { sessionId: session.id, ...(abortSignal ? { abortSignal } : {}) },
     async () => {
+      throwIfReasoningAborted(abortSignal);
       const steps = generateReasoningSteps(query, totalThoughts);
 
       for (let i = 0; i < steps.length; i++) {
-        if (abortSignal?.aborted) {
-          throw new Error('Reasoning aborted');
-        }
+        throwIfReasoningAborted(abortSignal);
 
         const stepContent = steps[i];
         if (!stepContent) throw new Error('Step content missing');
@@ -62,6 +66,7 @@ export async function reason(
 
         if (onProgress) {
           await onProgress(i + 1, totalThoughts);
+          throwIfReasoningAborted(abortSignal);
         }
       }
 
@@ -72,6 +77,17 @@ export async function reason(
       return result;
     }
   );
+}
+
+function throwIfReasoningAborted(signal?: AbortSignal): void {
+  if (!signal) {
+    return;
+  }
+  try {
+    signal.throwIfAborted();
+  } catch {
+    throw new Error('Reasoning aborted');
+  }
 }
 
 function generateReasoningSteps(query: string, count: number): string[] {

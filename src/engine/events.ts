@@ -1,5 +1,7 @@
 import { EventEmitter } from 'node:events';
 
+import { getErrorMessage } from '../lib/errors.js';
+
 /**
  * Engine event emitter.
  *
@@ -9,8 +11,8 @@ import { EventEmitter } from 'node:events';
  * - 'session:created': { sessionId, level }
  * - 'session:expired': { sessionId }
  */
-export const engineEvents = new EventEmitter();
+export const engineEvents = new EventEmitter({ captureRejections: true });
 
 engineEvents.on('error', (err) => {
-  console.error('[engine]', err);
+  process.stderr.write(`[engine] ${getErrorMessage(err)}\n`);
 });

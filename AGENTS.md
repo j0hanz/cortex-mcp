@@ -6,7 +6,7 @@
 
 - **Domain:** Multi-level reasoning MCP server with configurable depth levels.
 - **Tech Stack (Verified):**
-  - **Languages:** TypeScript 5.9+, Node.js >=20 (see `package.json`)
+  - **Languages:** TypeScript 5.9+, Node.js >=24 (see `package.json`)
   - **Frameworks:** MCP SDK (`@modelcontextprotocol/sdk`), Node.js native test runner (`node:test`) (see `package.json`, `scripts/tasks.mjs`)
   - **Key Libraries:** `zod` (validation), `tsx` (execution) (see `package.json`)
 - **Architecture:** Modular server architecture separating core reasoning engine (`src/engine/`), tool definitions (`src/tools/`), and transport layer (`src/index.ts`).
@@ -24,7 +24,7 @@
 
 ## 3) Operational Commands (Verified)
 
-- **Environment:** Node.js >= 20 (see `package.json` engines)
+- **Environment:** Node.js >= 24 (see `package.json` engines)
 - **Install:** `npm install` (see `package-lock.json`)
 - **Dev:** `npm run inspector` (runs MCP inspector on built server) (see `package.json`)
 - **Test:** `npm test` (executes `node --test` via `scripts/tasks.mjs`) (see `package.json`, `scripts/tasks.mjs`)

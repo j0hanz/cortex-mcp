@@ -24,6 +24,20 @@ describe('getErrorMessage', () => {
   it('stringifies non-string non-Error values', () => {
     assert.equal(getErrorMessage(42), '42');
   });
+
+  it('returns message from error-like objects', () => {
+    const payload = { message: 'wrapped error message' };
+    assert.equal(getErrorMessage(payload), 'wrapped error message');
+  });
+
+  it('falls back to inspect for circular values', () => {
+    const circular: { self?: unknown } = {};
+    circular.self = circular;
+
+    const message = getErrorMessage(circular);
+    assert.notEqual(message, 'Unknown error (serialization failed)');
+    assert.match(message, /Circular|self/);
+  });
 });
 
 describe('createToolResponse', () => {

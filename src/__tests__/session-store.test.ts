@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
+import { once } from 'node:events';
 import { describe, it } from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
 
+import { engineEvents } from '../engine/events.js';
 import { SessionStore } from '../engine/session-store.js';
 
 describe('SessionStore', () => {
@@ -125,6 +128,60 @@ describe('SessionStore', () => {
       const store = new SessionStore();
       const session = store.create('basic');
       assert.throws(() => store.reviseThought(session.id, 99, 'content'));
+    });
+  });
+
+  describe('ttl', () => {
+    it('expires sessions and emits session:expired', async () => {
+      const store = new SessionStore(10);
+      const session = store.create('basic');
+      const timeoutSignal = AbortSignal.timeout(500);
+      let expiredSessionId: unknown;
+      do {
+        const [payload] = (await once(engineEvents, 'session:expired', {
+          signal: timeoutSignal,
+        })) as [{ sessionId?: unknown }];
+        expiredSessionId = payload.sessionId;
+      } while (expiredSessionId !== session.id);
+
+      assert.equal(store.get(session.id), undefined);
+    });
+
+    it('refreshes ttl on activity', async () => {
+      const store = new SessionStore(40);
+      const session = store.create('basic');
+
+      await delay(25);
+      store.addThought(session.id, 'keep alive');
+      await delay(25);
+
+      assert.notEqual(store.get(session.id), undefined);
+      store.delete(session.id);
+    });
+
+    it('does not emit expiration after explicit delete', async () => {
+      const store = new SessionStore(20);
+      const session = store.create('basic');
+      const onExpired = (payload: unknown): void => {
+        if (
+          typeof payload === 'object' &&
+          payload !== null &&
+          'sessionId' in payload &&
+          payload.sessionId === session.id
+        ) {
+          assert.fail('Did not expect session:expired after manual delete');
+        }
+      };
+
+      engineEvents.on('session:expired', onExpired);
+      store.delete(session.id);
+      try {
+        await delay(50);
+      } finally {
+        engineEvents.off('session:expired', onExpired);
+      }
+
+      assert.equal(store.get(session.id), undefined);
     });
   });
 });

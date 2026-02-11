@@ -23,13 +23,10 @@ describe('reason', () => {
   });
 
   it('aborts when signal fires', async () => {
-    const controller = new AbortController();
-    controller.abort();
-
     await assert.rejects(
       () =>
         reason('test', 'basic', {
-          abortSignal: controller.signal,
+          abortSignal: AbortSignal.abort(),
         }),
       { message: 'Reasoning aborted' }
     );
@@ -58,6 +55,18 @@ describe('reason', () => {
 
     assert.equal(second.id, first.id);
     assert.equal(second.thoughts.length, 10); // 5 + 5
+    sessionStore.delete(first.id);
+  });
+
+  it('rejects reusing a session with a different level', async () => {
+    const first = await reason('Initial query', 'basic');
+    await assert.rejects(
+      () =>
+        reason('Follow-up', 'high', {
+          sessionId: first.id,
+        }),
+      { message: /Session level mismatch/ }
+    );
     sessionStore.delete(first.id);
   });
 

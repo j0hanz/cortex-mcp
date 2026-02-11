@@ -11,7 +11,7 @@ Multi-level reasoning MCP server that performs structured step-by-step reasoning
 
 ## Prerequisites
 
-- Node.js >= 20
+- Node.js >= 24
 - npm
 
 ## Installation

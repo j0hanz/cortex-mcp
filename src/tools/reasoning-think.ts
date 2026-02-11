@@ -8,6 +8,19 @@ import { ReasoningThinkResultSchema } from '../schemas/outputs.js';
 import { createErrorResponse, getErrorMessage } from '../lib/errors.js';
 import { createToolResponse } from '../lib/tool-response.js';
 
+function mapReasoningErrorCode(message: string): string {
+  if (message === 'Reasoning aborted') {
+    return 'E_ABORTED';
+  }
+  if (message.startsWith('Session not found:')) {
+    return 'E_SESSION_NOT_FOUND';
+  }
+  if (message.startsWith('Session level mismatch:')) {
+    return 'E_SESSION_LEVEL_MISMATCH';
+  }
+  return 'E_REASONING';
+}
+
 export function registerReasoningThinkTool(server: McpServer): void {
   server.registerTool(
     'reasoning.think',
@@ -40,6 +53,7 @@ export function registerReasoningThinkTool(server: McpServer): void {
                     progressToken,
                     progress,
                     total,
+                    message: `꩜ Generated thought ${String(progress)}/${String(total)}`,
                   },
                 });
               }
@@ -69,7 +83,8 @@ export function registerReasoningThinkTool(server: McpServer): void {
 
         return createToolResponse(structured);
       } catch (err) {
-        return createErrorResponse('E_REASONING', getErrorMessage(err));
+        const message = getErrorMessage(err);
+        return createErrorResponse(mapReasoningErrorCode(message), message);
       }
     }
   );

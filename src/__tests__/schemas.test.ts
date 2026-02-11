@@ -100,6 +100,14 @@ describe('ReasoningThinkResultSchema', () => {
     assert.equal(result.success, true);
   });
 
+  it('accepts valid error result', () => {
+    const result = ReasoningThinkResultSchema.safeParse({
+      ok: false,
+      error: { code: 'E_TEST', message: 'failure' },
+    });
+    assert.equal(result.success, true);
+  });
+
   it('rejects malformed result', () => {
     const result = ReasoningThinkResultSchema.safeParse({
       ok: true,
@@ -107,6 +115,13 @@ describe('ReasoningThinkResultSchema', () => {
         sessionId: 'abc-123',
         // missing required fields
       },
+    });
+    assert.equal(result.success, false);
+  });
+
+  it('rejects ok=false responses without error', () => {
+    const result = ReasoningThinkResultSchema.safeParse({
+      ok: false,
     });
     assert.equal(result.success, false);
   });

@@ -8,6 +8,7 @@ import type {
 } from '../lib/types.js';
 
 import { LEVEL_CONFIGS } from './config.js';
+import { engineEvents } from './events.js';
 
 const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -22,14 +23,15 @@ export class SessionStore {
 
   create(level: ReasoningLevel): Session {
     const config: LevelConfig = LEVEL_CONFIGS[level];
+    const now = Date.now();
     const session: Session = {
       id: randomUUID(),
       level,
       thoughts: [],
       tokenBudget: config.tokenBudget,
       tokensUsed: 0,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
     };
     this.sessions.set(session.id, session);
     this.scheduleTtl(session.id);
@@ -92,8 +94,11 @@ export class SessionStore {
 
   private scheduleTtl(sessionId: string): void {
     const timer = setTimeout(() => {
-      this.sessions.delete(sessionId);
+      const didExpire = this.sessions.delete(sessionId);
       this.timers.delete(sessionId);
+      if (didExpire) {
+        engineEvents.emit('session:expired', { sessionId });
+      }
     }, this.ttlMs);
     timer.unref();
     this.timers.set(sessionId, timer);
@@ -108,7 +113,11 @@ export class SessionStore {
   }
 
   private resetTtl(sessionId: string): void {
-    this.clearTtl(sessionId);
-    this.scheduleTtl(sessionId);
+    const timer = this.timers.get(sessionId);
+    if (!timer) {
+      this.scheduleTtl(sessionId);
+      return;
+    }
+    timer.refresh();
   }
 }
