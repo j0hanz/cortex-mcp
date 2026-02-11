@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
 import { describe, it } from 'node:test';
 
 import { reason, sessionStore } from '../engine/reasoner.js';
@@ -106,5 +107,19 @@ describe('reason', () => {
         }),
       { message: /targetThoughts must be between 3 and 5/ }
     );
+  });
+
+  it('truncates unicode queries without UTF-8 replacement artifacts', async () => {
+    const session = await reason('😀'.repeat(300), 'basic', {
+      targetThoughts: 3,
+    });
+
+    const firstThought = session.thoughts[0];
+    assert.ok(firstThought);
+    const encoded = Buffer.from(firstThought.content, 'utf8');
+    const replacementChar = Buffer.from([0xef, 0xbf, 0xbd]);
+    assert.equal(encoded.includes(replacementChar), false);
+
+    sessionStore.delete(session.id);
   });
 });

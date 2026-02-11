@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer';
+
 import type { ReasoningLevel, Session } from '../lib/types.js';
 
 import { LEVEL_CONFIGS } from './config.js';
@@ -108,7 +110,8 @@ function resolveThoughtCount(
   const span = config.maxThoughts - config.minThoughts;
 
   // Heuristic: longer and more structurally complex prompts get deeper reasoning.
-  const lengthScore = Math.min(1, queryText.length / 400);
+  const queryByteLength = Buffer.byteLength(queryText, 'utf8');
+  const lengthScore = Math.min(1, queryByteLength / 400);
   const markerMatches = queryText.match(/[?:;,\n]/g)?.length ?? 0;
   const markerScore = Math.min(0.4, markerMatches * 0.05);
   const keywordScore =
@@ -170,8 +173,29 @@ function generateReasoningSteps(query: string, count: number): string[] {
 }
 
 function truncate(str: string, maxLength: number): string {
-  if (str.length <= maxLength) {
+  const suffix = '...';
+  const maxBytes = Math.max(0, maxLength);
+  const suffixBytes = Buffer.byteLength(suffix, 'utf8');
+
+  if (Buffer.byteLength(str, 'utf8') <= maxBytes) {
     return str;
   }
-  return `${str.slice(0, maxLength - 3)}...`;
+  if (maxBytes <= suffixBytes) {
+    return suffix.slice(0, maxBytes);
+  }
+
+  const targetBytes = maxBytes - suffixBytes;
+  let current = '';
+  let usedBytes = 0;
+
+  for (const codePoint of str) {
+    const codePointBytes = Buffer.byteLength(codePoint, 'utf8');
+    if (usedBytes + codePointBytes > targetBytes) {
+      break;
+    }
+    current += codePoint;
+    usedBytes += codePointBytes;
+  }
+
+  return `${current}${suffix}`;
 }

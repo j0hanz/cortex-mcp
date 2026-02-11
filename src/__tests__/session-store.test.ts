@@ -94,6 +94,15 @@ describe('SessionStore', () => {
       assert.equal(updated.tokensUsed, 2);
     });
 
+    it('estimates tokens using UTF-8 bytes for non-ASCII text', () => {
+      const store = new SessionStore();
+      const session = store.create('basic');
+
+      store.addThought(session.id, '😀😀');
+      const updated = store.get(session.id)!;
+      assert.equal(updated.tokensUsed, 2);
+    });
+
     it('throws for non-existent session', () => {
       const store = new SessionStore();
       assert.throws(() => store.addThought('non-existent', 'content'));

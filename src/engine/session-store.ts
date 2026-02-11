@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { randomUUID } from 'node:crypto';
 
 import type {
@@ -14,7 +15,9 @@ export const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 function estimateTokens(text: string): number {
   // Fast, deterministic approximation suitable for relative budget tracking.
-  return Math.max(1, Math.ceil(text.length / 4));
+  // Use UTF-8 byte length so non-ASCII text is not systematically under-counted.
+  const byteLength = Buffer.byteLength(text, 'utf8');
+  return Math.max(1, Math.ceil(byteLength / 4));
 }
 
 export class SessionStore {
