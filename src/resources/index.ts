@@ -72,7 +72,6 @@ export function registerAllResources(
               {
                 src: iconMeta.src,
                 mimeType: iconMeta.mimeType,
-                sizes: iconMeta.sizes,
               },
             ],
           }
@@ -93,13 +92,16 @@ export function registerAllResources(
       description:
         'List of active reasoning sessions with summaries. Updated in real-time as sessions progress.',
       mimeType: 'application/json',
+      annotations: {
+        audience: ['assistant', 'user'],
+        priority: 0.7,
+      },
       ...(iconMeta
         ? {
             icons: [
               {
                 src: iconMeta.src,
                 mimeType: iconMeta.mimeType,
-                sizes: iconMeta.sizes,
               },
             ],
           }
@@ -182,7 +184,6 @@ export function registerAllResources(
               {
                 src: iconMeta.src,
                 mimeType: iconMeta.mimeType,
-                sizes: iconMeta.sizes,
               },
             ],
           }

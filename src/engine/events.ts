@@ -21,6 +21,7 @@ interface EngineEvents {
   'session:expired': [{ sessionId: string }];
   'session:deleted': [{ sessionId: string }];
   'resources:changed': [{ uri: string }];
+  'resource:updated': [{ uri: string }];
   error: [unknown];
 }
 

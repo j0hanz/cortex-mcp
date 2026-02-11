@@ -34,7 +34,6 @@ function registerLevelPrompt(
               {
                 src: iconMeta.src,
                 mimeType: iconMeta.mimeType,
-                sizes: iconMeta.sizes,
               },
             ],
           }
@@ -92,7 +91,6 @@ export function registerAllPrompts(
               {
                 src: iconMeta.src,
                 mimeType: iconMeta.mimeType,
-                sizes: iconMeta.sizes,
               },
             ],
           }
@@ -121,7 +119,6 @@ export function registerAllPrompts(
               {
                 src: iconMeta.src,
                 mimeType: iconMeta.mimeType,
-                sizes: iconMeta.sizes,
               },
             ],
           }

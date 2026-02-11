@@ -28,6 +28,12 @@ These instructions are available as a resource (`internal://instructions`) or pr
 - `reasoning://sessions`: List all active reasoning sessions with metadata (JSON).
 - `reasoning://sessions/{sessionId}`: Inspect a specific session's thoughts and metadata (JSON). Supports auto-completion on `sessionId`.
 
+### Resource Subscriptions
+
+- The server supports `resources/subscribe` for real-time change notifications on individual resources.
+- Subscribe to `reasoning://sessions/{sessionId}` to receive `notifications/resources/updated` when thoughts are added or revised.
+- Use subscriptions to monitor session progress without polling.
+
 ---
 
 ## PROGRESS & TASKS

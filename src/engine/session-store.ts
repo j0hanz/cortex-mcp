@@ -94,6 +94,9 @@ export class SessionStore {
     session.thoughts.push(thought);
     session.tokensUsed += estimateTokens(content);
     session.updatedAt = Date.now();
+    engineEvents.emit('resource:updated', {
+      uri: `reasoning://sessions/${sessionId}`,
+    });
     return thought;
   }
 
@@ -122,6 +125,9 @@ export class SessionStore {
     session.tokensUsed =
       session.tokensUsed - oldTokens + estimateTokens(content);
     session.updatedAt = Date.now();
+    engineEvents.emit('resource:updated', {
+      uri: `reasoning://sessions/${sessionId}`,
+    });
     return revised;
   }
 

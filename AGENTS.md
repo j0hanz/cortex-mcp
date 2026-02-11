@@ -19,7 +19,7 @@
 ## 2) Repository Map (High-Level)
 
 - `src/index.ts`: CLI entrypoint — shebang, stdio transport wiring, SIGTERM/SIGINT shutdown handlers
-- `src/server.ts`: `McpServer` instance creation, capability declaration, tool/prompt/resource registration
+- `src/server.ts`: `McpServer` instance creation, capability declaration, tool/prompt/resource registration, resource subscription support
 - `src/tools/`: Tool implementations — one file per tool; `index.ts` barrel exports `registerAllTools()`
 - `src/tools/reasoning-think.ts`: Core `reasoning.think` tool with task support and progress reporting
 - `src/engine/`: Reasoning engine — session store, level configs, `AsyncLocalStorage` context, `EventEmitter` events, `reason()` function

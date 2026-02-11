@@ -26,5 +26,5 @@ export interface LevelConfig {
 export interface IconMeta {
   src: string;
   mimeType: string;
-  sizes: string[];
+  sizes?: string[];
 }

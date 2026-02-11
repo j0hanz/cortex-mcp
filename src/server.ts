@@ -17,7 +17,6 @@ import { registerAllPrompts } from './prompts/index.js';
 import { registerAllResources } from './resources/index.js';
 
 const ICON_MIME = 'image/svg+xml';
-const ICON_SIZES: string[] = ['any'];
 
 interface BudgetExhaustedEvent {
   sessionId: string;
@@ -74,6 +73,27 @@ function attachEngineEventHandlers(server: McpServer): () => void {
     });
   };
 
+  const onResourceUpdated = (data: { uri: string }): void => {
+    void server.server
+      .sendResourceUpdated({ uri: data.uri })
+      .catch((err: unknown) => {
+        void server
+          .sendLoggingMessage({
+            level: 'debug',
+            logger: 'cortex-mcp.server',
+            data: {
+              event: 'notification_failed',
+              method: 'resources/updated',
+              uri: data.uri,
+              error: getErrorMessage(err),
+            },
+          })
+          .catch(() => {
+            // Never fail on logging errors.
+          });
+      });
+  };
+
   const onBudgetExhausted = (data: BudgetExhaustedEvent): void => {
     void server
       .sendLoggingMessage({
@@ -97,6 +117,7 @@ function attachEngineEventHandlers(server: McpServer): () => void {
   };
 
   engineEvents.on('resources:changed', onResourcesChanged);
+  engineEvents.on('resource:updated', onResourceUpdated);
   engineEvents.on('thought:budget-exhausted', onBudgetExhausted);
 
   let detached = false;
@@ -106,6 +127,7 @@ function attachEngineEventHandlers(server: McpServer): () => void {
     }
     detached = true;
     engineEvents.off('resources:changed', onResourcesChanged);
+    engineEvents.off('resource:updated', onResourceUpdated);
     engineEvents.off('thought:budget-exhausted', onBudgetExhausted);
   };
 }
@@ -131,7 +153,7 @@ export function createServer(): McpServer {
   const taskStore = new InMemoryTaskStore();
   const localIcon = getLocalIconData();
   const iconMeta: IconMeta | undefined = localIcon
-    ? { src: localIcon, mimeType: ICON_MIME, sizes: ICON_SIZES }
+    ? { src: localIcon, mimeType: ICON_MIME }
     : undefined;
 
   const server = new McpServer(
@@ -148,7 +170,6 @@ export function createServer(): McpServer {
               {
                 src: iconMeta.src,
                 mimeType: iconMeta.mimeType,
-                sizes: iconMeta.sizes,
               },
             ],
           }
@@ -159,7 +180,7 @@ export function createServer(): McpServer {
         tools: { listChanged: true },
         logging: {},
         prompts: { listChanged: true },
-        resources: { listChanged: true },
+        resources: { subscribe: true, listChanged: true },
         tasks: {
           list: {},
           cancel: {},

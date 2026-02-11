@@ -441,7 +441,10 @@ export function registerReasoningThinkTool(
     {
       title: 'Reasoning Think',
       description:
-        'Perform multi-level reasoning on a query with configurable depth and thought count. Supports progress updates and task cancellation.',
+        'Perform multi-level reasoning on a query. Use this tool when you need to break down complex problems into structured thought chains. ' +
+        'Supports three depth levels: basic (3–5 thoughts, 2K token budget), normal (6–10 thoughts, 8K budget), and high (15–25 thoughts, 32K budget). ' +
+        'Returns a session with accumulated thoughts, token usage, and TTL metadata. ' +
+        'Continue an existing session by providing sessionId. Supports task-augmented execution for long-running high-level reasoning.',
       inputSchema: ReasoningThinkInputSchema,
       outputSchema: ReasoningThinkToolOutputSchema,
       annotations: {
@@ -455,7 +458,6 @@ export function registerReasoningThinkTool(
               {
                 src: iconMeta.src,
                 mimeType: iconMeta.mimeType,
-                sizes: iconMeta.sizes,
               },
             ],
           }
