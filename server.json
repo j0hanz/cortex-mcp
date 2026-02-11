@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.j0hanz/cortex-mcp",
+  "title": "Cortex MCP — Multi-Level Reasoning Server",
+  "description": "Multi-level reasoning MCP server with configurable depth levels",
+  "repository": {
+    "url": "https://github.com/j0hanz/cortex-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/j0hanz/cortex-mcp#readme",
+  "version": "0.1.2",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@j0hanz/cortex-mcp",
+      "version": "0.1.2",
+      "transport": { "type": "stdio" },
+      "packageArguments": []
+    }
+  ]
+}
