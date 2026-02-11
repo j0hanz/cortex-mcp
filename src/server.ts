@@ -6,6 +6,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import { engineEvents } from './engine/events.js';
 
+import { getErrorMessage } from './lib/errors.js';
 import { loadInstructions } from './lib/instructions.js';
 import type { IconMeta } from './lib/types.js';
 
@@ -106,8 +107,20 @@ export function createServer(): McpServer {
         method: 'notifications/resources/list_changed',
         params: {},
       })
-      .catch(() => {
-        // Never fail on notification errors
+      .catch((err: unknown) => {
+        server
+          .sendLoggingMessage({
+            level: 'debug',
+            logger: 'cortex-mcp.server',
+            data: {
+              event: 'notification_failed',
+              method: 'resources/list_changed',
+              error: getErrorMessage(err),
+            },
+          })
+          .catch(() => {
+            // Never fail on logging errors
+          });
       });
   });
 
@@ -125,8 +138,11 @@ export function createServer(): McpServer {
           requestedThoughts: data.requestedThoughts,
         },
       })
-      .catch(() => {
-        // Never fail on logging errors
+      .catch((err: unknown) => {
+        // Never fail on logging errors - use stderr as last resort
+        process.stderr.write(
+          `[cortex-mcp.server] Failed to log budget_exhausted: ${getErrorMessage(err)}\n`
+        );
       });
   });
 

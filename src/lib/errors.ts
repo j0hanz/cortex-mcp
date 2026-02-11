@@ -14,10 +14,7 @@ interface ErrorResponse {
 
 function stringifyUnknown(value: unknown): string {
   try {
-    const serialized = JSON.stringify(value);
-    if (typeof serialized === 'string') {
-      return serialized;
-    }
+    return JSON.stringify(value);
   } catch {
     // Fall through to inspect-based serialization.
   }

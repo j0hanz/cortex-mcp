@@ -46,7 +46,11 @@ export async function reason(
         checkAbort();
 
         const stepContent = steps[i];
-        if (!stepContent) throw new Error('Step content missing');
+        if (!stepContent) {
+          throw new Error(
+            `Step content missing at index ${String(i)}/${String(steps.length)}`
+          );
+        }
 
         const thought = sessionStore.addThought(session.id, stepContent);
         engineEvents.emit('thought:added', {
