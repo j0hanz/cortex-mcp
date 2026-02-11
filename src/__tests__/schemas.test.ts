@@ -68,6 +68,24 @@ describe('ReasoningThinkInputSchema', () => {
     assert.equal(result.success, false);
   });
 
+  it('rejects targetThoughts above max (25)', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'test',
+      level: 'high',
+      targetThoughts: 26,
+    });
+    assert.equal(result.success, false);
+  });
+
+  it('accepts targetThoughts at max (25)', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'test',
+      level: 'high',
+      targetThoughts: 25,
+    });
+    assert.equal(result.success, true);
+  });
+
   it('rejects missing query', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       level: 'basic',

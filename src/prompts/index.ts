@@ -1,9 +1,8 @@
-import { readFileSync } from 'node:fs';
-
 import { z } from 'zod';
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
+import { loadInstructions } from '../lib/instructions.js';
 import type { IconMeta } from '../lib/types.js';
 
 type PromptLevel = 'basic' | 'normal' | 'high';
@@ -17,18 +16,6 @@ function formatTargetThoughts(targetThoughts: number | undefined): string {
     return '';
   }
   return `, targetThoughts=${String(targetThoughts)}`;
-}
-
-function loadInstructions(): string {
-  try {
-    const text = readFileSync(
-      new URL('../instructions.md', import.meta.url),
-      'utf8'
-    ).trim();
-    return text.length > 0 ? text : '(Instructions not available)';
-  } catch {
-    return '(Instructions not available)';
-  }
 }
 
 function registerLevelPrompt(

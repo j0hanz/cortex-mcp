@@ -1,24 +1,11 @@
-import { readFileSync } from 'node:fs';
-
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { McpError } from '@modelcontextprotocol/sdk/types.js';
 
 import { sessionStore } from '../engine/reasoner.js';
 
+import { loadInstructions } from '../lib/instructions.js';
 import type { IconMeta } from '../lib/types.js';
-
-function loadInstructions(): string {
-  try {
-    const text = readFileSync(
-      new URL('../instructions.md', import.meta.url),
-      'utf8'
-    ).trim();
-    return text.length > 0 ? text : '(Instructions not available)';
-  } catch {
-    return '(Instructions not available)';
-  }
-}
 
 function buildSessionSummary(sessionId: string): {
   id: string;

@@ -3,9 +3,10 @@ import { readFileSync } from 'node:fs';
 import { InMemoryTaskStore } from '@modelcontextprotocol/sdk/experimental/tasks';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
+import { loadInstructions } from './lib/instructions.js';
 import type { IconMeta } from './lib/types.js';
 
-import { registerReasoningThinkTool } from './tools/reasoning-think.js';
+import { registerAllTools } from './tools/index.js';
 
 import { registerAllPrompts } from './prompts/index.js';
 
@@ -30,18 +31,6 @@ function getLocalIconData(): string | undefined {
   }
 
   return undefined;
-}
-
-function loadInstructions(): string | undefined {
-  try {
-    const instructions = readFileSync(
-      new URL('instructions.md', import.meta.url),
-      'utf8'
-    ).trim();
-    return instructions.length > 0 ? instructions : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 function loadVersion(): string {
@@ -101,7 +90,7 @@ export function createServer(): McpServer {
     }
   );
 
-  registerReasoningThinkTool(server, iconMeta);
+  registerAllTools(server, iconMeta);
   registerAllPrompts(server, iconMeta);
   registerAllResources(server, iconMeta);
 

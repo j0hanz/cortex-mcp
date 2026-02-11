@@ -55,6 +55,15 @@ export async function reason(
           content: thought.content,
         });
 
+        // Stop generating if the token budget has been exhausted.
+        const current = sessionStore.get(session.id);
+        if (current && current.tokensUsed >= config.tokenBudget) {
+          if (onProgress) {
+            await onProgress(i + 1, totalThoughts);
+          }
+          break;
+        }
+
         if (onProgress) {
           await onProgress(i + 1, totalThoughts);
           checkAbort();

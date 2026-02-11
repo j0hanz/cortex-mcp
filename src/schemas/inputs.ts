@@ -11,7 +11,7 @@ export const ReasoningThinkInputSchema = z.strictObject({
     .number()
     .int()
     .min(1)
-    .max(100)
+    .max(25)
     .optional()
     .describe(
       'Optional explicit thought count. Must fit the selected level range.'
