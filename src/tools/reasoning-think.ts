@@ -3,6 +3,7 @@ import type {
   CallToolResult,
   LoggingLevel,
   Task,
+  TextResourceContents,
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { reason, sessionStore } from '../engine/reasoner.js';
@@ -15,7 +16,12 @@ import { ReasoningThinkResultSchema } from '../schemas/outputs.js';
 
 import { createErrorResponse, getErrorMessage } from '../lib/errors.js';
 import { createToolResponse } from '../lib/tool-response.js';
-import type { IconMeta, ReasoningLevel, Session } from '../lib/types.js';
+import type {
+  IconMeta,
+  ReasoningLevel,
+  Session,
+  Thought,
+} from '../lib/types.js';
 
 type ProgressToken = string | number;
 
@@ -95,6 +101,28 @@ function shouldEmitProgress(
     return true;
   }
   return progress % 2 === 0;
+}
+
+function formatThoughtsToMarkdown(session: Readonly<Session>): string {
+  const header = `# Reasoning Trace
+- **Session ID:** ${session.id}
+- **Level:** ${session.level}
+- **Thoughts:** ${session.thoughts.length}
+- **Token Budget:** ${session.tokenBudget} (Used: ${session.tokensUsed})
+- **Created:** ${new Date(session.createdAt).toISOString()}
+- **Updated:** ${new Date(session.updatedAt).toISOString()}
+
+---
+`;
+
+  const thoughts = session.thoughts
+    .map((thought: Thought) => {
+      return `𖦹 Thought ${thought.index} (Revision ${thought.revision})
+${thought.content}`;
+    })
+    .join('\n\n');
+
+  return `${header}\n${thoughts}`;
 }
 
 function buildStructuredResult(
@@ -366,10 +394,17 @@ async function runReasoningTask(args: {
       targetThoughts
     );
 
+    const markdownTrace = formatThoughtsToMarkdown(session);
+    const embeddedResource: TextResourceContents = {
+      uri: `file:///cortex/sessions/${session.id}/trace.md`,
+      mimeType: 'text/markdown',
+      text: markdownTrace,
+    };
+
     await taskStore.storeTaskResult(
       taskId,
       'completed',
-      createToolResponse(result)
+      createToolResponse(result, embeddedResource)
     );
     await emitLog(
       server,

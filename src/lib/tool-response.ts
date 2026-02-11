@@ -1,11 +1,23 @@
+import type {
+  ContentBlock,
+  TextResourceContents,
+} from '@modelcontextprotocol/sdk/types.js';
+
 export function createToolResponse<T extends object>(
-  structured: T
+  structured: T,
+  embeddedResource?: TextResourceContents
 ): {
-  content: { type: 'text'; text: string }[];
+  content: ContentBlock[];
   structuredContent: T;
 } {
+  const content: ContentBlock[] = [
+    { type: 'text', text: JSON.stringify(structured) },
+  ];
+  if (embeddedResource) {
+    content.push({ type: 'resource', resource: embeddedResource });
+  }
   return {
-    content: [{ type: 'text' as const, text: JSON.stringify(structured) }],
+    content,
     structuredContent: structured,
   };
 }

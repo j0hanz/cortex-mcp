@@ -27,7 +27,51 @@ export async function reason(
 ): Promise<Readonly<Session>> {
   const { sessionId, targetThoughts, abortSignal, onProgress } = options ?? {};
 
-  let session: Readonly<Session>;
+  const session = resolveSession(level, sessionId);
+
+  const config = LEVEL_CONFIGS[level];
+  const totalThoughts = resolveThoughtCount(query, config, targetThoughts);
+
+  return runWithContext(
+    { sessionId: session.id, ...(abortSignal ? { abortSignal } : {}) },
+    async () => {
+      const checkAbort = (): void => {
+        throwIfReasoningAborted(abortSignal);
+      };
+
+      checkAbort();
+      const steps = generateReasoningSteps(query, totalThoughts);
+
+      for (let i = 0; i < steps.length; i++) {
+        checkAbort();
+
+        const stepContent = steps[i];
+        if (!stepContent) throw new Error('Step content missing');
+
+        const thought = sessionStore.addThought(session.id, stepContent);
+        engineEvents.emit('thought:added', {
+          sessionId: session.id,
+          index: thought.index,
+          content: thought.content,
+        });
+
+        if (onProgress) {
+          await onProgress(i + 1, totalThoughts);
+          checkAbort();
+        }
+      }
+
+      const result = sessionStore.get(session.id);
+      if (!result) throw new Error(`Session not found: ${session.id}`);
+      return result;
+    }
+  );
+}
+
+function resolveSession(
+  level: ReasoningLevel,
+  sessionId?: string
+): Readonly<Session> {
   if (sessionId) {
     const existing = sessionStore.get(sessionId);
     if (!existing) {
@@ -38,50 +82,15 @@ export async function reason(
         `Session level mismatch: requested ${level}, existing ${existing.level}`
       );
     }
-    session = existing;
-  } else {
-    session = sessionStore.create(level);
-    engineEvents.emit('session:created', {
-      sessionId: session.id,
-      level,
-    });
+    return existing;
   }
 
-  const config = LEVEL_CONFIGS[level];
-  const totalThoughts = resolveThoughtCount(query, config, targetThoughts);
-
-  return runWithContext(
-    { sessionId: session.id, ...(abortSignal ? { abortSignal } : {}) },
-    async () => {
-      throwIfReasoningAborted(abortSignal);
-      const steps = generateReasoningSteps(query, totalThoughts);
-
-      for (let i = 0; i < steps.length; i++) {
-        throwIfReasoningAborted(abortSignal);
-
-        const stepContent = steps[i];
-        if (!stepContent) throw new Error('Step content missing');
-        const thought = sessionStore.addThought(session.id, stepContent);
-
-        engineEvents.emit('thought:added', {
-          sessionId: session.id,
-          index: thought.index,
-          content: thought.content,
-        });
-
-        if (onProgress) {
-          await onProgress(i + 1, totalThoughts);
-          throwIfReasoningAborted(abortSignal);
-        }
-      }
-
-      const result = sessionStore.get(session.id);
-      if (!result) {
-        throw new Error(`Session not found: ${session.id}`);
-      }
-      return result;
-    }
-  );
+  const session = sessionStore.create(level);
+  engineEvents.emit('session:created', {
+    sessionId: session.id,
+    level,
+  });
+  return session;
 }
 
 function resolveThoughtCount(
