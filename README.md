@@ -1,186 +1,55 @@
 # Cortex MCP
 
-[![npm version](https://img.shields.io/npm/v/@j0hanz/cortex-mcp?style=flat-square)](https://www.npmjs.com/package/@j0hanz/cortex-mcp) [![Docker](https://img.shields.io/badge/Docker-ghcr.io-2496ED?style=flat-square&logo=docker&logoColor=white)](https://github.com/j0hanz/cortex-mcp/pkgs/container/cortex-mcp) [![Generic badge](https://img.shields.io/badge/Node.js->=24-3c873a?style=flat-square)](https://nodejs.org) [![Generic badge](https://img.shields.io/badge/TypeScript-5.9+-3178c6?style=flat-square)](https://www.typescriptlang.org) [![Generic badge](https://img.shields.io/badge/MCP_SDK-1.26+-ff6600?style=flat-square)](https://modelcontextprotocol.io) [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
+<!-- mcp-name: io.github.j0hanz/cortex-mcp -->
 
-[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](vscode:mcp/install?config=%7B%22name%22%3A%22cortex-mcp%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22cortex-mcp%40latest%22%5D%7D) [![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](vscode-insiders:mcp/install?config=%7B%22name%22%3A%22cortex-mcp%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22cortex-mcp%40latest%22%5D%7D) [![Install in Cursor](https://img.shields.io/badge/Cursor-Install-000000?style=flat-square&logo=cursor&logoColor=white)](https://cursor.com/install-mcp?name=cortex-mcp&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsImNvcnRleC1tY3BAbGF0ZXN0Il19)
+[![npm version](https://img.shields.io/npm/v/@j0hanz/cortex-mcp?style=flat-square&logo=npm&logoColor=white)](https://www.npmjs.com/package/@j0hanz/cortex-mcp) [![Release workflow](https://github.com/j0hanz/cortex-mcp/actions/workflows/release.yml/badge.svg)](https://github.com/j0hanz/cortex-mcp/actions/workflows/release.yml) [![Node.js >=24](https://img.shields.io/badge/Node.js->=24-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org) [![TypeScript 5.9+](https://img.shields.io/badge/TypeScript-5.9+-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org) [![MCP SDK 1.26+](https://img.shields.io/badge/MCP_SDK-1.26+-ff6600?style=flat-square)](https://modelcontextprotocol.io) [![License MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](https://opensource.org/licenses/MIT)
+
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=cortex-mcp&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40j0hanz%2Fcortex-mcp%40latest%22%5D%7D) [![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=cortex-mcp&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40j0hanz%2Fcortex-mcp%40latest%22%5D%7D&quality=insiders)
+
+[![Install in Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=cortex-mcp&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqMGhhbnovY29ydGV4LW1jcEBsYXRlc3QiXX0=)
 
 Multi-level reasoning MCP server with configurable depth levels.
 
-## Overview
-
-Cortex MCP is a reasoning engine that exposes a `reasoning.think` tool to perform multi-step analysis on complex queries. It supports three configurable depth levels (Basic, Normal, High), maintains session state for follow-up questions, and offers asynchronous task execution for long-running reasoning processes. All reasoning happens locally in-memory.
+Cortex MCP exposes a single `reasoning.think` tool over stdio, providing structured, multi-step reasoning with session continuity, resource views, and optional task execution for long-running runs.
 
 ## Key Features
 
-- **Multi-Level Reasoning**: Three distinct depth levels (`basic`, `normal`, `high`) with varying token budgets and thought counts.
-- **Session Continuity**: Resume reasoning sessions by ID to maintain context across multiple turns.
-- **Async Task Support**: Execute long-running reasoning as a background task with progress notifications.
-- **Event-Driven Architecture**: Internal event emitter orchestrates session lifecycle and resource updates.
-- **Real-time Resources**: Inspect active sessions and individual thought traces via MCP resources.
-- **Strict Validation**: Zod-based schemas ensure type safety for all inputs and outputs.
-
-## Tech Stack
-
-- **Runtime**: Node.js >= 24
-- **Language**: TypeScript 5.9+
-- **MCP SDK**: `@modelcontextprotocol/sdk` ^1.26.0
-- **Validation**: `zod` ^4.3.6
-- **Testing**: `node:test` (Native)
-- **Package Manager**: npm
-
-## Architecture
-
-1. **Transport**: Receives JSON-RPC messages via `stdio`.
-2. **Tool Handler**: `reasoning.think` validates input and initiates the reasoning planner.
-3. **Engine**: The `reasoner` orchestrates thoughts based on the selected `level` configuration.
-4. **State**: Sessions are stored in an in-memory `SessionStore` (LRU/TTL based).
-5. **Resources**: Dynamic resource endpoints expose session data and markdown traces.
-
-## Repository Structure
-
-```
-cortex-mcp/
-├── src/
-│   ├── index.ts              # CLI entry point (stdio transport)
-│   ├── server.ts             # Server factory & setup
-│   ├── engine/               # Reasoning logic and session store
-│   ├── tools/                # Tool implementations (reasoning.think)
-│   ├── resources/            # Resource endpoints
-│   ├── prompts/              # Prompt templates
-│   ├── schemas/              # Zod schemas (inputs/outputs)
-│   └── lib/                  # Utilities and types
-├── scripts/                  # Build and task runners
-├── package.json
-└── tsconfig.json
-```
+- Multi-level reasoning (`basic`, `normal`, `high`) with configurable thought counts and token budgets.
+- Optional task execution with progress notifications for long-running requests.
+- Resource endpoints for session lists, session detail, and markdown traces.
+- Prompt helpers for building correct tool calls.
 
 ## Requirements
 
-- **Node.js**: >= 24
+- Node.js >= 24
+- An MCP client that supports stdio servers
 
-## Quickstart
+## Quick Start
 
-Use `npx` to run the server directly without installation:
-
-```bash
-npx -y cortex-mcp@latest
-```
-
-## Installation
-
-### NPX (Recommended)
-
-```bash
-npx -y cortex-mcp@latest
-```
-
-### Docker
-
-```bash
-docker pull ghcr.io/j0hanz/cortex-mcp:latest
-docker run --rm -i ghcr.io/j0hanz/cortex-mcp:latest
-```
-
-### From Source
-
-```bash
-git clone https://github.com/j0hanz/cortex-mcp.git
-cd cortex-mcp
-npm install
-npm run build
-node dist/index.js
-```
-
-## Configuration
-
-### Environment Variables
-
-No environment variables are strictly required for basic operation.
-
-### Runtime Levels
-
-The server is configured with the following reasoning levels (defined in `src/engine/config.ts`):
-
-| Level    | Token Budget | Thoughts Range |
-| :------- | :----------- | :------------- |
-| `basic`  | 2,048        | 3–5            |
-| `normal` | 8,192        | 6–10           |
-| `high`   | 32,768       | 15–25          |
-
-## Usage
-
-Configure your MCP client to start the server via stdio.
-
-### Stdio Transport
-
-Run the server process directly. Messages are sent over `stdin` and `stdout`.
-
-## MCP Surface
-
-### Tools
-
-#### `reasoning.think`
-
-Perform multi-level reasoning on a query.
-
-| Parameter        | Type   | Required | Default | Description                                                 |
-| :--------------- | :----- | :------- | :------ | :---------------------------------------------------------- |
-| `query`          | string | Yes      | -       | The question or problem to reason about (max 10,000 chars). |
-| `level`          | enum   | Yes      | -       | Depth level: `basic`, `normal`, `high`.                     |
-| `targetThoughts` | number | No       | -       | Optional exact step count (max 25).                         |
-| `sessionId`      | string | No       | -       | Session ID to continue a previous reasoning session.        |
-
-**Output Example**:
+Standard config (works in most MCP clients):
 
 ```json
 {
-  "ok": true,
-  "result": {
-    "sessionId": "uuid-v4...",
-    "level": "normal",
-    "thoughts": [{ "index": 0, "content": "...", "revision": 0 }],
-    "generatedThoughts": 1,
-    "totalThoughts": 1,
-    "tokenBudget": 8192
+  "mcpServers": {
+    "cortex-mcp": {
+      "command": "npx",
+      "args": ["-y", "@j0hanz/cortex-mcp@latest"]
+    }
   }
 }
 ```
 
-### Resources
+> [!TIP]
+> Use the standard config first, then add per-client configuration below if needed.
 
-| URI Pattern                                            | Description                                        | MIME Type          |
-| :----------------------------------------------------- | :------------------------------------------------- | :----------------- |
-| `internal://instructions`                              | Usage instructions for the MCP server.             | `text/markdown`    |
-| `reasoning://sessions`                                 | List of active reasoning sessions.                 | `application/json` |
-| `reasoning://sessions/{sessionId}`                     | Detailed view of a reasoning session.              | `application/json` |
-| `file:///cortex/sessions/{sessionId}/trace.md`         | Full Markdown trace of a session.                  | `text/markdown`    |
-| `file:///cortex/sessions/{sessionId}/{thoughtName}.md` | Content of a single thought (e.g. `Thought-1.md`). | `text/markdown`    |
-
-### Prompts
-
-| Name                 | Arguments                          | Description                                   |
-| :------------------- | :--------------------------------- | :-------------------------------------------- |
-| `reasoning.basic`    | `query`, `targetThoughts`          | Prepare a basic-depth reasoning request.      |
-| `reasoning.normal`   | `query`, `targetThoughts`          | Prepare a normal-depth reasoning request.     |
-| `reasoning.high`     | `query`, `targetThoughts`          | Prepare a high-depth reasoning request.       |
-| `reasoning.retry`    | `query`, `level`, `targetThoughts` | Retry a failed task with modified parameters. |
-| `reasoning.continue` | `sessionId`, `query`, `level`, ... | Continue an existing session.                 |
-| `get-help`           | -                                  | Return server usage instructions.             |
-
-### Tasks
-
-This server supports **async task execution** for `reasoning.think`.
-
-- **Capability**: `execution: { taskSupport: 'optional' }`
-- **Usage**: Clients can invoke the tool as a background task.
-- **Monitoring**: Progress is reported via `notifications/progress` (on 'high' level, typically every 2 steps).
-
-## Client Configuration Examples
+## Client Configuration
 
 <details>
-<summary><strong>VS Code</strong></summary>
+<summary><b>Install in VS Code</b></summary>
 
-Add to your `settings.json`:
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=cortex-mcp&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40j0hanz%2Fcortex-mcp%40latest%22%5D%7D)
+
+Add to your user `settings.json`:
 
 ```json
 {
@@ -188,173 +57,207 @@ Add to your `settings.json`:
     "servers": {
       "cortex-mcp": {
         "command": "npx",
-        "args": ["-y", "cortex-mcp@latest"]
+        "args": ["-y", "@j0hanz/cortex-mcp@latest"]
       }
     }
   }
 }
 ```
 
+> [!NOTE]
+> Missing info: official VS Code MCP docs URL is not referenced in this repo.
+
 </details>
 
 <details>
-<summary><strong>Claude Desktop</strong></summary>
+<summary><b>Install in VS Code Insiders</b></summary>
 
-Add to your `claude_desktop_config.json`:
+[![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=cortex-mcp&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40j0hanz%2Fcortex-mcp%40latest%22%5D%7D&quality=insiders)
+
+Add to your user `settings.json`:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "cortex-mcp": {
+        "command": "npx",
+        "args": ["-y", "@j0hanz/cortex-mcp@latest"]
+      }
+    }
+  }
+}
+```
+
+> [!NOTE]
+> Missing info: official VS Code Insiders MCP docs URL is not referenced in this repo.
+
+</details>
+
+<details>
+<summary><b>Install in Cursor</b></summary>
+
+[![Install in Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=cortex-mcp&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqMGhhbnovY29ydGV4LW1jcEBsYXRlc3QiXX0=)
+
+Add to `~/.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "cortex-mcp": {
       "command": "npx",
-      "args": ["-y", "cortex-mcp@latest"]
+      "args": ["-y", "@j0hanz/cortex-mcp@latest"]
     }
   }
 }
 ```
 
+> [!NOTE]
+> Missing info: official Cursor MCP docs URL is not referenced in this repo.
+
 </details>
 
 <details>
-<summary><strong>Cursor</strong></summary>
+<summary><b>Install in Claude Desktop</b></summary>
 
-Add to your Cursor MCP settings:
+Add to `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "cortex-mcp": {
       "command": "npx",
-      "args": ["-y", "cortex-mcp@latest"]
+      "args": ["-y", "@j0hanz/cortex-mcp@latest"]
     }
   }
 }
 ```
 
+> [!NOTE]
+> Missing info: official Claude Desktop MCP docs URL is not referenced in this repo.
+
 </details>
 
-<details>
-<summary><strong>Docker</strong></summary>
+## MCP Surface
+
+### Tools
+
+#### reasoning.think
+
+Perform multi-step reasoning on a query with a selected depth level.
+
+| Name           | Type   | Required | Default | Description                                                      |
+| -------------- | ------ | -------- | ------- | ---------------------------------------------------------------- |
+| query          | string | Yes      | -       | The question or problem to reason about (1-10,000 chars).        |
+| level          | enum   | Yes      | -       | Reasoning depth level: `basic`, `normal`, `high`.                |
+| targetThoughts | number | No       | -       | Optional explicit thought count within the selected level range. |
+| sessionId      | string | No       | -       | Session ID to continue a previous reasoning session.             |
+
+Returns a structured result with session metadata, thoughts, and token usage:
 
 ```json
 {
-  "mcpServers": {
-    "cortex-mcp": {
-      "command": "docker",
-      "args": ["run", "--rm", "-i", "ghcr.io/j0hanz/cortex-mcp:latest"]
-    }
+  "ok": true,
+  "result": {
+    "sessionId": "8e2e2c7a-1234-4567-89ab-001122334455",
+    "level": "normal",
+    "status": "active",
+    "thoughts": [{ "index": 0, "content": "Step 1/6: ...", "revision": 0 }],
+    "generatedThoughts": 1,
+    "requestedThoughts": 6,
+    "totalThoughts": 6,
+    "tokenBudget": 8192,
+    "tokensUsed": 128,
+    "ttlMs": 1800000,
+    "expiresAt": 1739356800000,
+    "createdAt": 1739356500000,
+    "updatedAt": 1739356505000,
+    "summary": "Session [8e2e2c7a-1234-4567-89ab-001122334455] at level [normal] with [1] thoughts."
   }
 }
 ```
 
-</details>
+### Resources
 
-## Security
+| URI Pattern                                          | Description                                       | MIME Type        |
+| ---------------------------------------------------- | ------------------------------------------------- | ---------------- |
+| internal://instructions                              | Usage instructions for the MCP server.            | text/markdown    |
+| reasoning://sessions                                 | List of active reasoning sessions with summaries. | application/json |
+| reasoning://sessions/{sessionId}                     | Detailed view of a reasoning session.             | application/json |
+| file:///cortex/sessions/{sessionId}/trace.md         | Markdown trace of a reasoning session.            | text/markdown    |
+| file:///cortex/sessions/{sessionId}/{thoughtName}.md | Markdown content of a single thought.             | text/markdown    |
 
-- **Stdio Isolation**: The server writes all logs to `stderr` to avoid corrupting the JSON-RPC stream on `stdout`.
-- **Input Validation**: All tool inputs conform to strict Zod schemas with character limits (`max(10000)` for queries).
-- **Filesystem**: No actual filesystem writes occur; "files" are exposed virtually via resources.
+### Prompts
 
-## Development Workflow
+| Name               | Arguments                               | Description                                             |
+| ------------------ | --------------------------------------- | ------------------------------------------------------- |
+| reasoning.basic    | query, targetThoughts                   | Prepare a basic-depth reasoning request.                |
+| reasoning.normal   | query, targetThoughts                   | Prepare a normal-depth reasoning request.               |
+| reasoning.high     | query, targetThoughts                   | Prepare a high-depth reasoning request.                 |
+| reasoning.retry    | query, level, targetThoughts            | Retry a failed reasoning task with modified parameters. |
+| reasoning.continue | sessionId, query, level, targetThoughts | Continue an existing reasoning session.                 |
+| get-help           | -                                       | Return server usage instructions.                       |
 
-1. **Install dependencies**:
+### Tasks
 
-   ```bash
-   npm install
-   ```
+Task-augmented tool calls are supported for `reasoning.think` with `taskSupport: optional`.
 
-2. **Scripts**:
+- Call the tool as a task to receive a task id.
+- Poll `tasks/get` and read results via `tasks/result`.
+- Cancel with `tasks/cancel`.
 
-| Script      | Command                        | Purpose                          |
-| :---------- | :----------------------------- | :------------------------------- |
-| `build`     | `node scripts/tasks.mjs build` | Clean, compile, and copy assets. |
-| `dev`       | `tsc --watch ...`              | Watch mode compilation.          |
-| `dev:run`   | `node --watch dist/index.js`   | Run server with auto-restart.    |
-| `test`      | `node scripts/tasks.mjs test`  | Build and run tests.             |
-| `lint`      | `eslint .`                     | Lint source files.               |
-| `inspector` | `npm run build && ...`         | Launch MCP Inspector.            |
+## Configuration
+
+### Runtime Modes
+
+| Mode  | Description                   |
+| ----- | ----------------------------- |
+| stdio | The only supported transport. |
+
+### Environment Variables
+
+> [!NOTE]
+> Missing info: no environment variables are documented in this repo.
+
+## Development
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Scripts:
+
+| Script     | Command                                                                                       | Purpose                                 |
+| ---------- | --------------------------------------------------------------------------------------------- | --------------------------------------- |
+| clean      | node scripts/tasks.mjs clean                                                                  | Remove build artifacts.                 |
+| build      | node scripts/tasks.mjs build                                                                  | Build the server to dist/.              |
+| dev        | tsc --watch --preserveWatchOutput                                                             | Watch and compile TypeScript.           |
+| dev:run    | node --env-file=.env --watch dist/index.js                                                    | Run the built server with auto-restart. |
+| format     | prettier --write .                                                                            | Format the codebase.                    |
+| type-check | node scripts/tasks.mjs type-check                                                             | Run TypeScript type checks.             |
+| lint       | eslint .                                                                                      | Lint the codebase.                      |
+| test       | node scripts/tasks.mjs test                                                                   | Build and run tests.                    |
+| inspector  | npm run build && npx -y @modelcontextprotocol/inspector node dist/index.js ${workspaceFolder} | Launch MCP Inspector.                   |
+
+Debug with MCP Inspector:
+
+```bash
+npx @modelcontextprotocol/inspector node dist/index.js
+```
 
 ## Build and Release
 
-The project uses a custom task runner (`scripts/tasks.mjs`) for build orchestration.
+The GitHub Actions workflow in `.github/workflows/release.yml` automates version bumps, testing, publishing to npm, MCP Registry, and Docker image publishing.
 
-- **Build**: `npm run build` generates artifacts in `dist/`.
-- **Publish**: `npm run prepublishOnly` ensures linting, type-checking, and building before publish.
-
-### Automated Releases
-
-Releases are fully automated via a single GitHub Actions workflow (`release.yml`). No manual version edits are needed.
-
-**Trigger a release:**
-
-```bash
-# Via GitHub CLI
-gh workflow run release.yml -f bump=patch   # or minor / major
-
-# Custom pre-release version
-gh workflow run release.yml -f custom_version=2.0.0-beta.1
-```
-
-Or use the GitHub UI: **Actions** → **Release** → **Run workflow** → select bump type.
-
-**What the workflow does:**
-
-```text
-workflow_dispatch (patch/minor/major)
-    │
-    ▼
-  release ── bump versions → validate → commit → tag → GitHub Release
-    │
-    ├──► publish-npm ──► publish-mcp  (sequential: MCP Registry needs npm package)
-    │
-    └──► publish-docker              (parallel with npm)
-```
-
-1. **Bump** — Updates `package.json`, `package-lock.json`, and `server.json` atomically
-2. **Validate** — Runs lint, type-check, tests, and build
-3. **Tag & Release** — Commits, creates a git tag, and a GitHub Release with auto-generated notes
-4. **Publish to npm** — Uses OIDC Trusted Publishing (no `NPM_TOKEN` secret needed), with `--provenance` for signed SLSA attestations
-5. **Publish to MCP Registry** — Registers the new version via `mcp-publisher` with GitHub OIDC
-6. **Publish to Docker** — Builds and pushes a multi-platform image (`linux/amd64`, `linux/arm64`) to `ghcr.io/j0hanz/cortex-mcp`
-
-### Docker Image
-
-The project includes a multi-stage `Dockerfile` optimized for MCP servers:
-
-- **Builder stage**: Installs dependencies with `--ignore-scripts` (avoids `prepare` running before source is copied), rebuilds native modules, compiles TypeScript, then prunes dev dependencies
-- **Release stage**: Minimal `node:24-alpine` image running as non-root `mcp` user
-
-```bash
-# Build locally
-docker build -t cortex-mcp .
-
-# Run locally
-docker run --rm -i cortex-mcp
-
-# Or use docker-compose
-docker compose up --build
-```
-
-### Verify a release
-
-```bash
-# npm
-npm view @j0hanz/cortex-mcp dist-tags
-
-# Docker
-docker pull ghcr.io/j0hanz/cortex-mcp:latest
-
-# MCP protocol handshake
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' \
-  | npx -y @j0hanz/cortex-mcp@latest 2>/dev/null \
-  | head -1 | jq .result.serverInfo
-```
+Docker support is included via the multi-stage `Dockerfile` and `docker-compose.yml`.
 
 ## Troubleshooting
 
-- **No output**: The server uses `stdio`. Ensure your client is capturing `stdout` correctly. Check `stderr` for logs.
-- **Inspector**: Run `npm run inspector` to debug tools and resources interactively.
-- **Session not found**: Sessions are in-memory and expire locally (default TTL: 30 minutes).
+- If your client shows no output, remember this is a stdio server and the JSON-RPC stream is on stdout.
+- Use `npm run inspector` to explore tools, resources, and prompts.
+- Sessions are in-memory and expire after 30 minutes of inactivity.
 
 ## License
 
