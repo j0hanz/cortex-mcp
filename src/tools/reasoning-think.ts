@@ -749,7 +749,7 @@ function getTaskId(extra: ReasoningTaskExtra): string {
   return extra.taskId;
 }
 
-const TOOL_NAME = 'reasoning.think';
+const TOOL_NAME = 'reasoning_think';
 
 export function registerReasoningThinkTool(
   server: McpServer,
