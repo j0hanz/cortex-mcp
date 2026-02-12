@@ -19,6 +19,7 @@ export { sessionStore };
 interface ReasonOptions {
   sessionId?: string;
   targetThoughts?: number;
+  thought?: string;
   abortSignal?: AbortSignal;
   onProgress?: (progress: number, total: number) => void | Promise<void>;
 }
@@ -34,7 +35,13 @@ export async function reason(
   level: ReasoningLevel,
   options?: ReasonOptions
 ): Promise<Readonly<Session>> {
-  const { sessionId, targetThoughts, abortSignal, onProgress } = options ?? {};
+  const {
+    sessionId,
+    targetThoughts,
+    thought: providedThought,
+    abortSignal,
+    onProgress,
+  } = options ?? {};
 
   const config = LEVEL_CONFIGS[level];
   const session = resolveSession(
@@ -69,11 +76,9 @@ export async function reason(
           return current;
         }
 
-        const stepContent = generateReasoningStep(
-          query,
-          nextIndex,
-          totalThoughts
-        );
+        const stepContent =
+          providedThought ??
+          generateReasoningStep(query, nextIndex, totalThoughts);
         if (!stepContent) {
           throw new Error(
             `Step content missing at index ${String(nextIndex)}/${String(

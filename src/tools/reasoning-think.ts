@@ -395,7 +395,7 @@ async function runReasoningTask(args: {
     controller,
     sessionId,
   } = args;
-  const { query, level, targetThoughts } = params;
+  const { query, level, targetThoughts, thought } = params;
 
   await emitLog(
     server,
@@ -428,6 +428,7 @@ async function runReasoningTask(args: {
     const session = await reason(query, level, {
       ...(params.sessionId ? { sessionId: params.sessionId } : {}),
       ...(targetThoughts !== undefined ? { targetThoughts } : {}),
+      ...(thought !== undefined ? { thought } : {}),
       abortSignal: controller.signal,
       onProgress: createProgressHandler(progressArgs),
     });

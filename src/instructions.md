@@ -8,7 +8,7 @@ These instructions are available as a resource (internal://instructions) or prom
 
 - Domain: Multi-level reasoning engine that decomposes queries into structured thought chains at configurable depth levels (basic, normal, high).
 - Primary Resources: Reasoning sessions (in-memory, 30-minute TTL), thought chains, progress notifications.
-- Tools: `reasoning.think` (WRITE — creates/extends sessions with generated thoughts).
+- Tools: `reasoning.think` (WRITE — creates/extends sessions with LLM-authored or auto-generated thoughts).
 
 ---
 
@@ -57,13 +57,14 @@ These instructions are available as a resource (internal://instructions) or prom
 
 1. Call `reasoning.think` with `{ query: "...", level: "basic" | "normal" | "high" }`.
 2. Read `result.thoughts` for the accumulated reasoning chain (each call appends at most one new thought).
-3. Repeat calls with the same `sessionId` until `result.totalThoughts` is reached.
+3. Repeat calls with the same `sessionId` and provide `thought` with your reasoning content for each step.
+4. Continue until `result.totalThoughts` is reached.
    NOTE: Choose level based on query complexity — `basic` for straightforward questions, `high` for multi-faceted analysis.
 
 ### WORKFLOW B: Multi-Turn Reasoning (Session Continuation)
 
 1. Call `reasoning.think` with `{ query: "initial question", level: "normal" }` — note the returned `sessionId`.
-2. Call `reasoning.think` with `{ query: "follow-up", level: "normal", sessionId: "<id>" }` to append the next thought.
+2. Call `reasoning.think` with `{ query: "follow-up", level: "normal", sessionId: "<id>", thought: "Your detailed reasoning content here..." }` to append a thought with your own content.
 3. Repeat until `result.totalThoughts` is reached, then read `reasoning://sessions/{sessionId}` for the full chain.
    NOTE: The `level` MUST match the original session level. Mismatches return `E_SESSION_LEVEL_MISMATCH`.
 
@@ -90,11 +91,13 @@ These instructions are available as a resource (internal://instructions) or prom
 - Input:
   - `query` (string, 1–10,000 chars): The question or problem to reason about.
   - `level` (enum: `basic` | `normal` | `high`): Controls reasoning depth and token budget.
+  - `thought` (string, 1–100,000 chars, optional): LLM-authored reasoning content for this step. When provided, the server stores this text as the thought content instead of generating a template. Use this to capture the full reasoning you produce at each step.
   - `targetThoughts` (int, 1–25, optional): Override automatic step count. Must fit within the level range.
   - `sessionId` (string, 1–128 chars, optional): Continue an existing session. Level must match.
 - Output: `{ ok, result: { sessionId, level, thoughts[], generatedThoughts, requestedThoughts, totalThoughts, tokenBudget, tokensUsed, ttlMs, expiresAt, createdAt, updatedAt, summary } }`
 - Side effects: Creates or modifies an in-memory session. Sessions expire after 30 minutes of inactivity.
 - Gotcha: Each call appends at most one thought. When continuing a session, `generatedThoughts` reflects only the newly added thought (0 or 1), not the cumulative total.
+- Gotcha: When `thought` is provided, it is stored verbatim as the thought content. When omitted, the server generates a structural template description. Provide `thought` to capture your full reasoning in the trace.
 - Gotcha: `requestedThoughts` is the effective requested count for this run: it equals `targetThoughts` when provided, otherwise `totalThoughts`.
 - Gotcha: Token counting is approximate (UTF-8 byte length ÷ 4), not true tokenization.
 - Gotcha: Without `targetThoughts`, the planned step count (`totalThoughts`) is determined by a heuristic based on query length and structural complexity (punctuation markers, keywords like "compare", "analyse", "trade-off").
@@ -118,7 +121,7 @@ These instructions are available as a resource (internal://instructions) or prom
 - Maximum query length: 10,000 characters.
 - Token budget enforcement is approximate (character-based proxy, not true tokenization).
 - stdio transport only — no HTTP endpoint available.
-- Reasoning steps are structural decompositions, not LLM-generated content.
+- Reasoning steps are either LLM-authored (when `thought` is provided) or structural decompositions (when `thought` is omitted).
 - `targetThoughts` must be an integer within the level's min/max range.
 
 ---

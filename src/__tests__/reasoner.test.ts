@@ -73,6 +73,38 @@ describe('reason', () => {
     sessionStore.delete(first.id);
   });
 
+  it('stores LLM-provided thought content when thought is given', async () => {
+    const customContent =
+      'The primary issue is in the error handling path where exceptions are swallowed silently.';
+    const session = await reason('Analyze this code', 'basic', {
+      thought: customContent,
+    });
+    assert.equal(session.thoughts.length, 1);
+    assert.equal(session.thoughts[0]?.content, customContent);
+    sessionStore.delete(session.id);
+  });
+
+  it('stores LLM-provided thought on continuation calls', async () => {
+    const first = await reason('Initial query', 'basic');
+    const secondContent =
+      'Upon deeper analysis, the root cause is a race condition in the async handler.';
+    const second = await reason('Follow-up', 'basic', {
+      sessionId: first.id,
+      thought: secondContent,
+    });
+
+    assert.equal(second.thoughts.length, 2);
+    assert.equal(second.thoughts[1]?.content, secondContent);
+    sessionStore.delete(first.id);
+  });
+
+  it('falls back to generated template when thought is not provided', async () => {
+    const session = await reason('What is 2+2?', 'basic');
+    assert.equal(session.thoughts.length, 1);
+    assert.ok(session.thoughts[0]?.content.startsWith('Step 1/'));
+    sessionStore.delete(session.id);
+  });
+
   it('rejects reusing a session with a different level', async () => {
     const first = await reason('Initial query', 'basic');
     await assert.rejects(

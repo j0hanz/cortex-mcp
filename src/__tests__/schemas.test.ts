@@ -27,6 +27,24 @@ describe('ReasoningThinkInputSchema', () => {
     assert.equal(result.success, true);
   });
 
+  it('accepts valid input with thought', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'Analyze this code',
+      level: 'basic',
+      thought: 'The code has a critical issue in the error handling path...',
+    });
+    assert.equal(result.success, true);
+  });
+
+  it('rejects empty thought', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'test',
+      level: 'basic',
+      thought: '',
+    });
+    assert.equal(result.success, false);
+  });
+
   it('rejects empty query', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: '',
