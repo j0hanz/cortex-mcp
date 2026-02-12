@@ -31,6 +31,7 @@
 - `scripts/tasks.mjs`: Build/test task runner — clean, compile, copy assets, type-check, test orchestration (see `scripts/tasks.mjs`)
 - `assets/`: Static assets copied to `dist/assets` during build (see `scripts/tasks.mjs` `BuildTasks.assets`)
 - `.github/`: Instruction files and prompts (gitignored except `workflows/`)
+- `.agents/skills/`: Codex/OpenAI agent skills for task-specific capabilities (auto-discovered at repo root)
 
 > Ignore: `dist/`, `node_modules/`, `coverage/`, `.tsbuildinfo`, `.cache/`
 
