@@ -140,6 +140,28 @@ These instructions are available as a resource (internal://instructions) or prom
 
 ---
 
+## ENHANCED TRACE FEATURES
+
+The trace.md output can surface structured content from your thoughts. Use these conventions in your `thought` text to produce richer traces:
+
+### Pinned Sections
+
+Mark important content (decisions, requirements, constraints) so it appears in a **📌 Pinned** section at the top of the trace, regardless of which thought step it was written in:
+
+```markdown
+<!-- pin: Architecture Decision -->
+
+We chose REST over GraphQL because of X, Y, Z.
+
+<!-- /pin -->
+```
+
+- Use any title you want after `pin:`.
+- If the same title appears in a later thought, the later content replaces the earlier one (last-write-wins).
+- When no pin markers are used, the trace renders as before (header + thoughts only).
+
+---
+
 ## ERROR HANDLING STRATEGY
 
 - `E_SESSION_NOT_FOUND`: Session expired or never existed. Call `reasoning://sessions` to list active sessions, or start a new session without `sessionId`.
