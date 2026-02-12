@@ -22,6 +22,7 @@ function estimateTokens(text: string): number {
 
 export class SessionStore {
   private readonly sessions = new Map<string, Session>();
+  private sortedCache: Session[] | null = null;
   private readonly cleanupInterval: NodeJS.Timeout;
   private readonly ttlMs: number;
   private readonly maxSessions: number;
@@ -59,6 +60,7 @@ export class SessionStore {
       updatedAt: now,
     };
     this.sessions.set(session.id, session);
+    this.sortedCache = null;
     engineEvents.emit('resources:changed', { uri: 'reasoning://sessions' });
     return session;
   }
@@ -68,9 +70,10 @@ export class SessionStore {
   }
 
   list(): Session[] {
-    return [...this.sessions.values()].sort(
+    this.sortedCache ??= [...this.sessions.values()].sort(
       (a, b) => b.updatedAt - a.updatedAt
     );
+    return this.sortedCache;
   }
 
   getTtlMs(): number {
@@ -96,6 +99,7 @@ export class SessionStore {
     }
     this.totalTokens -= session.tokensUsed;
     this.sessions.delete(id);
+    this.sortedCache = null;
     engineEvents.emit('session:deleted', { sessionId: id });
     engineEvents.emit('resources:changed', { uri: 'reasoning://sessions' });
     return true;
@@ -117,6 +121,7 @@ export class SessionStore {
     session.tokensUsed += tokens;
     this.totalTokens += tokens;
     session.updatedAt = Date.now();
+    this.sortedCache = null;
     engineEvents.emit('resource:updated', {
       uri: `reasoning://sessions/${sessionId}`,
     });
@@ -153,6 +158,7 @@ export class SessionStore {
     session.tokensUsed = session.tokensUsed - oldTokens + newTokens;
     this.totalTokens += delta;
     session.updatedAt = Date.now();
+    this.sortedCache = null;
     engineEvents.emit('resource:updated', {
       uri: `reasoning://sessions/${sessionId}`,
     });
@@ -164,6 +170,7 @@ export class SessionStore {
     if (session?.status === 'active') {
       session.status = 'completed';
       session.updatedAt = Date.now();
+      this.sortedCache = null;
     }
   }
 
@@ -172,6 +179,7 @@ export class SessionStore {
     if (session?.status === 'active') {
       session.status = 'cancelled';
       session.updatedAt = Date.now();
+      this.sortedCache = null;
     }
   }
 
@@ -181,6 +189,7 @@ export class SessionStore {
       if (!oldest) break;
       this.totalTokens -= oldest.tokensUsed;
       this.sessions.delete(oldest.id);
+      this.sortedCache = null;
       engineEvents.emit('session:evicted', {
         sessionId: oldest.id,
         reason: 'max_sessions',
@@ -201,6 +210,7 @@ export class SessionStore {
       if (!oldest) break;
       this.totalTokens -= oldest.tokensUsed;
       this.sessions.delete(oldest.id);
+      this.sortedCache = null;
       engineEvents.emit('session:evicted', {
         sessionId: oldest.id,
         reason: 'max_total_tokens',
@@ -232,6 +242,7 @@ export class SessionStore {
       }
     }
     if (changed) {
+      this.sortedCache = null;
       engineEvents.emit('resources:changed', { uri: 'reasoning://sessions' });
     }
   }

@@ -453,7 +453,13 @@ export function registerReasoningThinkTool(
     },
     {
       async createTask(rawParams, rawExtra) {
-        const params = rawParams as ReasoningThinkInput;
+        const parseResult = ReasoningThinkInputSchema.safeParse(rawParams);
+        if (!parseResult.success) {
+          throw new Error(
+            `Invalid reasoning.think params: ${parseResult.error.message}`
+          );
+        }
+        const params = parseResult.data;
         const extra = rawExtra as ReasoningTaskExtra;
 
         const task = await extra.taskStore.createTask({

@@ -51,7 +51,16 @@ function loadVersion(): string {
   }
 
   const packageJson = readFileSync(packageJsonPath, 'utf8');
-  return (JSON.parse(packageJson) as { version: string }).version;
+  const parsed: unknown = JSON.parse(packageJson);
+  if (
+    typeof parsed !== 'object' ||
+    parsed === null ||
+    !('version' in parsed) ||
+    typeof parsed.version !== 'string'
+  ) {
+    throw new Error('Invalid package.json: missing or invalid version field');
+  }
+  return parsed.version;
 }
 
 function attachEngineEventHandlers(server: McpServer): () => void {
