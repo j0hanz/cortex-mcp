@@ -16,6 +16,7 @@ const ReasoningThinkSuccessSchema = z.strictObject({
   result: z.strictObject({
     sessionId: z.string(),
     level: z.enum(['basic', 'normal', 'high']),
+    status: z.enum(['active', 'completed', 'cancelled']),
     thoughts: z.array(
       z.strictObject({
         index: z.number(),
@@ -26,8 +27,16 @@ const ReasoningThinkSuccessSchema = z.strictObject({
     generatedThoughts: z.number(),
     requestedThoughts: z.number(),
     totalThoughts: z.number(),
-    tokenBudget: z.number(),
-    tokensUsed: z.number(),
+    tokenBudget: z
+      .number()
+      .describe(
+        'Approximate token budget (UTF-8 bytes ÷ 4, not true tokenization)'
+      ),
+    tokensUsed: z
+      .number()
+      .describe(
+        'Approximate tokens used (UTF-8 bytes ÷ 4, not true tokenization)'
+      ),
     ttlMs: z.number(),
     expiresAt: z.number(),
     createdAt: z.number(),

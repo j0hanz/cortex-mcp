@@ -177,9 +177,9 @@ export function createServer(): McpServer {
     },
     {
       capabilities: {
-        tools: { listChanged: true },
+        tools: {},
         logging: {},
-        prompts: { listChanged: true },
+        prompts: {},
         resources: { subscribe: true, listChanged: true },
         tasks: {
           list: {},

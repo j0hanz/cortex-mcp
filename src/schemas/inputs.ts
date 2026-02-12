@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { getTargetThoughtsError } from '../engine/config.js';
+import { getTargetThoughtsError } from '../lib/validators.js';
 
 export const ReasoningThinkInputSchema = z
   .strictObject({

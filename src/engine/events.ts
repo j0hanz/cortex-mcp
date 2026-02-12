@@ -19,6 +19,7 @@ interface EngineEvents {
   ];
   'session:created': [{ sessionId: string; level: ReasoningLevel }];
   'session:expired': [{ sessionId: string }];
+  'session:evicted': [{ sessionId: string; reason: string }];
   'session:deleted': [{ sessionId: string }];
   'resources:changed': [{ uri: string }];
   'resource:updated': [{ uri: string }];

@@ -100,6 +100,10 @@ export async function reason(
           });
         }
 
+        if (updated.thoughts.length >= totalThoughts) {
+          sessionStore.markCompleted(session.id);
+        }
+
         if (onProgress) {
           await onProgress(thought.index + 1, totalThoughts);
           throwIfReasoningAborted(abortSignal);

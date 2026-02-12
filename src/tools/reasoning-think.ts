@@ -15,13 +15,9 @@ import {
 import { ReasoningThinkToolOutputSchema } from '../schemas/outputs.js';
 
 import { createErrorResponse, getErrorMessage } from '../lib/errors.js';
+import { formatThoughtsToMarkdown } from '../lib/formatting.js';
 import { createToolResponse } from '../lib/tool-response.js';
-import type {
-  IconMeta,
-  ReasoningLevel,
-  Session,
-  Thought,
-} from '../lib/types.js';
+import type { IconMeta, ReasoningLevel, Session } from '../lib/types.js';
 
 type ProgressToken = string | number;
 
@@ -59,6 +55,7 @@ interface ReasoningStructuredResult {
   result: {
     sessionId: string;
     level: ReasoningLevel;
+    status: 'active' | 'completed' | 'cancelled';
     thoughts: { index: number; content: string; revision: number }[];
     generatedThoughts: number;
     requestedThoughts: number | null;
@@ -103,45 +100,6 @@ function shouldEmitProgress(
   return progress % 2 === 0;
 }
 
-function formatThoughtHeading(thought: Readonly<Thought>): string {
-  const thoughtNumber = thought.index + 1;
-  const suffix = thought.revision > 0 ? ' [Revised]' : '';
-  return `𖦹 Thought [${String(thoughtNumber)}]${suffix}`;
-}
-
-export function formatThoughtsToMarkdown(
-  session: Readonly<Session>,
-  range?: { start: number; end: number }
-): string {
-  const { thoughts: allThoughts } = session;
-  const isFullTrace = range === undefined;
-
-  let thoughts: readonly Thought[];
-  if (range) {
-    const startIndex = Math.max(0, range.start - 1);
-    const endIndex = Math.min(allThoughts.length, range.end);
-    thoughts = allThoughts.slice(startIndex, endIndex);
-  } else {
-    thoughts = allThoughts;
-  }
-
-  const sections: string[] = [];
-
-  if (isFullTrace && thoughts.length > 0) {
-    sections.push(
-      `# Reasoning Trace — [${session.level}]\n` +
-        `> Session [${session.id}] · [${String(allThoughts.length)}] thoughts`
-    );
-  }
-
-  for (const thought of thoughts) {
-    const heading = formatThoughtHeading(thought);
-    sections.push(`${heading}\n\n${thought.content}`);
-  }
-
-  return sections.join('\n\n---\n\n');
-}
-
 function buildStructuredResult(
   session: Readonly<Session>,
   generatedThoughts: number,
@@ -158,6 +116,7 @@ function buildStructuredResult(
     result: {
       sessionId: session.id,
       level: session.level,
+      status: session.status,
       thoughts: session.thoughts.map((thought) => ({
         index: thought.index,
         content: thought.content,
@@ -302,6 +261,9 @@ async function handleTaskFailure(args: {
   }
 
   if (errorCode === 'E_ABORTED') {
+    if (sessionId) {
+      sessionStore.markCancelled(sessionId);
+    }
     await storeTaskFailure(
       taskStore,
       taskId,
@@ -456,7 +418,7 @@ function getTaskId(extra: ReasoningTaskExtra): string {
   return extra.taskId;
 }
 
-export const TOOL_NAME = 'reasoning.think';
+const TOOL_NAME = 'reasoning.think';
 
 export function registerReasoningThinkTool(
   server: McpServer,

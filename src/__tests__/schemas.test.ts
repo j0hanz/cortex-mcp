@@ -5,6 +5,7 @@ import { ReasoningThinkInputSchema } from '../schemas/inputs.js';
 import {
   DefaultOutputSchema,
   ReasoningThinkResultSchema,
+  ReasoningThinkToolOutputSchema,
 } from '../schemas/outputs.js';
 
 describe('ReasoningThinkInputSchema', () => {
@@ -146,6 +147,7 @@ describe('ReasoningThinkResultSchema', () => {
       result: {
         sessionId: 'abc-123',
         level: 'basic',
+        status: 'completed',
         thoughts: [{ index: 0, content: 'Step 1', revision: 0 }],
         generatedThoughts: 1,
         requestedThoughts: 1,
@@ -186,5 +188,29 @@ describe('ReasoningThinkResultSchema', () => {
       ok: false,
     });
     assert.equal(result.success, false);
+  });
+});
+
+describe('ReasoningThinkToolOutputSchema', () => {
+  it('describes tokenBudget as approximate', () => {
+    const resultShape = ReasoningThinkToolOutputSchema.shape.result;
+    const unwrapped = resultShape.unwrap();
+    const desc = unwrapped.shape.tokenBudget.description;
+    assert.ok(desc, 'tokenBudget should have a description');
+    assert.ok(
+      desc.includes('Approximate') || desc.includes('approximate'),
+      `Expected description to mention approximation, got: ${desc}`
+    );
+  });
+
+  it('describes tokensUsed as approximate', () => {
+    const resultShape = ReasoningThinkToolOutputSchema.shape.result;
+    const unwrapped = resultShape.unwrap();
+    const desc = unwrapped.shape.tokensUsed.description;
+    assert.ok(desc, 'tokensUsed should have a description');
+    assert.ok(
+      desc.includes('Approximate') || desc.includes('approximate'),
+      `Expected description to mention approximation, got: ${desc}`
+    );
   });
 });

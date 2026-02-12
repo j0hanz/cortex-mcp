@@ -92,6 +92,39 @@ describe('server registration', () => {
     await server.close();
   });
 
+  it('SDK auto-declares listChanged for tools and prompts during registration', async () => {
+    // NOTE: The MCP SDK automatically registers listChanged: true for tools,
+    // prompts, and resources when they are registered via the high-level API.
+    // Our server.ts does not explicitly declare listChanged for tools/prompts
+    // (only for resources), but the SDK adds it during registration.
+    const server = createServer();
+
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+
+    await server.connect(serverTransport);
+
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await client.connect(clientTransport);
+
+    const capabilities = client.getServerCapabilities();
+    assert.ok(capabilities);
+
+    // resources explicitly declares listChanged: true
+    const resources = capabilities.resources as
+      | Record<string, unknown>
+      | undefined;
+    assert.ok(resources);
+    assert.equal(
+      (resources as { listChanged?: boolean }).listChanged,
+      true,
+      'resources should declare listChanged'
+    );
+
+    await client.close();
+    await server.close();
+  });
+
   it('registers prompts and resources', async () => {
     const server = createServer();
 

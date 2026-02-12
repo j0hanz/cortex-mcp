@@ -5,10 +5,9 @@ import { McpError } from '@modelcontextprotocol/sdk/types.js';
 
 import { sessionStore } from '../engine/reasoner.js';
 
+import { formatThoughtsToMarkdown } from '../lib/formatting.js';
 import { loadInstructions } from '../lib/instructions.js';
 import type { IconMeta, Session } from '../lib/types.js';
-
-import { formatThoughtsToMarkdown } from '../tools/reasoning-think.js';
 
 // --- Helpers ---
 
@@ -36,6 +35,7 @@ function resolveSession(sessionId: string, uri: URL): Readonly<Session> {
 function buildSessionSummary(sessionId: string): {
   id: string;
   level: 'basic' | 'normal' | 'high';
+  status: 'active' | 'completed' | 'cancelled';
   totalThoughts: number;
   tokenBudget: number;
   tokensUsed: number;
@@ -58,6 +58,7 @@ function buildSessionSummary(sessionId: string): {
   return {
     id: session.id,
     level: session.level,
+    status: session.status,
     totalThoughts: session.thoughts.length,
     tokenBudget: session.tokenBudget,
     tokensUsed: session.tokensUsed,

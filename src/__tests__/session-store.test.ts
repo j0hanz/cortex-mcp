@@ -193,4 +193,184 @@ describe('SessionStore', () => {
       assert.equal(store.get(session.id), undefined);
     });
   });
+
+  describe('status', () => {
+    it('new sessions start with status active', () => {
+      const store = new SessionStore();
+      const session = store.create('basic');
+      assert.equal(session.status, 'active');
+    });
+
+    it('markCompleted transitions active to completed', () => {
+      const store = new SessionStore();
+      const session = store.create('basic');
+      store.markCompleted(session.id);
+      const updated = store.get(session.id)!;
+      assert.equal(updated.status, 'completed');
+    });
+
+    it('markCancelled transitions active to cancelled', () => {
+      const store = new SessionStore();
+      const session = store.create('basic');
+      store.markCancelled(session.id);
+      const updated = store.get(session.id)!;
+      assert.equal(updated.status, 'cancelled');
+    });
+
+    it('markCompleted is no-op for cancelled session', () => {
+      const store = new SessionStore();
+      const session = store.create('basic');
+      store.markCancelled(session.id);
+      store.markCompleted(session.id);
+      const updated = store.get(session.id)!;
+      assert.equal(updated.status, 'cancelled');
+    });
+
+    it('markCancelled is no-op for completed session', () => {
+      const store = new SessionStore();
+      const session = store.create('basic');
+      store.markCompleted(session.id);
+      store.markCancelled(session.id);
+      const updated = store.get(session.id)!;
+      assert.equal(updated.status, 'completed');
+    });
+
+    it('markCompleted is no-op for non-existent session', () => {
+      const store = new SessionStore();
+      // Should not throw
+      store.markCompleted('non-existent');
+    });
+
+    it('markCancelled is no-op for non-existent session', () => {
+      const store = new SessionStore();
+      // Should not throw
+      store.markCancelled('non-existent');
+    });
+  });
+
+  describe('maxSessions', () => {
+    it('evicts oldest session when capacity is reached', () => {
+      const store = new SessionStore(30_000, 3);
+      const s1 = store.create('basic');
+      const s2 = store.create('basic');
+      const s3 = store.create('basic');
+
+      // Creating a 4th should evict s1 (oldest)
+      const s4 = store.create('basic');
+
+      assert.equal(store.get(s1.id), undefined);
+      assert.notEqual(store.get(s2.id), undefined);
+      assert.notEqual(store.get(s3.id), undefined);
+      assert.notEqual(store.get(s4.id), undefined);
+    });
+
+    it('emits session:evicted with reason max_sessions', () => {
+      const store = new SessionStore(30_000, 2);
+      const s1 = store.create('basic');
+
+      const evicted: { sessionId: string; reason: string }[] = [];
+      const handler = (data: { sessionId: string; reason: string }): void => {
+        evicted.push(data);
+      };
+      engineEvents.on('session:evicted', handler);
+
+      try {
+        store.create('basic');
+        // s1 is not evicted yet (at capacity=2)
+        assert.equal(evicted.length, 0);
+
+        store.create('basic');
+        // Now s1 should be evicted
+        assert.equal(evicted.length, 1);
+        assert.equal(evicted[0]!.sessionId, s1.id);
+        assert.equal(evicted[0]!.reason, 'max_sessions');
+      } finally {
+        engineEvents.off('session:evicted', handler);
+      }
+    });
+  });
+
+  describe('maxTotalTokens', () => {
+    it('evicts oldest session when total tokens exceed limit', () => {
+      // Small token cap: 10 tokens
+      const store = new SessionStore(30_000, 100, 10);
+      const s1 = store.create('basic');
+      store.addThought(s1.id, 'Hello World!'); // ~3 tokens
+
+      const s2 = store.create('basic');
+      // Adding a thought that pushes total over 10 should evict s1
+      store.addThought(s2.id, 'This is a longer thought that uses more tokens');
+
+      assert.equal(store.get(s1.id), undefined);
+      assert.notEqual(store.get(s2.id), undefined);
+    });
+
+    it('emits session:evicted with reason max_total_tokens', () => {
+      const store = new SessionStore(30_000, 100, 10);
+      const s1 = store.create('basic');
+      store.addThought(s1.id, 'Hello World!');
+
+      const evicted: { sessionId: string; reason: string }[] = [];
+      const handler = (data: { sessionId: string; reason: string }): void => {
+        evicted.push(data);
+      };
+      engineEvents.on('session:evicted', handler);
+
+      try {
+        const s2 = store.create('basic');
+        store.addThought(
+          s2.id,
+          'This is a longer thought that uses more tokens'
+        );
+        assert.ok(evicted.length >= 1);
+        assert.equal(evicted[0]!.sessionId, s1.id);
+        assert.equal(evicted[0]!.reason, 'max_total_tokens');
+      } finally {
+        engineEvents.off('session:evicted', handler);
+      }
+    });
+
+    it('getTotalTokensUsed returns accurate count', () => {
+      const store = new SessionStore(30_000, 100, 500_000);
+      assert.equal(store.getTotalTokensUsed(), 0);
+
+      const s1 = store.create('basic');
+      store.addThought(s1.id, 'Hello'); // ~2 tokens
+      assert.equal(store.getTotalTokensUsed(), 2);
+
+      const s2 = store.create('basic');
+      store.addThought(s2.id, 'World'); // ~2 tokens
+      assert.equal(store.getTotalTokensUsed(), 4);
+
+      store.delete(s1.id);
+      assert.equal(store.getTotalTokensUsed(), 2);
+    });
+
+    it('adjusts totalTokens on reviseThought', () => {
+      const store = new SessionStore(30_000, 100, 500_000);
+      const session = store.create('basic');
+      store.addThought(session.id, 'Hello'); // ~2 tokens
+      assert.equal(store.getTotalTokensUsed(), 2);
+
+      store.reviseThought(session.id, 0, 'Hi'); // ~1 token
+      assert.equal(store.getTotalTokensUsed(), 1);
+    });
+
+    it('does not evict the session being written to', () => {
+      // Token cap of 5: small enough that one large thought should trigger eviction
+      const store = new SessionStore(30_000, 100, 5);
+      const s1 = store.create('basic');
+      store.addThought(s1.id, 'Hi'); // ~1 token
+
+      const s2 = store.create('basic');
+      // Adding to s2 should evict s1, not s2
+      store.addThought(
+        s2.id,
+        'This content is long enough to exceed five tokens'
+      );
+
+      assert.equal(store.get(s1.id), undefined);
+      assert.notEqual(store.get(s2.id), undefined);
+    });
+  });
 });
