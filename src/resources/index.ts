@@ -104,7 +104,25 @@ interface CompletionCacheEntry {
   timestamp: number;
 }
 
+const COMPLETION_CACHE_TTL_MS = 1000;
+const COMPLETION_CACHE_MAX_ENTRIES = 512;
 const completionCache = new Map<string, CompletionCacheEntry>();
+
+function pruneCompletionCache(now: number): void {
+  for (const [cacheKey, entry] of completionCache.entries()) {
+    if (now - entry.timestamp >= COMPLETION_CACHE_TTL_MS) {
+      completionCache.delete(cacheKey);
+    }
+  }
+
+  while (completionCache.size > COMPLETION_CACHE_MAX_ENTRIES) {
+    const oldestKey = completionCache.keys().next().value;
+    if (typeof oldestKey !== 'string') {
+      break;
+    }
+    completionCache.delete(oldestKey);
+  }
+}
 
 export function registerAllResources(
   server: McpServer,
@@ -285,22 +303,29 @@ export function registerAllResources(
       }),
       complete: {
         sessionId: (value) => {
+          const now = Date.now();
+          pruneCompletionCache(now);
           const cacheKey = `sessionId:${value}`;
           const cached = completionCache.get(cacheKey);
-          const now = Date.now();
 
-          // Cache for 1 second to prevent enumeration attacks
-          if (cached && now - cached.timestamp < 1000) {
+          // Cache for 1 second to reduce repeated completion scans.
+          if (cached && now - cached.timestamp < COMPLETION_CACHE_TTL_MS) {
             return cached.results;
           }
 
-          const results = sessionStore
-            .list()
-            .map((session) => session.id)
-            .filter((sessionId) => sessionId.startsWith(value))
-            .slice(0, 20);
+          const results: string[] = [];
+          for (const session of sessionStore.list()) {
+            if (!session.id.startsWith(value)) {
+              continue;
+            }
+            results.push(session.id);
+            if (results.length >= 20) {
+              break;
+            }
+          }
 
           completionCache.set(cacheKey, { results, timestamp: now });
+          pruneCompletionCache(now);
           return results;
         },
       },

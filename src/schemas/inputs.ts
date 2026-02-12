@@ -32,9 +32,7 @@ export const ReasoningThinkInputSchema = z
       return;
     }
 
-    const error: string | null = (
-      getTargetThoughtsError as (level: string, target: number) => string | null
-    )(data.level, data.targetThoughts);
+    const error = getTargetThoughtsError(data.level, data.targetThoughts);
     if (error) {
       ctx.addIssue({
         code: 'custom',

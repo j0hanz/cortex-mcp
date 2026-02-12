@@ -264,6 +264,21 @@ describe('SessionStore', () => {
       assert.notEqual(store.get(s4.id), undefined);
     });
 
+    it('evicts least recently updated session first', () => {
+      const store = new SessionStore(30_000, 2);
+      const s1 = store.create('basic');
+      const s2 = store.create('basic');
+
+      // Touch s1 so s2 becomes the eviction candidate.
+      store.addThought(s1.id, 'refresh recency');
+
+      const s3 = store.create('basic');
+
+      assert.notEqual(store.get(s1.id), undefined);
+      assert.equal(store.get(s2.id), undefined);
+      assert.notEqual(store.get(s3.id), undefined);
+    });
+
     it('emits session:evicted with reason max_sessions', () => {
       const store = new SessionStore(30_000, 2);
       const s1 = store.create('basic');

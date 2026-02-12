@@ -46,7 +46,7 @@ interface ReasoningTaskExtra {
   taskId?: string;
   taskRequestedTtl?: number | null;
   taskStore: TaskStoreLike;
-  _meta?: { progressToken?: ProgressToken };
+  _meta?: { progressToken?: ProgressToken } & Record<string, unknown>;
 }
 
 interface ReasoningStructuredResult {
@@ -58,7 +58,7 @@ interface ReasoningStructuredResult {
     status: 'active' | 'completed' | 'cancelled';
     thoughts: { index: number; content: string; revision: number }[];
     generatedThoughts: number;
-    requestedThoughts: number | null;
+    requestedThoughts: number;
     totalThoughts: number;
     tokenBudget: number;
     tokensUsed: number;
@@ -68,6 +68,83 @@ interface ReasoningStructuredResult {
     updatedAt: number;
     summary: string;
   };
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isTaskStoreLike(value: unknown): value is TaskStoreLike {
+  if (!isObjectRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.createTask === 'function' &&
+    typeof value.getTask === 'function' &&
+    typeof value.storeTaskResult === 'function' &&
+    typeof value.updateTaskStatus === 'function' &&
+    typeof value.getTaskResult === 'function'
+  );
+}
+
+function isAbortSignalLike(value: unknown): value is AbortSignal {
+  if (!isObjectRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.aborted === 'boolean' &&
+    typeof value.addEventListener === 'function' &&
+    typeof value.removeEventListener === 'function'
+  );
+}
+
+function isProgressToken(value: unknown): value is ProgressToken {
+  return typeof value === 'string' || typeof value === 'number';
+}
+
+function isReasoningTaskExtra(value: unknown): value is ReasoningTaskExtra {
+  if (!isObjectRecord(value)) {
+    return false;
+  }
+  if (!isTaskStoreLike(value.taskStore) || !isAbortSignalLike(value.signal)) {
+    return false;
+  }
+  if (value.sessionId !== undefined && typeof value.sessionId !== 'string') {
+    return false;
+  }
+  if (value.taskId !== undefined && typeof value.taskId !== 'string') {
+    return false;
+  }
+  if (
+    value.taskRequestedTtl !== undefined &&
+    value.taskRequestedTtl !== null &&
+    typeof value.taskRequestedTtl !== 'number'
+  ) {
+    return false;
+  }
+  if (value._meta !== undefined) {
+    if (!isObjectRecord(value._meta)) {
+      return false;
+    }
+    const { progressToken } = value._meta;
+    if (progressToken !== undefined && !isProgressToken(progressToken)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function parseReasoningTaskExtra(rawExtra: unknown): ReasoningTaskExtra {
+  if (!isReasoningTaskExtra(rawExtra)) {
+    throw new Error('Invalid task context in request handler.');
+  }
+  return rawExtra;
+}
+
+function assertCallToolResult(value: unknown): asserts value is CallToolResult {
+  if (!isObjectRecord(value) || !Array.isArray(value.content)) {
+    throw new Error('Stored task result is not a valid CallToolResult.');
+  }
 }
 
 function mapReasoningErrorCode(message: string): string {
@@ -460,7 +537,8 @@ export function registerReasoningThinkTool(
           );
         }
         const params = parseResult.data;
-        const extra = rawExtra as ReasoningTaskExtra;
+        const extra = parseReasoningTaskExtra(rawExtra);
+        const progressToken = extra._meta?.progressToken;
 
         const task = await extra.taskStore.createTask({
           ttl: extra.taskRequestedTtl ?? null,
@@ -474,9 +552,7 @@ export function registerReasoningThinkTool(
           taskId: task.taskId,
           params,
           controller,
-          ...(extra._meta?.progressToken !== undefined
-            ? { progressToken: extra._meta.progressToken }
-            : {}),
+          ...(progressToken !== undefined ? { progressToken } : {}),
           ...(extra.sessionId !== undefined
             ? { sessionId: extra.sessionId }
             : {}),
@@ -487,15 +563,15 @@ export function registerReasoningThinkTool(
       },
 
       getTask(_params, rawExtra) {
-        const extra = rawExtra as ReasoningTaskExtra;
+        const extra = parseReasoningTaskExtra(rawExtra);
         return extra.taskStore.getTask(getTaskId(extra));
       },
 
-      getTaskResult(_params, rawExtra) {
-        const extra = rawExtra as ReasoningTaskExtra;
-        return extra.taskStore
-          .getTaskResult(getTaskId(extra))
-          .then((result) => result as CallToolResult);
+      async getTaskResult(_params, rawExtra) {
+        const extra = parseReasoningTaskExtra(rawExtra);
+        const result = await extra.taskStore.getTaskResult(getTaskId(extra));
+        assertCallToolResult(result);
+        return result;
       },
     }
   );

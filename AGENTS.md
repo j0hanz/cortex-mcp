@@ -40,7 +40,7 @@
 - **Install:** `npm install` (lockfile: `package-lock.json`)
 - **Dev:** `npm run dev` — `tsc --watch --preserveWatchOutput` (see `package.json` `scripts.dev`)
 - **Dev run:** `npm run dev:run` — `node --env-file=.env --watch dist/index.js` (see `package.json` `scripts.dev:run`)
-- **Test:** `npm test` — runs `node scripts/tasks.mjs test` which builds first, then executes `node --test --import tsx/esm src/__tests__/**/*.test.ts` (see `scripts/tasks.mjs` `TestTasks.test`)
+- **Test:** `npm test` — runs `node scripts/tasks.mjs test` which validates `src/instructions.md` and compiles TypeScript (`tsc -p tsconfig.build.json`) before executing `node --test --import tsx/esm src/__tests__/**/*.test.ts` (see `scripts/tasks.mjs` `TestTasks.test`, `Pipeline.testBuild`)
 - **Test (fast):** `npm run test:fast` — runs tests without building first (see `package.json` `scripts.test:fast`)
 - **Test (coverage):** `npm run test:coverage` — runs `node scripts/tasks.mjs test --coverage` with `--experimental-test-coverage` (see `package.json` `scripts.test:coverage`)
 - **Build:** `npm run build` — runs `node scripts/tasks.mjs build` which: cleans `dist/`, compiles TypeScript via `tsc -p tsconfig.build.json`, validates `src/instructions.md` exists, copies assets, sets executable permission (see `scripts/tasks.mjs` `Pipeline.fullBuild`)
@@ -103,7 +103,7 @@
 
 - Token budgets are approximate (UTF-8 byte length / 4, not true tokenization) — do not assume precise token counts in tests. (see `src/engine/session-store.ts` `estimateTokens`)
 - Sessions are in-memory only — all data is lost on process restart. Do not rely on persistence across restarts. (see `src/engine/session-store.ts`)
-- The build task runner (`scripts/tasks.mjs`) must always run before `npm test` — the test command builds first automatically; `test:fast` skips the build. (see `scripts/tasks.mjs` `TestTasks.test`)
+- The build task runner (`scripts/tasks.mjs`) must always run before `npm test` — the test command runs a pre-test build step (validate + compile) automatically; `test:fast` skips that step. (see `scripts/tasks.mjs` `TestTasks.test`, `Pipeline.testBuild`)
 - `src/instructions.md` must exist or the build will fail at the validation step. (see `scripts/tasks.mjs` `BuildTasks.validate`)
 
 ## 8) Evolution Rules

@@ -295,7 +295,7 @@ const TestTasks = {
   },
 
   async test(args = []) {
-    await Pipeline.fullBuild();
+    await Pipeline.testBuild();
 
     const testFiles = await findTestPatterns();
     if (testFiles.length === 0) {
@@ -361,6 +361,11 @@ const Pipeline = {
         2
       )}s`
     );
+  },
+
+  async testBuild() {
+    await Runner.runTask('Validating instructions', BuildTasks.validate);
+    await Runner.runShellTask('Compiling TypeScript', BuildTasks.compile);
   },
 };
 

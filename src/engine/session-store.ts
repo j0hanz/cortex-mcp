@@ -15,6 +15,11 @@ const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const DEFAULT_MAX_SESSIONS = 100;
 const DEFAULT_MAX_TOTAL_TOKENS = 500_000;
 
+interface SessionOrderNode {
+  prevId: string | undefined;
+  nextId: string | undefined;
+}
+
 function estimateTokens(text: string): number {
   const byteLength = Buffer.byteLength(text, 'utf8');
   return Math.max(1, Math.ceil(byteLength / 4));
@@ -22,6 +27,9 @@ function estimateTokens(text: string): number {
 
 export class SessionStore {
   private readonly sessions = new Map<string, Session>();
+  private readonly sessionOrder = new Map<string, SessionOrderNode>();
+  private oldestSessionId: string | undefined;
+  private newestSessionId: string | undefined;
   private sortedCache: Session[] | null = null;
   private readonly cleanupInterval: NodeJS.Timeout;
   private readonly ttlMs: number;
@@ -60,6 +68,7 @@ export class SessionStore {
       updatedAt: now,
     };
     this.sessions.set(session.id, session);
+    this.addToOrder(session.id);
     this.sortedCache = null;
     engineEvents.emit('resources:changed', { uri: 'reasoning://sessions' });
     return session;
@@ -70,9 +79,7 @@ export class SessionStore {
   }
 
   list(): Session[] {
-    this.sortedCache ??= [...this.sessions.values()].sort(
-      (a, b) => b.updatedAt - a.updatedAt
-    );
+    this.sortedCache ??= this.buildSortedCache();
     return this.sortedCache;
   }
 
@@ -93,13 +100,10 @@ export class SessionStore {
   }
 
   delete(id: string): boolean {
-    const session = this.sessions.get(id);
+    const session = this.deleteSessionInternal(id);
     if (!session) {
       return false;
     }
-    this.totalTokens -= session.tokensUsed;
-    this.sessions.delete(id);
-    this.sortedCache = null;
     engineEvents.emit('session:deleted', { sessionId: id });
     engineEvents.emit('resources:changed', { uri: 'reasoning://sessions' });
     return true;
@@ -121,6 +125,7 @@ export class SessionStore {
     session.tokensUsed += tokens;
     this.totalTokens += tokens;
     session.updatedAt = Date.now();
+    this.touchOrder(session.id);
     this.sortedCache = null;
     engineEvents.emit('resource:updated', {
       uri: `reasoning://sessions/${sessionId}`,
@@ -158,6 +163,7 @@ export class SessionStore {
     session.tokensUsed = session.tokensUsed - oldTokens + newTokens;
     this.totalTokens += delta;
     session.updatedAt = Date.now();
+    this.touchOrder(session.id);
     this.sortedCache = null;
     engineEvents.emit('resource:updated', {
       uri: `reasoning://sessions/${sessionId}`,
@@ -170,6 +176,7 @@ export class SessionStore {
     if (session?.status === 'active') {
       session.status = 'completed';
       session.updatedAt = Date.now();
+      this.touchOrder(session.id);
       this.sortedCache = null;
     }
   }
@@ -179,6 +186,7 @@ export class SessionStore {
     if (session?.status === 'active') {
       session.status = 'cancelled';
       session.updatedAt = Date.now();
+      this.touchOrder(session.id);
       this.sortedCache = null;
     }
   }
@@ -187,9 +195,7 @@ export class SessionStore {
     while (this.sessions.size >= this.maxSessions) {
       const oldest = this.findOldestSession();
       if (!oldest) break;
-      this.totalTokens -= oldest.tokensUsed;
-      this.sessions.delete(oldest.id);
-      this.sortedCache = null;
+      this.deleteSessionInternal(oldest.id);
       engineEvents.emit('session:evicted', {
         sessionId: oldest.id,
         reason: 'max_sessions',
@@ -208,9 +214,7 @@ export class SessionStore {
     ) {
       const oldest = this.findOldestSession(protectedSessionId);
       if (!oldest) break;
-      this.totalTokens -= oldest.tokensUsed;
-      this.sessions.delete(oldest.id);
-      this.sortedCache = null;
+      this.deleteSessionInternal(oldest.id);
       engineEvents.emit('session:evicted', {
         sessionId: oldest.id,
         reason: 'max_total_tokens',
@@ -220,30 +224,152 @@ export class SessionStore {
   }
 
   private findOldestSession(excludeId?: string): Session | undefined {
-    let oldest: Session | undefined;
-    for (const session of this.sessions.values()) {
-      if (session.id === excludeId) continue;
-      if (!oldest || session.updatedAt < oldest.updatedAt) {
-        oldest = session;
+    let currentId = this.oldestSessionId;
+    while (currentId) {
+      if (currentId !== excludeId) {
+        return this.sessions.get(currentId);
       }
+      currentId = this.sessionOrder.get(currentId)?.nextId;
     }
-    return oldest;
+    return undefined;
   }
 
   private sweep(): void {
     const now = Date.now();
+    const expiredSessionIds: string[] = [];
     let changed = false;
     for (const session of this.sessions.values()) {
       if (session.updatedAt + this.ttlMs < now) {
-        this.totalTokens -= session.tokensUsed;
-        this.sessions.delete(session.id);
-        engineEvents.emit('session:expired', { sessionId: session.id });
-        changed = true;
+        expiredSessionIds.push(session.id);
       }
     }
+    for (const sessionId of expiredSessionIds) {
+      if (!this.deleteSessionInternal(sessionId)) {
+        continue;
+      }
+      engineEvents.emit('session:expired', { sessionId });
+      changed = true;
+    }
     if (changed) {
-      this.sortedCache = null;
       engineEvents.emit('resources:changed', { uri: 'reasoning://sessions' });
     }
+  }
+
+  private buildSortedCache(): Session[] {
+    const sorted: Session[] = [];
+    let currentId = this.newestSessionId;
+    while (currentId) {
+      const session = this.sessions.get(currentId);
+      if (session) {
+        sorted.push(session);
+      }
+      currentId = this.sessionOrder.get(currentId)?.prevId;
+    }
+    return sorted;
+  }
+
+  private addToOrder(sessionId: string): void {
+    if (this.sessionOrder.has(sessionId)) {
+      this.touchOrder(sessionId);
+      return;
+    }
+
+    const node: SessionOrderNode = { prevId: undefined, nextId: undefined };
+    if (this.newestSessionId) {
+      const newest = this.sessionOrder.get(this.newestSessionId);
+      if (newest) {
+        newest.nextId = sessionId;
+      }
+      node.prevId = this.newestSessionId;
+    } else {
+      this.oldestSessionId = sessionId;
+    }
+
+    this.newestSessionId = sessionId;
+    this.sessionOrder.set(sessionId, node);
+  }
+
+  private touchOrder(sessionId: string): void {
+    if (this.newestSessionId === sessionId) {
+      return;
+    }
+
+    const node = this.sessionOrder.get(sessionId);
+    if (!node) {
+      this.addToOrder(sessionId);
+      return;
+    }
+
+    const { prevId, nextId } = node;
+    if (prevId) {
+      const previous = this.sessionOrder.get(prevId);
+      if (previous) {
+        previous.nextId = nextId;
+      }
+    } else {
+      this.oldestSessionId = nextId;
+    }
+
+    if (nextId) {
+      const next = this.sessionOrder.get(nextId);
+      if (next) {
+        next.prevId = prevId;
+      }
+    }
+
+    node.prevId = this.newestSessionId;
+    node.nextId = undefined;
+
+    if (this.newestSessionId) {
+      const newest = this.sessionOrder.get(this.newestSessionId);
+      if (newest) {
+        newest.nextId = sessionId;
+      }
+    } else {
+      this.oldestSessionId = sessionId;
+    }
+
+    this.newestSessionId = sessionId;
+  }
+
+  private removeFromOrder(sessionId: string): void {
+    const node = this.sessionOrder.get(sessionId);
+    if (!node) {
+      return;
+    }
+
+    const { prevId, nextId } = node;
+    if (prevId) {
+      const previous = this.sessionOrder.get(prevId);
+      if (previous) {
+        previous.nextId = nextId;
+      }
+    } else {
+      this.oldestSessionId = nextId;
+    }
+
+    if (nextId) {
+      const next = this.sessionOrder.get(nextId);
+      if (next) {
+        next.prevId = prevId;
+      }
+    } else {
+      this.newestSessionId = prevId;
+    }
+
+    this.sessionOrder.delete(sessionId);
+  }
+
+  private deleteSessionInternal(id: string): Session | undefined {
+    const session = this.sessions.get(id);
+    if (!session) {
+      return undefined;
+    }
+
+    this.totalTokens -= session.tokensUsed;
+    this.sessions.delete(id);
+    this.removeFromOrder(id);
+    this.sortedCache = null;
+    return session;
   }
 }
