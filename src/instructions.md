@@ -30,9 +30,6 @@ These instructions are available as a resource (internal://instructions) or prom
 - `reasoning://sessions/{sessionId}`: Inspect a specific session's thoughts and metadata (JSON). Supports auto-completion on `sessionId`.
 - `file:///cortex/sessions/{sessionId}/trace.md`: Full Markdown trace of a session. Supports auto-completion on `sessionId`.
 - `file:///cortex/sessions/{sessionId}/{thoughtName}.md`: Markdown content of a single thought (e.g., `Thought-1.md`). Supports auto-completion on `sessionId` and `thoughtName`.
-
-### Resource Subscriptions
-
 - The server supports `resources/subscribe` for real-time change notifications on individual resources.
 - Subscribe to `reasoning://sessions/{sessionId}` to receive `notifications/resources/updated` when thoughts are added, revised, or status changes.
 - Subscribe to `reasoning://sessions` to receive aggregate updates as session content and statuses evolve.
@@ -98,12 +95,12 @@ These instructions are available as a resource (internal://instructions) or prom
 - Purpose: Generate a multi-step reasoning chain for a given query at a specified depth level.
 - Input:
   - `query` (string, 1–10,000 chars): The question or problem to reason about. Required when creating a new session; optional when `sessionId` is provided.
-  - `level` (enum: `basic` | `normal` | `high`): Controls reasoning depth and token budget. Required for new sessions; optional for continuing sessions.
+  - `level` (enum: `basic` | `normal` | `high`): Controls reasoning depth and token budget.
   - `runMode` (enum: `step` | `run_to_completion`, optional): Execution mode. Defaults to `step`.
   - `thought` (string, 1–100,000 chars, **required**): Your full reasoning content for this step. The server stores this text verbatim as the thought in the session trace. Write your complete analysis, observations, and conclusions here — this is what appears in trace.md.
   - `thoughts` (array of string, optional): Additional thought inputs consumed in order when `runMode` is `run_to_completion`.
-  - `targetThoughts` (int, 1–25, optional): Override automatic step count. Must fit within the level range. Optional for existing sessions or `run_to_completion`.
-  - `sessionId` (string, 1–128 chars, optional): Continue an existing session. Level is inferred from session if omitted.
+  - `targetThoughts` (int, 1–25, optional): Override automatic step count. Must fit within the level range.
+  - `sessionId` (string, 1–128 chars, optional): Continue an existing session. Level must match.
 - Output: `{ ok, result: { sessionId, level, status, thoughts[], generatedThoughts, requestedThoughts, totalThoughts, remainingThoughts, tokenBudget, tokensUsed, ttlMs, expiresAt, createdAt, updatedAt, summary } }`
 - Side effects: Creates or modifies an in-memory session. Sessions expire after 30 minutes of inactivity.
 - Gotcha: When `status` is `"active"`, the `summary` field contains the exact next call you should make — follow it to continue the session.
@@ -140,35 +137,12 @@ These instructions are available as a resource (internal://instructions) or prom
 
 ---
 
-## ENHANCED TRACE FEATURES
-
-The trace.md output can surface structured content from your thoughts. Use these conventions in your `thought` text to produce richer traces:
-
-### Pinned Sections
-
-Mark important content (decisions, requirements, constraints) so it appears in a **📌 Pinned** section at the top of the trace, regardless of which thought step it was written in:
-
-```markdown
-<!-- pin: Architecture Decision -->
-
-We chose REST over GraphQL because of X, Y, Z.
-
-<!-- /pin -->
-```
-
-- Use any title you want after `pin:`.
-- If the same title appears in a later thought, the later content replaces the earlier one (last-write-wins).
-- When no pin markers are used, the trace renders as before (header + thoughts only).
-
----
-
 ## ERROR HANDLING STRATEGY
 
 - `E_SESSION_NOT_FOUND`: Session expired or never existed. Call `reasoning://sessions` to list active sessions, or start a new session without `sessionId`.
+- `E_SESSION_LEVEL_MISMATCH`: Requested level differs from the existing session. Use the same level as the original session, or start a new session.
 - `E_INVALID_THOUGHT_COUNT`: `targetThoughts` is outside the level range. Check ranges: basic (3–5), normal (6–10), high (15–25).
 - `E_INSUFFICIENT_THOUGHTS`: In `run_to_completion`, the request did not provide enough thought inputs for planned remaining steps.
 - `E_INVALID_RUN_MODE_ARGS`: Invalid `runMode` argument combination (for example, missing `targetThoughts` when starting a new run-to-completion session).
 - `E_ABORTED`: Reasoning was cancelled via abort signal or task cancellation. Retry with a new request if needed.
 - `E_REASONING`: Unexpected engine error. Check the error `message` field for details and retry.
-
----
