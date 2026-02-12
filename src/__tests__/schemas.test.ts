@@ -29,6 +29,23 @@ describe('ReasoningThinkInputSchema', () => {
     assert.equal(result.success, true);
   });
 
+  it('accepts missing query when sessionId is provided', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      level: 'normal',
+      sessionId: 'abc-123',
+      thought: 'Continue reasoning without a new query.',
+    });
+    assert.equal(result.success, true);
+  });
+
+  it('rejects missing query for new sessions', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      level: 'basic',
+      thought: 'New sessions must include a query.',
+    });
+    assert.equal(result.success, false);
+  });
+
   it('rejects missing thought', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'test',
@@ -139,6 +156,40 @@ describe('ReasoningThinkInputSchema', () => {
       query: 'test',
       level: 'basic',
       thought: '',
+    });
+    assert.equal(result.success, false);
+  });
+
+  it('accepts run_to_completion with additional thoughts', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'test',
+      level: 'basic',
+      runMode: 'run_to_completion',
+      targetThoughts: 3,
+      thought: 'Step 1',
+      thoughts: ['Step 2', 'Step 3'],
+    });
+    assert.equal(result.success, true);
+  });
+
+  it('rejects run_to_completion without targetThoughts for new sessions', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'test',
+      level: 'basic',
+      runMode: 'run_to_completion',
+      thought: 'Step 1',
+      thoughts: ['Step 2'],
+    });
+    assert.equal(result.success, false);
+  });
+
+  it('rejects thoughts when runMode is step', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'test',
+      level: 'basic',
+      runMode: 'step',
+      thought: 'Step 1',
+      thoughts: ['Step 2'],
     });
     assert.equal(result.success, false);
   });

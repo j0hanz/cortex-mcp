@@ -8,6 +8,7 @@ export const ReasoningThinkInputSchema = z
       .string()
       .min(1)
       .max(10000)
+      .optional()
       .describe('The question or problem to reason about'),
     level: z
       .enum(['basic', 'normal', 'high'])
@@ -26,6 +27,12 @@ export const ReasoningThinkInputSchema = z
       .max(128)
       .optional()
       .describe('Optional session ID to continue a previous reasoning session'),
+    runMode: z
+      .enum(['step', 'run_to_completion'])
+      .optional()
+      .describe(
+        'Execution mode. "step" appends a single thought. "run_to_completion" consumes all supplied thought inputs in one request.'
+      ),
     thought: z
       .string()
       .min(1)
@@ -35,8 +42,46 @@ export const ReasoningThinkInputSchema = z
           'The server stores this text verbatim as the thought in the session trace. ' +
           'Write your complete analysis, observations, and conclusions here — this is what appears in trace.md.'
       ),
+    thoughts: z
+      .array(z.string().min(1).max(100000))
+      .max(25)
+      .optional()
+      .describe(
+        'Optional additional thought inputs consumed in order when runMode is "run_to_completion".'
+      ),
   })
   .superRefine((data, ctx) => {
+    const runMode = data.runMode ?? 'step';
+
+    if (data.sessionId === undefined && data.query === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'query is required when sessionId is not provided',
+        path: ['query'],
+      });
+    }
+
+    if (
+      runMode === 'run_to_completion' &&
+      data.sessionId === undefined &&
+      data.targetThoughts === undefined
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'targetThoughts is required for run_to_completion when sessionId is not provided',
+        path: ['targetThoughts'],
+      });
+    }
+
+    if (runMode === 'step' && data.thoughts !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'thoughts is only allowed when runMode is "run_to_completion"',
+        path: ['thoughts'],
+      });
+    }
+
     if (data.targetThoughts === undefined) {
       return;
     }

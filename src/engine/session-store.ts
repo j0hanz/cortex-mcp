@@ -70,7 +70,8 @@ export class SessionStore {
     this.sessions.set(session.id, session);
     this.addToOrder(session.id);
     this.sortedCache = null;
-    engineEvents.emit('resources:changed', { uri: 'reasoning://sessions' });
+    this.emitSessionsListChanged();
+    this.emitSessionsResourceUpdated();
     return session;
   }
 
@@ -105,7 +106,8 @@ export class SessionStore {
       return false;
     }
     engineEvents.emit('session:deleted', { sessionId: id });
-    engineEvents.emit('resources:changed', { uri: 'reasoning://sessions' });
+    this.emitSessionsListChanged();
+    this.emitSessionsResourceUpdated();
     return true;
   }
 
@@ -127,9 +129,7 @@ export class SessionStore {
     session.updatedAt = Date.now();
     this.touchOrder(session.id);
     this.sortedCache = null;
-    engineEvents.emit('resource:updated', {
-      uri: `reasoning://sessions/${sessionId}`,
-    });
+    this.emitSessionResourcesUpdated(sessionId);
     return thought;
   }
 
@@ -165,9 +165,7 @@ export class SessionStore {
     session.updatedAt = Date.now();
     this.touchOrder(session.id);
     this.sortedCache = null;
-    engineEvents.emit('resource:updated', {
-      uri: `reasoning://sessions/${sessionId}`,
-    });
+    this.emitSessionResourcesUpdated(sessionId);
     return revised;
   }
 
@@ -178,6 +176,7 @@ export class SessionStore {
       session.updatedAt = Date.now();
       this.touchOrder(session.id);
       this.sortedCache = null;
+      this.emitSessionResourcesUpdated(sessionId);
     }
   }
 
@@ -188,6 +187,7 @@ export class SessionStore {
       session.updatedAt = Date.now();
       this.touchOrder(session.id);
       this.sortedCache = null;
+      this.emitSessionResourcesUpdated(sessionId);
     }
   }
 
@@ -200,7 +200,8 @@ export class SessionStore {
         sessionId: oldest.id,
         reason: 'max_sessions',
       });
-      engineEvents.emit('resources:changed', { uri: 'reasoning://sessions' });
+      this.emitSessionsListChanged();
+      this.emitSessionsResourceUpdated();
     }
   }
 
@@ -219,7 +220,8 @@ export class SessionStore {
         sessionId: oldest.id,
         reason: 'max_total_tokens',
       });
-      engineEvents.emit('resources:changed', { uri: 'reasoning://sessions' });
+      this.emitSessionsListChanged();
+      this.emitSessionsResourceUpdated();
     }
   }
 
@@ -251,7 +253,8 @@ export class SessionStore {
       changed = true;
     }
     if (changed) {
-      engineEvents.emit('resources:changed', { uri: 'reasoning://sessions' });
+      this.emitSessionsListChanged();
+      this.emitSessionsResourceUpdated();
     }
   }
 
@@ -371,5 +374,20 @@ export class SessionStore {
     this.removeFromOrder(id);
     this.sortedCache = null;
     return session;
+  }
+
+  private emitSessionsListChanged(): void {
+    engineEvents.emit('resources:changed', { uri: 'reasoning://sessions' });
+  }
+
+  private emitSessionsResourceUpdated(): void {
+    engineEvents.emit('resource:updated', { uri: 'reasoning://sessions' });
+  }
+
+  private emitSessionResourcesUpdated(sessionId: string): void {
+    engineEvents.emit('resource:updated', {
+      uri: `reasoning://sessions/${sessionId}`,
+    });
+    this.emitSessionsResourceUpdated();
   }
 }

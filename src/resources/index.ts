@@ -36,6 +36,9 @@ function buildSessionSummary(sessionId: string): {
   id: string;
   level: 'basic' | 'normal' | 'high';
   status: 'active' | 'completed' | 'cancelled';
+  generatedThoughts: number;
+  remainingThoughts: number;
+  plannedThoughts: number;
   totalThoughts: number;
   tokenBudget: number;
   tokensUsed: number;
@@ -59,7 +62,13 @@ function buildSessionSummary(sessionId: string): {
     id: session.id,
     level: session.level,
     status: session.status,
-    totalThoughts: session.thoughts.length,
+    generatedThoughts: session.thoughts.length,
+    remainingThoughts: Math.max(
+      0,
+      session.totalThoughts - session.thoughts.length
+    ),
+    plannedThoughts: session.totalThoughts,
+    totalThoughts: session.totalThoughts,
     tokenBudget: session.tokenBudget,
     tokensUsed: session.tokensUsed,
     createdAt: session.createdAt,
@@ -106,6 +115,7 @@ interface CompletionCacheEntry {
 
 const COMPLETION_CACHE_TTL_MS = 1000;
 const COMPLETION_CACHE_MAX_ENTRIES = 512;
+const MAX_COMPLETION_RESULTS = 20;
 const completionCache = new Map<string, CompletionCacheEntry>();
 
 function pruneCompletionCache(now: number): void {
@@ -122,6 +132,57 @@ function pruneCompletionCache(now: number): void {
     }
     completionCache.delete(oldestKey);
   }
+}
+
+function completeSessionIds(value: string): string[] {
+  const now = Date.now();
+  pruneCompletionCache(now);
+  const cacheKey = `sessionId:${value}`;
+  const cached = completionCache.get(cacheKey);
+
+  if (cached && now - cached.timestamp < COMPLETION_CACHE_TTL_MS) {
+    return cached.results;
+  }
+
+  const results: string[] = [];
+  for (const session of sessionStore.list()) {
+    if (!session.id.startsWith(value)) {
+      continue;
+    }
+    results.push(session.id);
+    if (results.length >= MAX_COMPLETION_RESULTS) {
+      break;
+    }
+  }
+
+  completionCache.set(cacheKey, { results, timestamp: now });
+  pruneCompletionCache(now);
+  return results;
+}
+
+function completeThoughtNames(value: string, sessionId: string): string[] {
+  const session = sessionStore.get(sessionId);
+  if (!session) {
+    return [];
+  }
+
+  const results: string[] = [];
+  for (const thought of session.thoughts) {
+    const base = `Thought-${String(thought.index + 1)}`;
+    if (base.startsWith(value)) {
+      results.push(base);
+    }
+    if (thought.revision > 0) {
+      const revised = `${base}-Revised`;
+      if (revised.startsWith(value)) {
+        results.push(revised);
+      }
+    }
+    if (results.length >= MAX_COMPLETION_RESULTS) {
+      break;
+    }
+  }
+  return results;
 }
 
 export function registerAllResources(
@@ -206,6 +267,9 @@ export function registerAllResources(
     'reasoning.trace',
     new ResourceTemplate('file:///cortex/sessions/{sessionId}/trace.md', {
       list: undefined,
+      complete: {
+        sessionId: completeSessionIds,
+      },
     }),
     {
       title: 'Reasoning Trace',
@@ -239,6 +303,16 @@ export function registerAllResources(
       'file:///cortex/sessions/{sessionId}/{thoughtName}.md',
       {
         list: undefined,
+        complete: {
+          sessionId: completeSessionIds,
+          thoughtName: (value, context) => {
+            const sessionId = context?.arguments?.sessionId;
+            if (typeof sessionId !== 'string' || sessionId.length === 0) {
+              return [];
+            }
+            return completeThoughtNames(value, sessionId);
+          },
+        },
       }
     ),
     {
@@ -292,7 +366,9 @@ export function registerAllResources(
           uri: `reasoning://sessions/${session.id}`,
           name: `session-${session.id.slice(0, 8)}`,
           title: `Reasoning Session ${session.id.slice(0, 8)}`,
-          description: `${session.level} session with ${String(session.thoughts.length)} thought(s).`,
+          description: `${session.level} session with ${String(
+            session.thoughts.length
+          )}/${String(session.totalThoughts)} thought(s).`,
           mimeType: 'application/json',
           annotations: {
             audience: ['assistant', 'user'],
@@ -302,32 +378,7 @@ export function registerAllResources(
         })),
       }),
       complete: {
-        sessionId: (value) => {
-          const now = Date.now();
-          pruneCompletionCache(now);
-          const cacheKey = `sessionId:${value}`;
-          const cached = completionCache.get(cacheKey);
-
-          // Cache for 1 second to reduce repeated completion scans.
-          if (cached && now - cached.timestamp < COMPLETION_CACHE_TTL_MS) {
-            return cached.results;
-          }
-
-          const results: string[] = [];
-          for (const session of sessionStore.list()) {
-            if (!session.id.startsWith(value)) {
-              continue;
-            }
-            results.push(session.id);
-            if (results.length >= 20) {
-              break;
-            }
-          }
-
-          completionCache.set(cacheKey, { results, timestamp: now });
-          pruneCompletionCache(now);
-          return results;
-        },
+        sessionId: completeSessionIds,
       },
     }
   );

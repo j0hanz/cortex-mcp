@@ -1,4 +1,5 @@
 export type ReasoningLevel = 'basic' | 'normal' | 'high';
+export type ReasoningRunMode = 'step' | 'run_to_completion';
 
 export type SessionStatus = 'active' | 'completed' | 'cancelled';
 

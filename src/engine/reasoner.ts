@@ -8,7 +8,31 @@ import { runWithContext } from './context.js';
 import { engineEvents } from './events.js';
 import { SessionStore } from './session-store.js';
 
-const sessionStore = new SessionStore();
+const DEFAULT_SESSION_TTL_MS = 30 * 60 * 1000;
+const DEFAULT_MAX_SESSIONS = 100;
+const DEFAULT_MAX_TOTAL_TOKENS = 500_000;
+
+function parsePositiveIntEnv(
+  name: string,
+  fallback: number,
+  minimum = 1
+): number {
+  const raw = process.env[name];
+  if (raw === undefined) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isInteger(parsed) || parsed < minimum) {
+    return fallback;
+  }
+  return parsed;
+}
+
+const sessionStore = new SessionStore(
+  parsePositiveIntEnv('CORTEX_SESSION_TTL_MS', DEFAULT_SESSION_TTL_MS),
+  parsePositiveIntEnv('CORTEX_MAX_SESSIONS', DEFAULT_MAX_SESSIONS),
+  parsePositiveIntEnv('CORTEX_MAX_TOTAL_TOKENS', DEFAULT_MAX_TOTAL_TOKENS)
+);
 const sentenceSegmenter = createSegmenter('sentence');
 
 const sessionLocks = new Map<string, Promise<void>>();

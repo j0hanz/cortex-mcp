@@ -107,6 +107,26 @@ describe('SessionStore', () => {
       const store = new SessionStore();
       assert.throws(() => store.addThought('non-existent', 'content'));
     });
+
+    it('emits resource:updated for session detail and sessions index', () => {
+      const store = new SessionStore();
+      const session = store.create('basic');
+
+      const updatedUris: string[] = [];
+      const onUpdated = (data: { uri: string }): void => {
+        updatedUris.push(data.uri);
+      };
+
+      engineEvents.on('resource:updated', onUpdated);
+      try {
+        store.addThought(session.id, 'First thought');
+      } finally {
+        engineEvents.off('resource:updated', onUpdated);
+      }
+
+      assert.ok(updatedUris.includes(`reasoning://sessions/${session.id}`));
+      assert.ok(updatedUris.includes('reasoning://sessions'));
+    });
   });
 
   describe('reviseThought', () => {
@@ -245,6 +265,46 @@ describe('SessionStore', () => {
       const store = new SessionStore();
       // Should not throw
       store.markCancelled('non-existent');
+    });
+
+    it('markCompleted emits resource updates', () => {
+      const store = new SessionStore();
+      const session = store.create('basic');
+
+      const updatedUris: string[] = [];
+      const onUpdated = (data: { uri: string }): void => {
+        updatedUris.push(data.uri);
+      };
+
+      engineEvents.on('resource:updated', onUpdated);
+      try {
+        store.markCompleted(session.id);
+      } finally {
+        engineEvents.off('resource:updated', onUpdated);
+      }
+
+      assert.ok(updatedUris.includes(`reasoning://sessions/${session.id}`));
+      assert.ok(updatedUris.includes('reasoning://sessions'));
+    });
+
+    it('markCancelled emits resource updates', () => {
+      const store = new SessionStore();
+      const session = store.create('basic');
+
+      const updatedUris: string[] = [];
+      const onUpdated = (data: { uri: string }): void => {
+        updatedUris.push(data.uri);
+      };
+
+      engineEvents.on('resource:updated', onUpdated);
+      try {
+        store.markCancelled(session.id);
+      } finally {
+        engineEvents.off('resource:updated', onUpdated);
+      }
+
+      assert.ok(updatedUris.includes(`reasoning://sessions/${session.id}`));
+      assert.ok(updatedUris.includes('reasoning://sessions'));
     });
   });
 

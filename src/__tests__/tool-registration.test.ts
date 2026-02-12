@@ -184,6 +184,15 @@ describe('server registration', () => {
     const sessionId = structured.result?.sessionId;
     assert.equal(typeof sessionId, 'string');
 
+    const continuePrompt = await client.getPrompt({
+      name: 'reasoning.continue',
+      arguments: {
+        sessionId,
+        level: 'basic',
+      },
+    });
+    assert.equal(continuePrompt.messages.length, 1);
+
     const sessionsIndex = await client.readResource({
       uri: 'reasoning://sessions',
     });
@@ -224,13 +233,12 @@ describe('server registration', () => {
       'Single thought should not contain other thoughts'
     );
 
-    // Test last thought (index 3, assumed from targetThoughts=3)
-    // Note: We need to know if we actually generated thoughts.
-    // The reason logic for 'basic' might generate 3-5.
-    // If it generated at least 3, we can check Thought-3.
-    // Let's check session detail to see actual count
+    // Test last generated thought
     const detailJson = JSON.parse(sessionDetail.contents[0].text as string);
-    const count = detailJson.totalThoughts as number;
+    const count = detailJson.generatedThoughts as number;
+    const planned = detailJson.totalThoughts as number;
+    assert.equal(planned, 3);
+    assert.equal(count, 1);
 
     if (count >= 1) {
       const lastThoughtUri = `file:///cortex/sessions/${sessionId}/Thought-${count}.md`;
@@ -242,6 +250,165 @@ describe('server registration', () => {
         `Last thought should contain heading for Thought ${count}`
       );
     }
+
+    await client.close();
+    await server.close();
+  });
+
+  it('supports run_to_completion and aligned thought counters in resources', async () => {
+    const server = createServer();
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+
+    await server.connect(serverTransport);
+
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await client.connect(clientTransport);
+
+    const toolResult = await client.callTool({
+      name: 'reasoning.think',
+      arguments: {
+        query: 'Batch reasoning test',
+        level: 'basic',
+        runMode: 'run_to_completion',
+        targetThoughts: 3,
+        thought: 'Step 1',
+        thoughts: ['Step 2', 'Step 3'],
+      },
+    });
+
+    const structured = toolResult.structuredContent as {
+      ok?: boolean;
+      result?: {
+        sessionId?: string;
+        generatedThoughts?: number;
+        totalThoughts?: number;
+        status?: string;
+      };
+    };
+
+    assert.equal(structured.ok, true);
+    assert.equal(structured.result?.generatedThoughts, 3);
+    assert.equal(structured.result?.totalThoughts, 3);
+    assert.equal(structured.result?.status, 'completed');
+
+    const sessionId = structured.result?.sessionId;
+    assert.equal(typeof sessionId, 'string');
+
+    const sessionsIndex = await client.readResource({
+      uri: 'reasoning://sessions',
+    });
+    const sessionsJson = JSON.parse(
+      sessionsIndex.contents[0].text as string
+    ) as {
+      sessions: Array<{
+        id: string;
+        generatedThoughts: number;
+        remainingThoughts: number;
+        plannedThoughts: number;
+        totalThoughts: number;
+      }>;
+    };
+    const entry = sessionsJson.sessions.find(
+      (session) => session.id === sessionId
+    );
+    assert.ok(entry);
+    assert.equal(entry?.generatedThoughts, 3);
+    assert.equal(entry?.remainingThoughts, 0);
+    assert.equal(entry?.plannedThoughts, 3);
+    assert.equal(entry?.totalThoughts, 3);
+
+    await client.close();
+    await server.close();
+  });
+
+  it('provides prompt and resource completions for session workflows', async () => {
+    const server = createServer();
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+
+    await server.connect(serverTransport);
+
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await client.connect(clientTransport);
+
+    const toolResult = await client.callTool({
+      name: 'reasoning.think',
+      arguments: {
+        query: 'Completion probe',
+        level: 'basic',
+        targetThoughts: 3,
+        thought: 'First thought',
+      },
+    });
+    const sessionId = (
+      toolResult.structuredContent as { result?: { sessionId?: string } }
+    ).result?.sessionId;
+    assert.equal(typeof sessionId, 'string');
+    const prefix = sessionId!.slice(0, 8);
+
+    const promptSessionCompletion = await client.complete({
+      ref: { type: 'ref/prompt', name: 'reasoning.continue' },
+      argument: { name: 'sessionId', value: prefix },
+    });
+    assert.ok(promptSessionCompletion.completion.values.includes(sessionId!));
+
+    const promptLevelCompletion = await client.complete({
+      ref: { type: 'ref/prompt', name: 'reasoning.continue' },
+      argument: { name: 'level', value: 'n' },
+    });
+    assert.ok(promptLevelCompletion.completion.values.includes('normal'));
+
+    const traceCompletion = await client.complete({
+      ref: {
+        type: 'ref/resource',
+        uri: 'file:///cortex/sessions/{sessionId}/trace.md',
+      },
+      argument: { name: 'sessionId', value: prefix },
+    });
+    assert.ok(traceCompletion.completion.values.includes(sessionId!));
+
+    const thoughtCompletion = await client.complete({
+      ref: {
+        type: 'ref/resource',
+        uri: 'file:///cortex/sessions/{sessionId}/{thoughtName}.md',
+      },
+      argument: { name: 'thoughtName', value: 'Thought-' },
+      context: { arguments: { sessionId: sessionId! } },
+    });
+    assert.ok(thoughtCompletion.completion.values.includes('Thought-1'));
+
+    await client.close();
+    await server.close();
+  });
+
+  it('returns E_INSUFFICIENT_THOUGHTS for under-provisioned run_to_completion calls', async () => {
+    const server = createServer();
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+
+    await server.connect(serverTransport);
+
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await client.connect(clientTransport);
+
+    const result = await client.callTool({
+      name: 'reasoning.think',
+      arguments: {
+        query: 'insufficient thoughts',
+        level: 'basic',
+        runMode: 'run_to_completion',
+        targetThoughts: 3,
+        thought: 'Only one thought provided',
+      },
+    });
+
+    const structured = result.structuredContent as {
+      ok?: boolean;
+      error?: { code?: string };
+    };
+    assert.equal(structured.ok, false);
+    assert.equal(structured.error?.code, 'E_INSUFFICIENT_THOUGHTS');
 
     await client.close();
     await server.close();

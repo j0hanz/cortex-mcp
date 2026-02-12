@@ -1,11 +1,16 @@
 import { z } from 'zod';
 
+import { completable } from '@modelcontextprotocol/sdk/server/completable.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+
+import { sessionStore } from '../engine/reasoner.js';
 
 import { loadInstructions } from '../lib/instructions.js';
 import type { IconMeta } from '../lib/types.js';
 
 type PromptLevel = 'basic' | 'normal' | 'high';
+const COMPLETION_LIMIT = 20;
+const LEVEL_VALUES: PromptLevel[] = ['basic', 'normal', 'high'];
 
 function levelTitle(level: PromptLevel): string {
   return `${level.charAt(0).toUpperCase()}${level.slice(1)}`;
@@ -16,6 +21,25 @@ function formatTargetThoughts(targetThoughts?: number): string {
     return '';
   }
   return `, targetThoughts=${String(targetThoughts)}`;
+}
+
+function completeSessionId(value: string): string[] {
+  const results: string[] = [];
+  for (const session of sessionStore.list()) {
+    if (!session.id.startsWith(value)) {
+      continue;
+    }
+    results.push(session.id);
+    if (results.length >= COMPLETION_LIMIT) {
+      break;
+    }
+  }
+  return results;
+}
+
+function completeLevel(value: string): PromptLevel[] {
+  const normalized = value.toLowerCase();
+  return LEVEL_VALUES.filter((level) => level.startsWith(normalized));
 }
 
 function registerLevelPrompt(
@@ -93,9 +117,12 @@ export function registerAllPrompts(
           .min(1)
           .max(10000)
           .describe('The original or modified query'),
-        level: z
-          .enum(['basic', 'normal', 'high'])
-          .describe('The reasoning level to use'),
+        level: completable(
+          z
+            .enum(['basic', 'normal', 'high'])
+            .describe('The reasoning level to use'),
+          (value) => completeLevel(value)
+        ),
         targetThoughts: z
           .number()
           .int()
@@ -156,19 +183,26 @@ export function registerAllPrompts(
           }
         : {}),
       argsSchema: {
-        sessionId: z
-          .string()
-          .min(1)
-          .max(128)
-          .describe('Existing session ID to continue'),
+        sessionId: completable(
+          z
+            .string()
+            .min(1)
+            .max(128)
+            .describe('Existing session ID to continue'),
+          (value) => completeSessionId(value)
+        ),
         query: z
           .string()
           .min(1)
           .max(10000)
+          .optional()
           .describe('Follow-up query for the existing session'),
-        level: z
-          .enum(['basic', 'normal', 'high'])
-          .describe('Must match the session level'),
+        level: completable(
+          z
+            .enum(['basic', 'normal', 'high'])
+            .describe('Must match the session level'),
+          (value) => completeLevel(value)
+        ),
         targetThoughts: z
           .number()
           .int()
@@ -181,7 +215,9 @@ export function registerAllPrompts(
       },
     },
     ({ sessionId, query, level, targetThoughts }) => {
-      const text = `Continue reasoning session ${JSON.stringify(sessionId)} with follow-up: ${JSON.stringify(query)}. Use "reasoning.think" with level="${level}"${formatTargetThoughts(targetThoughts)}. Provide your reasoning in the "thought" parameter for each step.`;
+      const followUpText =
+        query === undefined ? '' : ` with follow-up: ${JSON.stringify(query)}`;
+      const text = `Continue reasoning session ${JSON.stringify(sessionId)}${followUpText}. Use "reasoning.think" with level="${level}"${formatTargetThoughts(targetThoughts)}. Provide your reasoning in the "thought" parameter for each step.`;
       return {
         messages: [
           {

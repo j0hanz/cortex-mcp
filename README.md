@@ -8,13 +8,15 @@
 
 Multi-level reasoning MCP server with configurable depth levels.
 
-Cortex MCP exposes a single `reasoning.think` tool over stdio, providing structured, multi-step reasoning with session continuity, resource views, and optional task execution for long-running runs.
+Cortex MCP exposes a single `reasoning.think` tool over stdio, providing structured reasoning with session continuity, resource views, prompt/resource completions, and task execution for multi-step runs.
 
 ## Key Features
 
 - Multi-level reasoning (`basic`, `normal`, `high`) with configurable thought counts and token budgets.
-- Optional task execution with progress notifications for long-running requests.
-- Resource endpoints for session lists, session detail, and markdown traces.
+- Optional task execution with progress notifications for multi-step requests.
+- Dual execution modes: `step` (single thought) and `run_to_completion` (batched thoughts).
+- Resource endpoints for session lists, session detail, markdown traces, and thought files.
+- Prompt/resource argument completion for session IDs, levels, and thought names.
 - Prompt helpers for building correct tool calls.
 
 ## Requirements
@@ -129,12 +131,15 @@ Add to `claude_desktop_config.json`:
 
 Perform multi-step reasoning on a query with a selected depth level.
 
-| Name           | Type   | Required | Default | Description                                                      |
-| -------------- | ------ | -------- | ------- | ---------------------------------------------------------------- |
-| query          | string | Yes      | -       | The question or problem to reason about (1-10,000 chars).        |
-| level          | enum   | Yes      | -       | Reasoning depth level: `basic`, `normal`, `high`.                |
-| targetThoughts | number | No       | -       | Optional explicit thought count within the selected level range. |
-| sessionId      | string | No       | -       | Session ID to continue a previous reasoning session.             |
+| Name           | Type   | Required | Default | Description                                                                        |
+| -------------- | ------ | -------- | ------- | ---------------------------------------------------------------------------------- |
+| query          | string | No       | -       | Required for new sessions; optional when `sessionId` is provided.                  |
+| level          | enum   | Yes      | -       | Reasoning depth level: `basic`, `normal`, `high`.                                  |
+| runMode        | enum   | No       | `step`  | `step` appends one thought; `run_to_completion` consumes `thought` + `thoughts[]`. |
+| thought        | string | Yes      | -       | Reasoning content for the next step (stored verbatim).                             |
+| thoughts       | array  | No       | -       | Additional thought inputs consumed in order when `runMode=run_to_completion`.      |
+| targetThoughts | number | No       | -       | Optional explicit thought count within the selected level range.                   |
+| sessionId      | string | No       | -       | Session ID to continue a previous reasoning session.                               |
 
 Returns a structured result with session metadata, thoughts, and token usage:
 
@@ -162,24 +167,24 @@ Returns a structured result with session metadata, thoughts, and token usage:
 
 ### Resources
 
-| URI Pattern                                          | Description                                       | MIME Type        |
-| ---------------------------------------------------- | ------------------------------------------------- | ---------------- |
-| internal://instructions                              | Usage instructions for the MCP server.            | text/markdown    |
-| reasoning://sessions                                 | List of active reasoning sessions with summaries. | application/json |
-| reasoning://sessions/{sessionId}                     | Detailed view of a reasoning session.             | application/json |
-| file:///cortex/sessions/{sessionId}/trace.md         | Markdown trace of a reasoning session.            | text/markdown    |
-| file:///cortex/sessions/{sessionId}/{thoughtName}.md | Markdown content of a single thought.             | text/markdown    |
+| URI Pattern                                          | Description                                                                    | MIME Type        |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------ | ---------------- |
+| internal://instructions                              | Usage instructions for the MCP server.                                         | text/markdown    |
+| reasoning://sessions                                 | List of active reasoning sessions with summaries.                              | application/json |
+| reasoning://sessions/{sessionId}                     | Detailed view of a reasoning session.                                          | application/json |
+| file:///cortex/sessions/{sessionId}/trace.md         | Markdown trace of a reasoning session (`sessionId` completion).                | text/markdown    |
+| file:///cortex/sessions/{sessionId}/{thoughtName}.md | Markdown content of a single thought (`sessionId` + `thoughtName` completion). | text/markdown    |
 
 ### Prompts
 
-| Name               | Arguments                               | Description                                             |
-| ------------------ | --------------------------------------- | ------------------------------------------------------- |
-| reasoning.basic    | query, targetThoughts                   | Prepare a basic-depth reasoning request.                |
-| reasoning.normal   | query, targetThoughts                   | Prepare a normal-depth reasoning request.               |
-| reasoning.high     | query, targetThoughts                   | Prepare a high-depth reasoning request.                 |
-| reasoning.retry    | query, level, targetThoughts            | Retry a failed reasoning task with modified parameters. |
-| reasoning.continue | sessionId, query, level, targetThoughts | Continue an existing reasoning session.                 |
-| get-help           | -                                       | Return server usage instructions.                       |
+| Name               | Arguments                                | Description                                             |
+| ------------------ | ---------------------------------------- | ------------------------------------------------------- |
+| reasoning.basic    | query, targetThoughts                    | Prepare a basic-depth reasoning request.                |
+| reasoning.normal   | query, targetThoughts                    | Prepare a normal-depth reasoning request.               |
+| reasoning.high     | query, targetThoughts                    | Prepare a high-depth reasoning request.                 |
+| reasoning.retry    | query, level, targetThoughts             | Retry a failed reasoning task with modified parameters. |
+| reasoning.continue | sessionId, query?, level, targetThoughts | Continue an existing reasoning session.                 |
+| get-help           | -                                        | Return server usage instructions.                       |
 
 ### Tasks
 
@@ -188,6 +193,7 @@ Task-augmented tool calls are supported for `reasoning.think` with `taskSupport:
 - Call the tool as a task to receive a task id.
 - Poll `tasks/get` and read results via `tasks/result`.
 - Cancel with `tasks/cancel`.
+- Use `runMode: "run_to_completion"` to consume multiple thought inputs in one task.
 
 ## Configuration
 
@@ -196,6 +202,16 @@ Task-augmented tool calls are supported for `reasoning.think` with `taskSupport:
 | Mode  | Description                   |
 | ----- | ----------------------------- |
 | stdio | The only supported transport. |
+
+### Session Store Limits
+
+Environment variables:
+
+| Variable                  | Default   | Description                                                    |
+| ------------------------- | --------- | -------------------------------------------------------------- |
+| `CORTEX_SESSION_TTL_MS`   | `1800000` | Session TTL in milliseconds.                                   |
+| `CORTEX_MAX_SESSIONS`     | `100`     | Maximum in-memory sessions before LRU-style eviction.          |
+| `CORTEX_MAX_TOTAL_TOKENS` | `500000`  | Maximum aggregate approximate token footprint across sessions. |
 
 ## Development
 

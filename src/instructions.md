@@ -18,7 +18,7 @@ These instructions are available as a resource (internal://instructions) or prom
 - `reasoning.basic`: Prepare a basic-depth reasoning request (3–5 thoughts).
 - `reasoning.normal`: Prepare a normal-depth reasoning request (6–10 thoughts).
 - `reasoning.high`: Prepare a high-depth reasoning request (15–25 thoughts).
-- `reasoning.continue`: Continue an existing reasoning session with a follow-up query.
+- `reasoning.continue`: Continue an existing reasoning session (follow-up query optional).
 - `reasoning.retry`: Retry a failed reasoning task with modified parameters.
 
 ---
@@ -28,13 +28,14 @@ These instructions are available as a resource (internal://instructions) or prom
 - `internal://instructions`: This document.
 - `reasoning://sessions`: List all active reasoning sessions with metadata (JSON).
 - `reasoning://sessions/{sessionId}`: Inspect a specific session's thoughts and metadata (JSON). Supports auto-completion on `sessionId`.
-- `file:///cortex/sessions/{sessionId}/trace.md`: Full Markdown trace of a session.
-- `file:///cortex/sessions/{sessionId}/{thoughtName}.md`: Markdown content of a single thought (e.g., `Thought-1.md`).
+- `file:///cortex/sessions/{sessionId}/trace.md`: Full Markdown trace of a session. Supports auto-completion on `sessionId`.
+- `file:///cortex/sessions/{sessionId}/{thoughtName}.md`: Markdown content of a single thought (e.g., `Thought-1.md`). Supports auto-completion on `sessionId` and `thoughtName`.
 
 ### Resource Subscriptions
 
 - The server supports `resources/subscribe` for real-time change notifications on individual resources.
-- Subscribe to `reasoning://sessions/{sessionId}` to receive `notifications/resources/updated` when thoughts are added or revised.
+- Subscribe to `reasoning://sessions/{sessionId}` to receive `notifications/resources/updated` when thoughts are added, revised, or status changes.
+- Subscribe to `reasoning://sessions` to receive aggregate updates as session content and statuses evolve.
 - Use subscriptions to monitor session progress without polling.
 
 ---
@@ -48,6 +49,7 @@ These instructions are available as a resource (internal://instructions) or prom
   - Poll `tasks/get` and fetch results via `tasks/result`.
   - Use `tasks/cancel` to abort a running task.
   - For `high` level, progress is emitted every 2 steps to reduce noise; `basic` and `normal` emit after every step.
+  - Use `runMode: "run_to_completion"` with `thought` + `thoughts[]` to execute multiple reasoning steps in one request.
 
 ---
 
@@ -64,7 +66,7 @@ These instructions are available as a resource (internal://instructions) or prom
 ### WORKFLOW B: Multi-Turn Reasoning (Session Continuation)
 
 1. Call `reasoning.think` with `{ query: "initial question", level: "normal", thought: "Your first reasoning step..." }` — note the returned `sessionId`.
-2. Call `reasoning.think` with `{ query: "follow-up", level: "normal", sessionId: "<id>", thought: "Your next reasoning step..." }`.
+2. Call `reasoning.think` with `{ level: "normal", sessionId: "<id>", thought: "Your next reasoning step..." }` (optional: add `query` for follow-up context).
 3. Repeat until `result.totalThoughts` is reached, then read `reasoning://sessions/{sessionId}` for the full chain.
    NOTE: The `level` MUST match the original session level. Mismatches return `E_SESSION_LEVEL_MISMATCH`.
 
@@ -81,6 +83,12 @@ These instructions are available as a resource (internal://instructions) or prom
 3. Retrieve the result via `tasks/result`.
 4. Use `tasks/cancel` to abort if needed.
 
+### WORKFLOW E: Batched Run-To-Completion
+
+1. Start a new session with explicit `targetThoughts` and `runMode: "run_to_completion"`.
+2. Provide one `thought` plus additional `thoughts[]` entries to cover the planned step count.
+3. The server consumes thought inputs in order until completion, token budget exhaustion, or cancellation.
+
 ---
 
 ## TOOL NUANCES & GOTCHAS
@@ -89,16 +97,19 @@ These instructions are available as a resource (internal://instructions) or prom
 
 - Purpose: Generate a multi-step reasoning chain for a given query at a specified depth level.
 - Input:
-  - `query` (string, 1–10,000 chars): The question or problem to reason about.
+  - `query` (string, 1–10,000 chars): The question or problem to reason about. Required when creating a new session; optional when `sessionId` is provided.
   - `level` (enum: `basic` | `normal` | `high`): Controls reasoning depth and token budget.
+  - `runMode` (enum: `step` | `run_to_completion`, optional): Execution mode. Defaults to `step`.
   - `thought` (string, 1–100,000 chars, **required**): Your full reasoning content for this step. The server stores this text verbatim as the thought in the session trace. Write your complete analysis, observations, and conclusions here — this is what appears in trace.md.
+  - `thoughts` (array of string, optional): Additional thought inputs consumed in order when `runMode` is `run_to_completion`.
   - `targetThoughts` (int, 1–25, optional): Override automatic step count. Must fit within the level range.
   - `sessionId` (string, 1–128 chars, optional): Continue an existing session. Level must match.
 - Output: `{ ok, result: { sessionId, level, thoughts[], generatedThoughts, requestedThoughts, totalThoughts, tokenBudget, tokensUsed, ttlMs, expiresAt, createdAt, updatedAt, summary } }`
 - Side effects: Creates or modifies an in-memory session. Sessions expire after 30 minutes of inactivity.
-- Gotcha: Each call appends exactly one thought. When continuing a session, `generatedThoughts` reflects only the newly added thought (0 or 1), not the cumulative total.
+- Gotcha: `runMode="step"` appends one thought per call. `runMode="run_to_completion"` can append multiple thoughts in one call using `thought` + `thoughts[]`.
 - Gotcha: The `thought` content is stored verbatim — the trace shows exactly what you write. Write thorough, structured reasoning for useful traces.
 - Gotcha: `requestedThoughts` is the effective requested count for this run: it equals `targetThoughts` when provided, otherwise `totalThoughts`.
+- Gotcha: For new sessions in `runMode="run_to_completion"`, provide `targetThoughts` and enough thought inputs to match planned steps.
 - Gotcha: Token counting is approximate (UTF-8 byte length ÷ 4), not true tokenization.
 - Gotcha: Without `targetThoughts`, the planned step count (`totalThoughts`) is determined by a heuristic based on query length and structural complexity (punctuation markers, keywords like "compare", "analyse", "trade-off").
 - Limits: Level ranges — basic: 3–5 thoughts (2K token budget), normal: 6–10 (8K), high: 15–25 (32K).
@@ -123,6 +134,7 @@ These instructions are available as a resource (internal://instructions) or prom
 - stdio transport only — no HTTP endpoint available.
 - Every thought in the trace contains LLM-authored reasoning content provided via the `thought` parameter.
 - `targetThoughts` must be an integer within the level's min/max range.
+- Session store limits are configurable via `CORTEX_SESSION_TTL_MS`, `CORTEX_MAX_SESSIONS`, and `CORTEX_MAX_TOTAL_TOKENS`.
 
 ---
 
@@ -131,6 +143,8 @@ These instructions are available as a resource (internal://instructions) or prom
 - `E_SESSION_NOT_FOUND`: Session expired or never existed. Call `reasoning://sessions` to list active sessions, or start a new session without `sessionId`.
 - `E_SESSION_LEVEL_MISMATCH`: Requested level differs from the existing session. Use the same level as the original session, or start a new session.
 - `E_INVALID_THOUGHT_COUNT`: `targetThoughts` is outside the level range. Check ranges: basic (3–5), normal (6–10), high (15–25).
+- `E_INSUFFICIENT_THOUGHTS`: In `run_to_completion`, the request did not provide enough thought inputs for planned remaining steps.
+- `E_INVALID_RUN_MODE_ARGS`: Invalid `runMode` argument combination (for example, missing `targetThoughts` when starting a new run-to-completion session).
 - `E_ABORTED`: Reasoning was cancelled via abort signal or task cancellation. Retry with a new request if needed.
 - `E_REASONING`: Unexpected engine error. Check the error `message` field for details and retry.
 

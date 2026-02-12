@@ -17,7 +17,12 @@ import { ReasoningThinkToolOutputSchema } from '../schemas/outputs.js';
 import { createErrorResponse, getErrorMessage } from '../lib/errors.js';
 import { formatThoughtsToMarkdown } from '../lib/formatting.js';
 import { createToolResponse } from '../lib/tool-response.js';
-import type { IconMeta, ReasoningLevel, Session } from '../lib/types.js';
+import type {
+  IconMeta,
+  ReasoningLevel,
+  ReasoningRunMode,
+  Session,
+} from '../lib/types.js';
 
 type ProgressToken = string | number;
 
@@ -163,6 +168,16 @@ function mapReasoningErrorCode(message: string): string {
   if (message.startsWith('Session level mismatch:')) {
     return 'E_SESSION_LEVEL_MISMATCH';
   }
+  if (message.startsWith('run_to_completion requires at least')) {
+    return 'E_INSUFFICIENT_THOUGHTS';
+  }
+  if (
+    message.startsWith(
+      'targetThoughts is required for run_to_completion when sessionId is not provided'
+    )
+  ) {
+    return 'E_INVALID_RUN_MODE_ARGS';
+  }
   return 'E_REASONING';
 }
 
@@ -175,6 +190,90 @@ function shouldEmitProgress(
     return true;
   }
   return progress % 2 === 0;
+}
+
+function resolveRunMode(params: ReasoningThinkInput): ReasoningRunMode {
+  return params.runMode ?? 'step';
+}
+
+function buildThoughtInputs(params: ReasoningThinkInput): string[] {
+  return [params.thought, ...(params.thoughts ?? [])];
+}
+
+function getStartingThoughtCount(sessionId?: string): number {
+  if (sessionId === undefined) {
+    return 0;
+  }
+  return sessionStore.get(sessionId)?.thoughts.length ?? 0;
+}
+
+function shouldStopReasoningLoop(
+  session: Readonly<Session>,
+  runMode: ReasoningRunMode
+): boolean {
+  return (
+    runMode === 'step' ||
+    session.status !== 'active' ||
+    session.thoughts.length >= session.totalThoughts ||
+    session.tokensUsed >= session.tokenBudget
+  );
+}
+
+async function executeReasoningSteps(args: {
+  taskStore: TaskStoreLike;
+  taskId: string;
+  controller: AbortController;
+  queryText: string;
+  level: ReasoningLevel;
+  sessionId?: string;
+  targetThoughts?: number;
+  runMode: ReasoningRunMode;
+  thoughtInputs: string[];
+  onProgress: (progress: number, total: number) => Promise<void>;
+}): Promise<Readonly<Session>> {
+  const {
+    taskStore,
+    taskId,
+    controller,
+    queryText,
+    level,
+    sessionId,
+    targetThoughts,
+    runMode,
+    thoughtInputs,
+    onProgress,
+  } = args;
+
+  let activeSessionId = sessionId;
+  let session: Readonly<Session> | undefined;
+  const maxSteps = runMode === 'step' ? 1 : thoughtInputs.length;
+
+  for (let index = 0; index < maxSteps; index++) {
+    await ensureTaskIsActive(taskStore, taskId, controller);
+
+    const inputThought = thoughtInputs[index];
+    if (inputThought === undefined) {
+      break;
+    }
+
+    session = await reason(queryText, level, {
+      ...(activeSessionId !== undefined ? { sessionId: activeSessionId } : {}),
+      ...(targetThoughts !== undefined ? { targetThoughts } : {}),
+      thought: inputThought,
+      abortSignal: controller.signal,
+      onProgress,
+    });
+
+    activeSessionId = session.id;
+    if (shouldStopReasoningLoop(session, runMode)) {
+      break;
+    }
+  }
+
+  if (!session) {
+    throw new Error('No reasoning step was executed.');
+  }
+  return session;
 }
 
 function buildStructuredResult(
@@ -316,6 +415,50 @@ async function storeTaskFailure(
   }
 }
 
+async function setTaskFailureStatusMessage(
+  taskStore: TaskStoreLike,
+  taskId: string,
+  statusMessage: string
+): Promise<void> {
+  try {
+    await taskStore.updateTaskStatus(taskId, 'working', statusMessage);
+  } catch {
+    // No-op if task is already terminal.
+  }
+}
+
+function assertRunToCompletionInputCount(
+  params: ReasoningThinkInput,
+  thoughtInputs: string[]
+): void {
+  const { sessionId, targetThoughts } = params;
+  if (sessionId === undefined && targetThoughts === undefined) {
+    throw new Error(
+      'targetThoughts is required for run_to_completion when sessionId is not provided'
+    );
+  }
+
+  let requiredInputs = targetThoughts ?? 0;
+  if (sessionId !== undefined) {
+    const existing = sessionStore.get(sessionId);
+    if (!existing) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+    requiredInputs = Math.max(
+      0,
+      existing.totalThoughts - existing.thoughts.length
+    );
+  }
+
+  if (thoughtInputs.length < requiredInputs) {
+    throw new Error(
+      `run_to_completion requires at least ${String(
+        requiredInputs
+      )} thought inputs; received ${String(thoughtInputs.length)}`
+    );
+  }
+}
+
 async function handleTaskFailure(args: {
   server: McpServer;
   taskStore: TaskStoreLike;
@@ -337,6 +480,8 @@ async function handleTaskFailure(args: {
     return;
   }
 
+  await setTaskFailureStatusMessage(taskStore, taskId, message);
+
   if (errorCode === 'E_ABORTED') {
     if (sessionId) {
       sessionStore.markCancelled(sessionId);
@@ -346,19 +491,10 @@ async function handleTaskFailure(args: {
       taskId,
       createErrorResponse(errorCode, message)
     );
-    try {
-      await taskStore.updateTaskStatus(
-        taskId,
-        'cancelled',
-        'Task cancelled by request.'
-      );
-    } catch {
-      // No-op if already terminal.
-    }
     await emitLog(
       server,
       'notice',
-      { event: 'task_cancelled', taskId, reason: message },
+      { event: 'task_aborted', taskId, reason: message },
       sessionId
     );
     return;
@@ -395,11 +531,10 @@ async function runReasoningTask(args: {
     controller,
     sessionId,
   } = args;
-  const { query, level, targetThoughts, thought } = params;
-
-  if (!thought) {
-    throw new Error('thought is required: provide your reasoning content');
-  }
+  const { query, level, targetThoughts } = params;
+  const runMode = resolveRunMode(params);
+  const thoughtInputs = buildThoughtInputs(params);
+  const queryText = query ?? '';
 
   await emitLog(
     server,
@@ -408,17 +543,20 @@ async function runReasoningTask(args: {
       event: 'task_started',
       taskId,
       level,
+      runMode,
       hasSessionId: params.sessionId !== undefined,
       targetThoughts: targetThoughts ?? null,
+      thoughtInputs: thoughtInputs.length,
     },
     sessionId
   );
 
   try {
-    const startingCount =
-      params.sessionId !== undefined
-        ? (sessionStore.get(params.sessionId)?.thoughts.length ?? 0)
-        : 0;
+    if (runMode === 'run_to_completion') {
+      assertRunToCompletionInputCount(params, thoughtInputs);
+    }
+
+    const startingCount = getStartingThoughtCount(params.sessionId);
 
     const progressArgs = {
       server,
@@ -429,12 +567,20 @@ async function runReasoningTask(args: {
       ...(progressToken !== undefined ? { progressToken } : {}),
     };
 
-    const session = await reason(query, level, {
-      ...(params.sessionId ? { sessionId: params.sessionId } : {}),
+    const onProgress = createProgressHandler(progressArgs);
+    const session = await executeReasoningSteps({
+      taskStore,
+      taskId,
+      controller,
+      queryText,
+      level,
+      ...(params.sessionId !== undefined
+        ? { sessionId: params.sessionId }
+        : {}),
       ...(targetThoughts !== undefined ? { targetThoughts } : {}),
-      thought,
-      abortSignal: controller.signal,
-      onProgress: createProgressHandler(progressArgs),
+      runMode,
+      thoughtInputs,
+      onProgress,
     });
 
     if (await isTaskCancelled(taskStore, taskId)) {
@@ -513,9 +659,10 @@ export function registerReasoningThinkTool(
       description:
         'Perform multi-level reasoning on a query. Provide your full reasoning content in the `thought` parameter — it is stored verbatim in the session trace. ' +
         'Supports three depth levels: basic (3–5 thoughts, 2K token budget), normal (6–10 thoughts, 8K budget), and high (15–25 thoughts, 32K budget). ' +
-        'Each call appends one thought to the session. Repeat calls with the same sessionId and your next thought until totalThoughts is reached. ' +
+        'Default `runMode="step"` appends one thought to the session per call. `runMode="run_to_completion"` consumes `thought` + `thoughts[]` in one request. ' +
+        'When continuing an existing session, `query` is optional. Repeat calls with the same sessionId and your next thought until totalThoughts is reached. ' +
         'Returns a session with accumulated thoughts, token usage, and TTL metadata. ' +
-        'Supports task-augmented execution for long-running high-level reasoning.',
+        'Supports task-augmented execution for multi-step high-level reasoning.',
       inputSchema: ReasoningThinkInputSchema,
       outputSchema: ReasoningThinkToolOutputSchema,
       annotations: {
