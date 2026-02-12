@@ -397,6 +397,10 @@ async function runReasoningTask(args: {
   } = args;
   const { query, level, targetThoughts, thought } = params;
 
+  if (!thought) {
+    throw new Error('thought is required: provide your reasoning content');
+  }
+
   await emitLog(
     server,
     'info',
@@ -428,7 +432,7 @@ async function runReasoningTask(args: {
     const session = await reason(query, level, {
       ...(params.sessionId ? { sessionId: params.sessionId } : {}),
       ...(targetThoughts !== undefined ? { targetThoughts } : {}),
-      ...(thought !== undefined ? { thought } : {}),
+      thought,
       abortSignal: controller.signal,
       onProgress: createProgressHandler(progressArgs),
     });
@@ -507,11 +511,11 @@ export function registerReasoningThinkTool(
     {
       title: 'Reasoning Think',
       description:
-        'Perform multi-level reasoning on a query. Use this tool when you need to break down complex problems into structured thought chains. ' +
+        'Perform multi-level reasoning on a query. Provide your full reasoning content in the `thought` parameter — it is stored verbatim in the session trace. ' +
         'Supports three depth levels: basic (3–5 thoughts, 2K token budget), normal (6–10 thoughts, 8K budget), and high (15–25 thoughts, 32K budget). ' +
-        'Features context-aware templates (Code, Design, Analysis) and automated critique phases for robust problem solving. ' +
+        'Each call appends one thought to the session. Repeat calls with the same sessionId and your next thought until totalThoughts is reached. ' +
         'Returns a session with accumulated thoughts, token usage, and TTL metadata. ' +
-        'Continue an existing session by providing sessionId. Supports task-augmented execution for long-running high-level reasoning.',
+        'Supports task-augmented execution for long-running high-level reasoning.',
       inputSchema: ReasoningThinkInputSchema,
       outputSchema: ReasoningThinkToolOutputSchema,
       annotations: {

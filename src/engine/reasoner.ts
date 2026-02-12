@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 
-import { createSegmenter, truncate } from '../lib/text.js';
+import { createSegmenter } from '../lib/text.js';
 import type { ReasoningLevel, Session } from '../lib/types.js';
 
 import { assertTargetThoughtsInRange, LEVEL_CONFIGS } from './config.js';
@@ -9,7 +9,6 @@ import { engineEvents } from './events.js';
 import { SessionStore } from './session-store.js';
 
 const sessionStore = new SessionStore();
-const graphemeSegmenter = createSegmenter('grapheme');
 const sentenceSegmenter = createSegmenter('sentence');
 
 const sessionLocks = new Map<string, Promise<void>>();
@@ -19,7 +18,7 @@ export { sessionStore };
 interface ReasonOptions {
   sessionId?: string;
   targetThoughts?: number;
-  thought?: string;
+  thought: string;
   abortSignal?: AbortSignal;
   onProgress?: (progress: number, total: number) => void | Promise<void>;
 }
@@ -35,13 +34,11 @@ export async function reason(
   level: ReasoningLevel,
   options?: ReasonOptions
 ): Promise<Readonly<Session>> {
-  const {
-    sessionId,
-    targetThoughts,
-    thought: providedThought,
-    abortSignal,
-    onProgress,
-  } = options ?? {};
+  if (!options?.thought) {
+    throw new Error('thought is required: provide your reasoning content');
+  }
+  const { sessionId, targetThoughts, thought, abortSignal, onProgress } =
+    options;
 
   const config = LEVEL_CONFIGS[level];
   const session = resolveSession(
@@ -76,22 +73,13 @@ export async function reason(
           return current;
         }
 
-        const stepContent =
-          providedThought ??
-          generateReasoningStep(query, nextIndex, totalThoughts);
-        if (!stepContent) {
-          throw new Error(
-            `Step content missing at index ${String(nextIndex)}/${String(
-              totalThoughts
-            )}`
-          );
-        }
+        const stepContent = thought;
 
-        const thought = sessionStore.addThought(session.id, stepContent);
+        const addedThought = sessionStore.addThought(session.id, stepContent);
         engineEvents.emit('thought:added', {
           sessionId: session.id,
-          index: thought.index,
-          content: thought.content,
+          index: addedThought.index,
+          content: addedThought.content,
         });
 
         const updated = getSessionOrThrow(session.id);
@@ -100,7 +88,7 @@ export async function reason(
             sessionId: session.id,
             tokensUsed: updated.tokensUsed,
             tokenBudget: config.tokenBudget,
-            generatedThoughts: thought.index + 1,
+            generatedThoughts: addedThought.index + 1,
             requestedThoughts: totalThoughts,
           });
         }
@@ -110,7 +98,7 @@ export async function reason(
         }
 
         if (onProgress) {
-          await onProgress(thought.index + 1, totalThoughts);
+          await onProgress(addedThought.index + 1, totalThoughts);
           throwIfReasoningAborted(abortSignal);
         }
 
@@ -268,150 +256,4 @@ function throwIfReasoningAborted(signal?: AbortSignal): void {
   } catch {
     throw new Error('Reasoning aborted');
   }
-}
-
-const OPENING_TEMPLATE = 'Parsing the query and identifying the core problem';
-const CONCLUSION_TEMPLATE =
-  'Synthesizing the final answer with supporting evidence';
-
-const CRITIQUE_TEMPLATES: readonly string[] = [
-  'Critiquing the proposed solution for potential weaknesses',
-  'Checking for missed edge cases or logical gaps',
-  'Verifying alignment with original constraints',
-  'Reviewing the reasoning path for redundant steps',
-  'Assessing the robustness of the solution',
-  'Identifying assumptions that require further verification',
-  'Evaluating the solution against counter-arguments',
-];
-
-type Domain = 'CODE' | 'DESIGN' | 'ANALYSIS' | 'GENERAL';
-
-const DOMAIN_TEMPLATES: Record<Domain, readonly string[]> = {
-  CODE: [
-    'Analyzing implementation details and logic',
-    'Reviewing type safety and error handling',
-    'Tracing data flow through the system',
-    'Considering edge cases in input validation',
-    'Checking for performance bottlenecks',
-    'Validating against coding standards',
-    'Reviewing dependencies and external interactions',
-    'Assessing testability and maintainability',
-    'Checking for concurrency or race conditions',
-    'Verifying API contract compliance',
-  ],
-  DESIGN: [
-    'Mapping component interactions and dependencies',
-    'Evaluating architectural trade-offs',
-    'Considering scalability and maintainability',
-    'Checking system boundaries and interfaces',
-    'Reviewing data models and schema',
-    'Assessing failure modes and recovery',
-    'Analyzing security implications',
-    'Evaluating technology choices',
-    'Considering future extensibility',
-    'Reviewing compliance with design patterns',
-  ],
-  ANALYSIS: [
-    'Identifying key metrics and indicators',
-    'Comparing alternative approaches',
-    'Checking for bias or gaps in data',
-    'Validating assumptions against evidence',
-    'Exploring causal relationships',
-    'Synthesizing insights from multiple sources',
-    'Weighing short-term vs long-term impacts',
-    'Evaluating risks and mitigations',
-    'Contextualizing findings within the broader scope',
-    'Cross-checking conclusions for consistency',
-  ],
-  GENERAL: [
-    'Identifying key components and constraints',
-    'Breaking down the problem into sub-problems',
-    'Mapping relationships between identified components',
-    'Considering edge cases and boundary conditions',
-    'Surveying the problem space for hidden assumptions',
-    'Clarifying ambiguous terms and scoping the question',
-    'Evaluating potential approaches and methodologies',
-    'Selecting the most promising approach based on trade-offs',
-    'Developing the solution framework step by step',
-    'Checking logical consistency of intermediate conclusions',
-    'Exploring alternative perspectives on the problem',
-    'Assessing confidence levels in preliminary findings',
-    'Weighing trade-offs between competing solutions',
-    'Examining second-order effects and implications',
-    'Refining the analysis with additional considerations',
-    'Documenting key insights and decision points',
-  ],
-};
-
-function detectDomain(query: string): Domain {
-  const text = query.toLowerCase();
-
-  if (
-    /\b(code|function|bug|error|impl|script|typescript|python|js|ts|java|c\+\+|rust|api|endpoint)\b/.test(
-      text
-    )
-  ) {
-    return 'CODE';
-  }
-  if (
-    /\b(design|architect|structure|pattern|system|component|module|interface|schema)\b/.test(
-      text
-    )
-  ) {
-    return 'DESIGN';
-  }
-  if (
-    /\b(analy|compare|evaluate|assess|review|audit|investigate|study|research)\b/.test(
-      text
-    )
-  ) {
-    return 'ANALYSIS';
-  }
-
-  return 'GENERAL';
-}
-
-function generateReasoningStep(
-  query: string,
-  index: number,
-  total: number
-): string {
-  if (total <= 0) {
-    return '';
-  }
-
-  const step = index + 1;
-
-  // Phase 1: Understanding (First Step)
-  if (step === 1) {
-    const truncatedQuery = truncate(query, 200, graphemeSegmenter);
-    return formatStep(step, total, `${OPENING_TEMPLATE}: "${truncatedQuery}"`);
-  }
-
-  // Phase 4: Conclusion (Last Step)
-  if (step === total) {
-    return formatStep(step, total, CONCLUSION_TEMPLATE);
-  }
-
-  // Phase 3: Critique (Second-to-Last Step)
-  if (total >= 4 && step === total - 1) {
-    const critique =
-      CRITIQUE_TEMPLATES[step % CRITIQUE_TEMPLATES.length] ??
-      'Critiquing the proposed solution for potential weaknesses';
-    return formatStep(step, total, critique);
-  }
-
-  // Phase 2: Domain-Specific Analysis (Middle Steps)
-  const domain = detectDomain(query);
-  const templates = DOMAIN_TEMPLATES[domain];
-
-  const template =
-    templates[(step - 2) % templates.length] ??
-    templates[0] ??
-    'Analyzing the problem';
-  return formatStep(step, total, template);
-}
-
-function formatStep(step: number, total: number, description: string): string {
-  return `Step ${String(step)}/${String(total)}: ${description}`;
 }

@@ -13,6 +13,7 @@ describe('ReasoningThinkInputSchema', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'What is 2+2?',
       level: 'basic',
+      thought: 'The answer is 4 because addition of two and two yields four.',
     });
     assert.equal(result.success, true);
   });
@@ -23,24 +24,15 @@ describe('ReasoningThinkInputSchema', () => {
       level: 'high',
       targetThoughts: 20,
       sessionId: 'abc-123',
+      thought: 'Continuing the analysis from the previous step.',
     });
     assert.equal(result.success, true);
   });
 
-  it('accepts valid input with thought', () => {
-    const result = ReasoningThinkInputSchema.safeParse({
-      query: 'Analyze this code',
-      level: 'basic',
-      thought: 'The code has a critical issue in the error handling path...',
-    });
-    assert.equal(result.success, true);
-  });
-
-  it('rejects empty thought', () => {
+  it('rejects missing thought', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'test',
       level: 'basic',
-      thought: '',
     });
     assert.equal(result.success, false);
   });
@@ -49,6 +41,7 @@ describe('ReasoningThinkInputSchema', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: '',
       level: 'basic',
+      thought: 'Some thought.',
     });
     assert.equal(result.success, false);
   });
@@ -57,6 +50,7 @@ describe('ReasoningThinkInputSchema', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'test',
       level: 'invalid',
+      thought: 'Some thought.',
     });
     assert.equal(result.success, false);
   });
@@ -65,6 +59,7 @@ describe('ReasoningThinkInputSchema', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'x'.repeat(10001),
       level: 'basic',
+      thought: 'Some thought.',
     });
     assert.equal(result.success, false);
   });
@@ -73,6 +68,7 @@ describe('ReasoningThinkInputSchema', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'test',
       level: 'basic',
+      thought: 'Some thought.',
       targetThoughts: 3.5,
     });
     assert.equal(result.success, false);
@@ -82,6 +78,7 @@ describe('ReasoningThinkInputSchema', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'test',
       level: 'basic',
+      thought: 'Some thought.',
       targetThoughts: 2,
     });
     assert.equal(result.success, false);
@@ -91,6 +88,7 @@ describe('ReasoningThinkInputSchema', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'test',
       level: 'basic',
+      thought: 'Some thought.',
       targetThoughts: 6,
     });
     assert.equal(result.success, false);
@@ -100,6 +98,7 @@ describe('ReasoningThinkInputSchema', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'test',
       level: 'basic',
+      thought: 'Some thought.',
       targetThoughts: 5,
     });
     assert.equal(result.success, true);
@@ -109,6 +108,7 @@ describe('ReasoningThinkInputSchema', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'test',
       level: 'basic',
+      thought: 'Some thought.',
       unknown: 'field',
     });
     assert.equal(result.success, false);
@@ -118,6 +118,7 @@ describe('ReasoningThinkInputSchema', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'test',
       level: 'high',
+      thought: 'Some thought.',
       targetThoughts: 26,
     });
     assert.equal(result.success, false);
@@ -127,14 +128,17 @@ describe('ReasoningThinkInputSchema', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'test',
       level: 'high',
+      thought: 'Some thought.',
       targetThoughts: 25,
     });
     assert.equal(result.success, true);
   });
 
-  it('rejects missing query', () => {
+  it('rejects empty thought', () => {
     const result = ReasoningThinkInputSchema.safeParse({
+      query: 'test',
       level: 'basic',
+      thought: '',
     });
     assert.equal(result.success, false);
   });

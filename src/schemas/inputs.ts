@@ -30,11 +30,10 @@ export const ReasoningThinkInputSchema = z
       .string()
       .min(1)
       .max(100000)
-      .optional()
       .describe(
-        'Optional LLM-authored reasoning content for this step. ' +
-          'When provided, the server stores this text as the thought content instead of generating a template. ' +
-          'Use this to capture the full reasoning the LLM produces at each step.'
+        'Your full reasoning content for this step. ' +
+          'The server stores this text verbatim as the thought in the session trace. ' +
+          'Write your complete analysis, observations, and conclusions here — this is what appears in trace.md.'
       ),
   })
   .superRefine((data, ctx) => {

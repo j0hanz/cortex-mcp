@@ -172,6 +172,7 @@ describe('server registration', () => {
         query: 'Create one session',
         level: 'basic',
         targetThoughts: 3,
+        thought: 'Starting a new reasoning session to test registration.',
       },
     });
 

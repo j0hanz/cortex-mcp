@@ -52,7 +52,7 @@ function registerLevelPrompt(
     },
     ({ query, targetThoughts }) => {
       // Create user message
-      const text = `Initiate a ${level}-depth reasoning session for the query: ${JSON.stringify(query)}. Use the "reasoning.think" tool to generate a structured thought chain${formatTargetThoughts(targetThoughts)}. Follow the generated steps to solve the problem systematically.`;
+      const text = `Initiate a ${level}-depth reasoning session for the query: ${JSON.stringify(query)}. Use the "reasoning.think" tool${formatTargetThoughts(targetThoughts)}. For each call, provide your full reasoning in the "thought" parameter — this is stored verbatim in the session trace. Repeat calls with the returned sessionId until totalThoughts is reached.`;
 
       return {
         messages: [
@@ -106,7 +106,7 @@ export function registerAllPrompts(
       },
     },
     ({ query, level, targetThoughts }) => {
-      const text = `Retry the reasoning session for query: ${JSON.stringify(query)}. Use the "reasoning.think" tool with level="${level}"${formatTargetThoughts(targetThoughts)}. Review previous failures and follow the new thought chain.`;
+      const text = `Retry the reasoning session for query: ${JSON.stringify(query)}. Use the "reasoning.think" tool with level="${level}"${formatTargetThoughts(targetThoughts)}. Provide your full reasoning in the "thought" parameter for each step.`;
       return {
         messages: [
           {
@@ -181,7 +181,7 @@ export function registerAllPrompts(
       },
     },
     ({ sessionId, query, level, targetThoughts }) => {
-      const text = `Continue reasoning session ${JSON.stringify(sessionId)} with follow-up: ${JSON.stringify(query)}. Use "reasoning.think" with level="${level}"${formatTargetThoughts(targetThoughts)}. Integrate new insights into the existing thought chain.`;
+      const text = `Continue reasoning session ${JSON.stringify(sessionId)} with follow-up: ${JSON.stringify(query)}. Use "reasoning.think" with level="${level}"${formatTargetThoughts(targetThoughts)}. Provide your reasoning in the "thought" parameter for each step.`;
       return {
         messages: [
           {
