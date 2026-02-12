@@ -52,7 +52,7 @@ function registerLevelPrompt(
     },
     ({ query, targetThoughts }) => {
       // Create user message
-      const text = `Use tool "reasoning.think" with query=${JSON.stringify(query)}, level="${level}"${formatTargetThoughts(targetThoughts)}.`;
+      const text = `Initiate a ${level}-depth reasoning session for the query: ${JSON.stringify(query)}. Use the "reasoning.think" tool to generate a structured thought chain${formatTargetThoughts(targetThoughts)}. Follow the generated steps to solve the problem systematically.`;
 
       return {
         messages: [
@@ -106,7 +106,7 @@ export function registerAllPrompts(
       },
     },
     ({ query, level, targetThoughts }) => {
-      const text = `Use tool "reasoning.think" with query=${JSON.stringify(query)}, level="${level}"${formatTargetThoughts(targetThoughts)}.`;
+      const text = `Retry the reasoning session for query: ${JSON.stringify(query)}. Use the "reasoning.think" tool with level="${level}"${formatTargetThoughts(targetThoughts)}. Review previous failures and follow the new thought chain.`;
       return {
         messages: [
           {
@@ -181,7 +181,7 @@ export function registerAllPrompts(
       },
     },
     ({ sessionId, query, level, targetThoughts }) => {
-      const text = `Use tool "reasoning.think" with sessionId=${JSON.stringify(sessionId)}, query=${JSON.stringify(query)}, level="${level}"${formatTargetThoughts(targetThoughts)}.`;
+      const text = `Continue reasoning session ${JSON.stringify(sessionId)} with follow-up: ${JSON.stringify(query)}. Use "reasoning.think" with level="${level}"${formatTargetThoughts(targetThoughts)}. Integrate new insights into the existing thought chain.`;
       return {
         messages: [
           {

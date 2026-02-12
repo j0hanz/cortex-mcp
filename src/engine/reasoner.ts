@@ -222,10 +222,9 @@ function resolveThoughtCount(
   const queryByteLength = Buffer.byteLength(queryText, 'utf8');
   const lengthScore = Math.min(1, queryByteLength / 400);
   const structureScore = Math.min(0.4, getStructureDensityScore(queryText));
-  const keywordScore =
-    /\b(compare|analy[sz]e|trade[- ]?off|design|plan)\b/i.test(queryText)
-      ? 0.15
-      : 0;
+  const keywords =
+    /\b(compare|analy[sz]e|trade[- ]?off|design|plan|critique|evaluate|review|architecture)\b/i;
+  const keywordScore = keywords.test(queryText) ? 0.25 : 0;
   const score = Math.min(1, lengthScore + structureScore + keywordScore);
 
   return config.minThoughts + Math.round(span * score);
@@ -267,35 +266,106 @@ function throwIfReasoningAborted(signal?: AbortSignal): void {
 }
 
 const OPENING_TEMPLATE = 'Parsing the query and identifying the core problem';
+const CONCLUSION_TEMPLATE =
+  'Synthesizing the final answer with supporting evidence';
 
-const MIDDLE_TEMPLATES: readonly string[] = [
-  'Identifying key components and constraints',
-  'Breaking down the problem into sub-problems',
-  'Mapping relationships between identified components',
-  'Considering edge cases and boundary conditions',
-  'Surveying the problem space for hidden assumptions',
-  'Clarifying ambiguous terms and scoping the question',
-  'Evaluating potential approaches and methodologies',
-  'Selecting the most promising approach based on trade-offs',
-  'Developing the solution framework step by step',
-  'Checking logical consistency of intermediate conclusions',
-  'Exploring alternative perspectives on the problem',
-  'Assessing confidence levels in preliminary findings',
-  'Identifying assumptions that require verification',
-  'Weighing trade-offs between competing solutions',
-  'Testing preliminary results against known constraints',
-  'Examining second-order effects and implications',
-  'Synthesizing findings from multiple angles of analysis',
-  'Cross-referencing conclusions with initial premises',
-  'Refining the analysis with additional considerations',
-  'Validating the complete reasoning chain for coherence',
-  'Optimizing the reasoning path for gaps or redundancies',
-  'Reviewing the logical flow from premises to conclusion',
-  'Documenting key insights and decision points',
+const CRITIQUE_TEMPLATES: readonly string[] = [
+  'Critiquing the proposed solution for potential weaknesses',
+  'Checking for missed edge cases or logical gaps',
+  'Verifying alignment with original constraints',
+  'Reviewing the reasoning path for redundant steps',
+  'Assessing the robustness of the solution',
+  'Identifying assumptions that require further verification',
+  'Evaluating the solution against counter-arguments',
 ];
 
-const CONCLUSION_TEMPLATE =
-  'Consolidating the final answer with supporting evidence';
+type Domain = 'CODE' | 'DESIGN' | 'ANALYSIS' | 'GENERAL';
+
+const DOMAIN_TEMPLATES: Record<Domain, readonly string[]> = {
+  CODE: [
+    'Analyzing implementation details and logic',
+    'Reviewing type safety and error handling',
+    'Tracing data flow through the system',
+    'Considering edge cases in input validation',
+    'Checking for performance bottlenecks',
+    'Validating against coding standards',
+    'Reviewing dependencies and external interactions',
+    'Assessing testability and maintainability',
+    'Checking for concurrency or race conditions',
+    'Verifying API contract compliance',
+  ],
+  DESIGN: [
+    'Mapping component interactions and dependencies',
+    'Evaluating architectural trade-offs',
+    'Considering scalability and maintainability',
+    'Checking system boundaries and interfaces',
+    'Reviewing data models and schema',
+    'Assessing failure modes and recovery',
+    'Analyzing security implications',
+    'Evaluating technology choices',
+    'Considering future extensibility',
+    'Reviewing compliance with design patterns',
+  ],
+  ANALYSIS: [
+    'Identifying key metrics and indicators',
+    'Comparing alternative approaches',
+    'Checking for bias or gaps in data',
+    'Validating assumptions against evidence',
+    'Exploring causal relationships',
+    'Synthesizing insights from multiple sources',
+    'Weighing short-term vs long-term impacts',
+    'Evaluating risks and mitigations',
+    'Contextualizing findings within the broader scope',
+    'Cross-checking conclusions for consistency',
+  ],
+  GENERAL: [
+    'Identifying key components and constraints',
+    'Breaking down the problem into sub-problems',
+    'Mapping relationships between identified components',
+    'Considering edge cases and boundary conditions',
+    'Surveying the problem space for hidden assumptions',
+    'Clarifying ambiguous terms and scoping the question',
+    'Evaluating potential approaches and methodologies',
+    'Selecting the most promising approach based on trade-offs',
+    'Developing the solution framework step by step',
+    'Checking logical consistency of intermediate conclusions',
+    'Exploring alternative perspectives on the problem',
+    'Assessing confidence levels in preliminary findings',
+    'Weighing trade-offs between competing solutions',
+    'Examining second-order effects and implications',
+    'Refining the analysis with additional considerations',
+    'Documenting key insights and decision points',
+  ],
+};
+
+function detectDomain(query: string): Domain {
+  const text = query.toLowerCase();
+
+  if (
+    /\b(code|function|bug|error|impl|script|typescript|python|js|ts|java|c\+\+|rust|api|endpoint)\b/.test(
+      text
+    )
+  ) {
+    return 'CODE';
+  }
+  if (
+    /\b(design|architect|structure|pattern|system|component|module|interface|schema)\b/.test(
+      text
+    )
+  ) {
+    return 'DESIGN';
+  }
+  if (
+    /\b(analy|compare|evaluate|assess|review|audit|investigate|study|research)\b/.test(
+      text
+    )
+  ) {
+    return 'ANALYSIS';
+  }
+
+  return 'GENERAL';
+}
+
 function generateReasoningStep(
   query: string,
   index: number,
@@ -306,16 +376,34 @@ function generateReasoningStep(
   }
 
   const step = index + 1;
+
+  // Phase 1: Understanding (First Step)
   if (step === 1) {
     const truncatedQuery = truncate(query, 200, graphemeSegmenter);
     return formatStep(step, total, `${OPENING_TEMPLATE}: "${truncatedQuery}"`);
   }
 
+  // Phase 4: Conclusion (Last Step)
   if (step === total) {
     return formatStep(step, total, CONCLUSION_TEMPLATE);
   }
 
-  const template = MIDDLE_TEMPLATES[(step - 2) % MIDDLE_TEMPLATES.length] ?? '';
+  // Phase 3: Critique (Second-to-Last Step)
+  if (total >= 4 && step === total - 1) {
+    const critique =
+      CRITIQUE_TEMPLATES[step % CRITIQUE_TEMPLATES.length] ??
+      'Critiquing the proposed solution for potential weaknesses';
+    return formatStep(step, total, critique);
+  }
+
+  // Phase 2: Domain-Specific Analysis (Middle Steps)
+  const domain = detectDomain(query);
+  const templates = DOMAIN_TEMPLATES[domain];
+
+  const template =
+    templates[(step - 2) % templates.length] ??
+    templates[0] ??
+    'Analyzing the problem';
   return formatStep(step, total, template);
 }
 
