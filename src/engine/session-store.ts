@@ -257,10 +257,19 @@ export class SessionStore {
     const now = Date.now();
     const expiredSessionIds: string[] = [];
     let changed = false;
-    for (const session of this.sessions.values()) {
-      if (session.updatedAt + this.ttlMs < now) {
-        expiredSessionIds.push(session.id);
+    let currentId = this.oldestSessionId;
+    while (currentId) {
+      const session = this.sessions.get(currentId);
+      if (!session) {
+        const node = this.sessionOrder.get(currentId);
+        currentId = node?.nextId;
+        continue;
       }
+      if (session.updatedAt + this.ttlMs >= now) {
+        break;
+      }
+      expiredSessionIds.push(currentId);
+      currentId = this.sessionOrder.get(currentId)?.nextId;
     }
     for (const sessionId of expiredSessionIds) {
       if (!this.deleteSessionInternal(sessionId)) {

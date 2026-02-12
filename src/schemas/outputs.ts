@@ -71,15 +71,35 @@ export const ReasoningThinkResultSchema = z.discriminatedUnion('ok', [
  * Tool-facing output schema kept as a strict object so SDK tooling
  * can advertise outputSchema via tools/list.
  */
-export const ReasoningThinkToolOutputSchema = z.strictObject({
-  ok: z.boolean(),
-  result: ReasoningThinkSuccessSchema.shape.result.optional(),
-  error: z
-    .strictObject({
-      code: z.string(),
-      message: z.string(),
-    })
-    .optional(),
-});
+export const ReasoningThinkToolOutputSchema = z
+  .strictObject({
+    ok: z.boolean(),
+    result: ReasoningThinkSuccessSchema.shape.result.optional(),
+    error: z
+      .strictObject({
+        code: z.string(),
+        message: z.string(),
+      })
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.ok) {
+      if (data.result === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'result is required when ok is true',
+          path: ['result'],
+        });
+      }
+    } else {
+      if (data.error === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'error is required when ok is false',
+          path: ['error'],
+        });
+      }
+    }
+  });
 
 export type ReasoningThinkSuccess = z.infer<typeof ReasoningThinkSuccessSchema>;
