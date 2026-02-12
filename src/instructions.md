@@ -19,6 +19,7 @@ These instructions are available as a resource (internal://instructions) or prom
 - `reasoning.normal`: Prepare a normal-depth reasoning request (6–10 thoughts).
 - `reasoning.high`: Prepare a high-depth reasoning request (15–25 thoughts).
 - `reasoning.continue`: Continue an existing reasoning session with a follow-up query.
+- `reasoning.retry`: Retry a failed reasoning task with modified parameters.
 
 ---
 
@@ -27,6 +28,8 @@ These instructions are available as a resource (internal://instructions) or prom
 - `internal://instructions`: This document.
 - `reasoning://sessions`: List all active reasoning sessions with metadata (JSON).
 - `reasoning://sessions/{sessionId}`: Inspect a specific session's thoughts and metadata (JSON). Supports auto-completion on `sessionId`.
+- `file:///cortex/sessions/{sessionId}/trace.md`: Full Markdown trace of a session.
+- `file:///cortex/sessions/{sessionId}/{thoughtName}.md`: Markdown content of a single thought (e.g., `Thought-1.md`).
 
 ### Resource Subscriptions
 
