@@ -14,9 +14,7 @@ export interface Session {
   status: SessionStatus;
   thoughts: Thought[];
   totalThoughts: number;
-  /** Approximate token budget (estimated as UTF-8 byte length ÷ 4, not true tokenization). */
   tokenBudget: number;
-  /** Approximate tokens used (estimated as UTF-8 byte length ÷ 4, not true tokenization). */
   tokensUsed: number;
   createdAt: number;
   updatedAt: number;

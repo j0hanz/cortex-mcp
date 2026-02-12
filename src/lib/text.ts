@@ -19,12 +19,7 @@ export function createSegmenter(
 }
 
 /**
- * Truncates a string to a maximum byte length, respecting grapheme clusters if a segmenter is provided.
- * Appends a suffix '...' if truncation occurs.
- *
- * @param str The string to truncate.
- * @param maxLength The maximum length in bytes.
- * @param segmenter Optional Intl.Segmenter for grapheme-aware truncation.
+ * Truncates a string to fit within a specified byte length, ensuring that it does not cut off in the middle of a grapheme cluster if possible.
  */
 export function truncate(
   str: string,
