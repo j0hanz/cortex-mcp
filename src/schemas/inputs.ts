@@ -19,19 +19,21 @@ export const ReasoningThinkInputSchema = z
       .min(1)
       .optional()
       .describe(
-        'Optional explicit thought count. Must fit the selected level range.'
+        'Optional explicit thought count. Must fit the level range: basic 3–5, normal 6–10, high 15–25.'
       ),
     sessionId: z
       .string()
       .min(1)
       .max(128)
       .optional()
-      .describe('Optional session ID to continue a previous reasoning session'),
+      .describe(
+        'Session ID to continue. Must use the same level as the original session.'
+      ),
     runMode: z
       .enum(['step', 'run_to_completion'])
       .optional()
       .describe(
-        'Execution mode. "step" appends a single thought. "run_to_completion" consumes all supplied thought inputs in one request.'
+        'Execution mode (default: "step"). "step" appends a single thought per call. "run_to_completion" consumes all supplied thought inputs in one request.'
       ),
     thought: z
       .string()

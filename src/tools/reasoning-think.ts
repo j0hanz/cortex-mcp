@@ -236,7 +236,10 @@ function mapReasoningErrorCode(message: string): string {
   ) {
     return 'E_ABORTED';
   }
-  if (message.startsWith('targetThoughts must be')) {
+  if (
+    message.startsWith('targetThoughts must be') ||
+    message.startsWith('Cannot change targetThoughts')
+  ) {
     return 'E_INVALID_THOUGHT_COUNT';
   }
   if (message.startsWith('Session not found:')) {

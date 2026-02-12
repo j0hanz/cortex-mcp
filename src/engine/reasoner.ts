@@ -188,7 +188,7 @@ function resolveSession(
     }
     if (existing.level !== level) {
       throw new Error(
-        `Session level mismatch: requested ${level}, existing ${existing.level}`
+        `Session level mismatch: session "${sessionId}" uses level "${existing.level}", but "${level}" was requested. Use level: "${existing.level}" to continue this session.`
       );
     }
     if (
@@ -196,9 +196,9 @@ function resolveSession(
       targetThoughts !== existing.totalThoughts
     ) {
       throw new Error(
-        `targetThoughts must be ${String(
+        `Cannot change targetThoughts on an existing session (current: ${String(
           existing.totalThoughts
-        )} for the existing session`
+        )}). Omit targetThoughts or pass ${String(existing.totalThoughts)}.`
       );
     }
     return existing;

@@ -25,7 +25,7 @@ export function getTargetThoughtsError(
 
   const { minThoughts, maxThoughts } = getThoughtBounds(level);
   if (targetThoughts < minThoughts || targetThoughts > maxThoughts) {
-    return `targetThoughts must be between ${String(minThoughts)} and ${String(maxThoughts)} for the selected level`;
+    return `targetThoughts must be between ${String(minThoughts)} and ${String(maxThoughts)} for level "${level}" (received ${String(targetThoughts)})`;
   }
 
   return undefined;

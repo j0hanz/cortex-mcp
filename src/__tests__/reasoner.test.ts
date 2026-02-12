@@ -131,7 +131,10 @@ describe('reason', () => {
           sessionId: first.id,
           thought: 'This should fail.',
         }),
-      { message: /Session level mismatch/ }
+      {
+        message:
+          /Session level mismatch.*uses level "basic".*Use level: "basic"/,
+      }
     );
     sessionStore.delete(first.id);
   });
@@ -164,7 +167,7 @@ describe('reason', () => {
           targetThoughts: 9,
           thought: 'This should fail.',
         }),
-      { message: /targetThoughts must be between 3 and 5/ }
+      { message: /targetThoughts must be between 3 and 5 for level "basic"/ }
     );
   });
 
