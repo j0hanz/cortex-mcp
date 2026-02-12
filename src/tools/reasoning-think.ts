@@ -25,6 +25,8 @@ import type {
 } from '../lib/types.js';
 
 type ProgressToken = string | number;
+const DEFAULT_MAX_ACTIVE_REASONING_TASKS = 32;
+const TASK_OVERLOAD_MESSAGE = 'Server busy: too many active reasoning tasks';
 
 interface TaskStoreLike {
   createTask(options: {
@@ -61,7 +63,7 @@ interface ReasoningStructuredResult {
     sessionId: string;
     level: ReasoningLevel;
     status: 'active' | 'completed' | 'cancelled';
-    thoughts: { index: number; content: string; revision: number }[];
+    thoughts: readonly { index: number; content: string; revision: number }[];
     generatedThoughts: number;
     requestedThoughts: number;
     totalThoughts: number;
@@ -74,6 +76,48 @@ interface ReasoningStructuredResult {
     summary: string;
   };
 }
+
+function parsePositiveInt(
+  rawValue: string | undefined,
+  fallbackValue: number
+): number {
+  if (rawValue === undefined) {
+    return fallbackValue;
+  }
+  const parsed = Number.parseInt(rawValue, 10);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return fallbackValue;
+  }
+  return parsed;
+}
+
+function createTaskLimiter(maxActiveTasks: number): {
+  tryAcquire: () => boolean;
+  release: () => void;
+} {
+  let activeTasks = 0;
+  return {
+    tryAcquire(): boolean {
+      if (activeTasks >= maxActiveTasks) {
+        return false;
+      }
+      activeTasks += 1;
+      return true;
+    },
+    release(): void {
+      if (activeTasks > 0) {
+        activeTasks -= 1;
+      }
+    },
+  };
+}
+
+const reasoningTaskLimiter = createTaskLimiter(
+  parsePositiveInt(
+    process.env.CORTEX_MAX_ACTIVE_REASONING_TASKS,
+    DEFAULT_MAX_ACTIVE_REASONING_TASKS
+  )
+);
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -146,8 +190,40 @@ function parseReasoningTaskExtra(rawExtra: unknown): ReasoningTaskExtra {
   return rawExtra;
 }
 
-function assertCallToolResult(value: unknown): asserts value is CallToolResult {
+function isContentBlockLike(value: unknown): boolean {
+  if (!isObjectRecord(value) || typeof value.type !== 'string') {
+    return false;
+  }
+
+  if (value.type === 'text') {
+    return typeof value.text === 'string';
+  }
+
+  if (value.type === 'resource') {
+    return isObjectRecord(value.resource);
+  }
+
+  return true;
+}
+
+function isCallToolResult(value: unknown): value is CallToolResult {
   if (!isObjectRecord(value) || !Array.isArray(value.content)) {
+    return false;
+  }
+
+  if (!value.content.every((entry) => isContentBlockLike(entry))) {
+    return false;
+  }
+
+  if (value.isError !== undefined && typeof value.isError !== 'boolean') {
+    return false;
+  }
+
+  return true;
+}
+
+function assertCallToolResult(value: unknown): asserts value is CallToolResult {
+  if (!isCallToolResult(value)) {
     throw new Error('Stored task result is not a valid CallToolResult.');
   }
 }
@@ -177,6 +253,9 @@ function mapReasoningErrorCode(message: string): string {
     )
   ) {
     return 'E_INVALID_RUN_MODE_ARGS';
+  }
+  if (message === TASK_OVERLOAD_MESSAGE) {
+    return 'E_SERVER_BUSY';
   }
   return 'E_REASONING';
 }
@@ -293,11 +372,7 @@ function buildStructuredResult(
       sessionId: session.id,
       level: session.level,
       status: session.status,
-      thoughts: session.thoughts.map((thought) => ({
-        index: thought.index,
-        content: thought.content,
-        revision: thought.revision,
-      })),
+      thoughts: session.thoughts,
       generatedThoughts,
       requestedThoughts,
       totalThoughts: session.totalThoughts,
@@ -698,19 +773,30 @@ export function registerReasoningThinkTool(
           pollInterval: 500,
         });
 
-        const controller = createCancellationController(extra.signal);
-        const taskArgs = {
-          server,
-          taskStore: extra.taskStore,
-          taskId: task.taskId,
-          params,
-          controller,
-          ...(progressToken !== undefined ? { progressToken } : {}),
-          ...(extra.sessionId !== undefined
-            ? { sessionId: extra.sessionId }
-            : {}),
-        };
-        void runReasoningTask(taskArgs);
+        if (!reasoningTaskLimiter.tryAcquire()) {
+          throw new Error(TASK_OVERLOAD_MESSAGE);
+        }
+
+        try {
+          const controller = createCancellationController(extra.signal);
+          const taskArgs = {
+            server,
+            taskStore: extra.taskStore,
+            taskId: task.taskId,
+            params,
+            controller,
+            ...(progressToken !== undefined ? { progressToken } : {}),
+            ...(extra.sessionId !== undefined
+              ? { sessionId: extra.sessionId }
+              : {}),
+          };
+          void runReasoningTask(taskArgs).finally(() => {
+            reasoningTaskLimiter.release();
+          });
+        } catch (error) {
+          reasoningTaskLimiter.release();
+          throw error;
+        }
 
         return { task };
       },

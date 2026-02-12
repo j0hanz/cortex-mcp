@@ -365,7 +365,10 @@ const Pipeline = {
 
   async testBuild() {
     await Runner.runTask('Validating instructions', BuildTasks.validate);
-    await Runner.runShellTask('Compiling TypeScript', BuildTasks.compile);
+    await Runner.runShellTask('Type-checking src', async () => {
+      const [cmd, args] = CONFIG.commands.tscCheck;
+      await System.exec(cmd, args);
+    });
   },
 };
 

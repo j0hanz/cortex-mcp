@@ -207,11 +207,12 @@ Task-augmented tool calls are supported for `reasoning.think` with `taskSupport:
 
 Environment variables:
 
-| Variable                  | Default   | Description                                                    |
-| ------------------------- | --------- | -------------------------------------------------------------- |
-| `CORTEX_SESSION_TTL_MS`   | `1800000` | Session TTL in milliseconds.                                   |
-| `CORTEX_MAX_SESSIONS`     | `100`     | Maximum in-memory sessions before LRU-style eviction.          |
-| `CORTEX_MAX_TOTAL_TOKENS` | `500000`  | Maximum aggregate approximate token footprint across sessions. |
+| Variable                            | Default   | Description                                                    |
+| ----------------------------------- | --------- | -------------------------------------------------------------- |
+| `CORTEX_SESSION_TTL_MS`             | `1800000` | Session TTL in milliseconds.                                   |
+| `CORTEX_MAX_SESSIONS`               | `100`     | Maximum in-memory sessions before LRU-style eviction.          |
+| `CORTEX_MAX_TOTAL_TOKENS`           | `500000`  | Maximum aggregate approximate token footprint across sessions. |
+| `CORTEX_MAX_ACTIVE_REASONING_TASKS` | `32`      | Maximum concurrently running background reasoning tasks.       |
 
 ## Development
 

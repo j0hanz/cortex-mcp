@@ -4,21 +4,21 @@ export type ReasoningRunMode = 'step' | 'run_to_completion';
 export type SessionStatus = 'active' | 'completed' | 'cancelled';
 
 export interface Thought {
-  index: number;
-  content: string;
-  revision: number;
+  readonly index: number;
+  readonly content: string;
+  readonly revision: number;
 }
 
 export interface Session {
-  id: string;
-  level: ReasoningLevel;
-  status: SessionStatus;
-  thoughts: Thought[];
-  totalThoughts: number;
-  tokenBudget: number;
-  tokensUsed: number;
-  createdAt: number;
-  updatedAt: number;
+  readonly id: string;
+  readonly level: ReasoningLevel;
+  readonly status: SessionStatus;
+  readonly thoughts: readonly Thought[];
+  readonly totalThoughts: number;
+  readonly tokenBudget: number;
+  readonly tokensUsed: number;
+  readonly createdAt: number;
+  readonly updatedAt: number;
 }
 
 export interface LevelConfig {

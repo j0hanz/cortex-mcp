@@ -20,17 +20,26 @@ interface SessionOrderNode {
   nextId: string | undefined;
 }
 
+type Mutable<T> = {
+  -readonly [K in keyof T]: T[K];
+};
+
+type MutableThought = Mutable<Thought>;
+type MutableSession = Omit<Mutable<Session>, 'thoughts'> & {
+  thoughts: MutableThought[];
+};
+
 function estimateTokens(text: string): number {
   const byteLength = Buffer.byteLength(text, 'utf8');
   return Math.max(1, Math.ceil(byteLength / 4));
 }
 
 export class SessionStore {
-  private readonly sessions = new Map<string, Session>();
+  private readonly sessions = new Map<string, MutableSession>();
   private readonly sessionOrder = new Map<string, SessionOrderNode>();
   private oldestSessionId: string | undefined;
   private newestSessionId: string | undefined;
-  private sortedCache: Session[] | null = null;
+  private sortedSessionIdsCache: string[] | null = null;
   private readonly cleanupInterval: NodeJS.Timeout;
   private readonly ttlMs: number;
   private readonly maxSessions: number;
@@ -52,11 +61,11 @@ export class SessionStore {
     this.cleanupInterval.unref();
   }
 
-  create(level: ReasoningLevel, totalThoughts?: number): Session {
+  create(level: ReasoningLevel, totalThoughts?: number): Readonly<Session> {
     this.evictIfAtCapacity();
     const config: LevelConfig = LEVEL_CONFIGS[level];
     const now = Date.now();
-    const session: Session = {
+    const session: MutableSession = {
       id: randomUUID(),
       level,
       status: 'active',
@@ -69,19 +78,27 @@ export class SessionStore {
     };
     this.sessions.set(session.id, session);
     this.addToOrder(session.id);
-    this.sortedCache = null;
+    this.sortedSessionIdsCache = null;
     this.emitSessionsListChanged();
     this.emitSessionsResourceUpdated();
-    return session;
+    return this.snapshotSession(session);
   }
 
   get(id: string): Readonly<Session> | undefined {
-    return this.sessions.get(id);
+    const session = this.sessions.get(id);
+    return session ? this.snapshotSession(session) : undefined;
   }
 
-  list(): Session[] {
-    this.sortedCache ??= this.buildSortedCache();
-    return this.sortedCache;
+  list(): Readonly<Session>[] {
+    this.sortedSessionIdsCache ??= this.buildSortedSessionIdsCache();
+    const sessions: Session[] = [];
+    for (const sessionId of this.sortedSessionIdsCache) {
+      const session = this.sessions.get(sessionId);
+      if (session) {
+        sessions.push(this.snapshotSession(session));
+      }
+    }
+    return sessions;
   }
 
   getTtlMs(): number {
@@ -118,7 +135,7 @@ export class SessionStore {
     }
     const tokens = estimateTokens(content);
     this.evictForTokenHeadroom(tokens, sessionId);
-    const thought: Thought = {
+    const thought: MutableThought = {
       index: session.thoughts.length,
       content,
       revision: 0,
@@ -128,9 +145,9 @@ export class SessionStore {
     this.totalTokens += tokens;
     session.updatedAt = Date.now();
     this.touchOrder(session.id);
-    this.sortedCache = null;
+    this.sortedSessionIdsCache = null;
     this.emitSessionResourcesUpdated(sessionId);
-    return thought;
+    return this.snapshotThought(thought);
   }
 
   reviseThought(
@@ -154,7 +171,7 @@ export class SessionStore {
     if (delta > 0) {
       this.evictForTokenHeadroom(delta, sessionId);
     }
-    const revised: Thought = {
+    const revised: MutableThought = {
       index: thoughtIndex,
       content,
       revision: existing.revision + 1,
@@ -164,9 +181,9 @@ export class SessionStore {
     this.totalTokens += delta;
     session.updatedAt = Date.now();
     this.touchOrder(session.id);
-    this.sortedCache = null;
+    this.sortedSessionIdsCache = null;
     this.emitSessionResourcesUpdated(sessionId);
-    return revised;
+    return this.snapshotThought(revised);
   }
 
   markCompleted(sessionId: string): void {
@@ -175,7 +192,7 @@ export class SessionStore {
       session.status = 'completed';
       session.updatedAt = Date.now();
       this.touchOrder(session.id);
-      this.sortedCache = null;
+      this.sortedSessionIdsCache = null;
       this.emitSessionResourcesUpdated(sessionId);
     }
   }
@@ -186,7 +203,7 @@ export class SessionStore {
       session.status = 'cancelled';
       session.updatedAt = Date.now();
       this.touchOrder(session.id);
-      this.sortedCache = null;
+      this.sortedSessionIdsCache = null;
       this.emitSessionResourcesUpdated(sessionId);
     }
   }
@@ -225,7 +242,7 @@ export class SessionStore {
     }
   }
 
-  private findOldestSession(excludeId?: string): Session | undefined {
+  private findOldestSession(excludeId?: string): MutableSession | undefined {
     let currentId = this.oldestSessionId;
     while (currentId) {
       if (currentId !== excludeId) {
@@ -258,17 +275,16 @@ export class SessionStore {
     }
   }
 
-  private buildSortedCache(): Session[] {
-    const sorted: Session[] = [];
+  private buildSortedSessionIdsCache(): string[] {
+    const sortedSessionIds: string[] = [];
     let currentId = this.newestSessionId;
     while (currentId) {
-      const session = this.sessions.get(currentId);
-      if (session) {
-        sorted.push(session);
+      if (this.sessions.has(currentId)) {
+        sortedSessionIds.push(currentId);
       }
       currentId = this.sessionOrder.get(currentId)?.prevId;
     }
-    return sorted;
+    return sortedSessionIds;
   }
 
   private addToOrder(sessionId: string): void {
@@ -363,7 +379,7 @@ export class SessionStore {
     this.sessionOrder.delete(sessionId);
   }
 
-  private deleteSessionInternal(id: string): Session | undefined {
+  private deleteSessionInternal(id: string): MutableSession | undefined {
     const session = this.sessions.get(id);
     if (!session) {
       return undefined;
@@ -372,8 +388,32 @@ export class SessionStore {
     this.totalTokens -= session.tokensUsed;
     this.sessions.delete(id);
     this.removeFromOrder(id);
-    this.sortedCache = null;
+    this.sortedSessionIdsCache = null;
     return session;
+  }
+
+  private snapshotThought(thought: MutableThought): Thought {
+    return {
+      index: thought.index,
+      content: thought.content,
+      revision: thought.revision,
+    };
+  }
+
+  private snapshotSession(session: MutableSession): Session {
+    return {
+      id: session.id,
+      level: session.level,
+      status: session.status,
+      thoughts: session.thoughts.map((thought) =>
+        this.snapshotThought(thought)
+      ),
+      totalThoughts: session.totalThoughts,
+      tokenBudget: session.tokenBudget,
+      tokensUsed: session.tokensUsed,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+    };
   }
 
   private emitSessionsListChanged(): void {
