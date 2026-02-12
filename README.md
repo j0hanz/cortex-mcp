@@ -1,7 +1,5 @@
 # Cortex MCP
 
-<!-- mcp-name: io.github.j0hanz/cortex-mcp -->
-
 [![npm version](https://img.shields.io/npm/v/@j0hanz/cortex-mcp?style=flat-square&logo=npm&logoColor=white)](https://www.npmjs.com/package/@j0hanz/cortex-mcp) [![Release workflow](https://github.com/j0hanz/cortex-mcp/actions/workflows/release.yml/badge.svg)](https://github.com/j0hanz/cortex-mcp/actions/workflows/release.yml) [![Node.js >=24](https://img.shields.io/badge/Node.js->=24-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org) [![TypeScript 5.9+](https://img.shields.io/badge/TypeScript-5.9+-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org) [![MCP SDK 1.26+](https://img.shields.io/badge/MCP_SDK-1.26+-ff6600?style=flat-square)](https://modelcontextprotocol.io) [![License MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](https://opensource.org/licenses/MIT)
 
 [![Install in VS Code](https://img.shields.io/badge/VS_Code-Install-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=cortex-mcp&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40j0hanz%2Fcortex-mcp%40latest%22%5D%7D) [![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=cortex-mcp&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40j0hanz%2Fcortex-mcp%40latest%22%5D%7D&quality=insiders)
@@ -39,9 +37,6 @@ Standard config (works in most MCP clients):
 }
 ```
 
-> [!TIP]
-> Use the standard config first, then add per-client configuration below if needed.
-
 ## Client Configuration
 
 <details>
@@ -63,9 +58,6 @@ Add to your user `settings.json`:
   }
 }
 ```
-
-> [!NOTE]
-> Missing info: official VS Code MCP docs URL is not referenced in this repo.
 
 </details>
 
@@ -89,9 +81,6 @@ Add to your user `settings.json`:
 }
 ```
 
-> [!NOTE]
-> Missing info: official VS Code Insiders MCP docs URL is not referenced in this repo.
-
 </details>
 
 <details>
@@ -112,9 +101,6 @@ Add to `~/.cursor/mcp.json`:
 }
 ```
 
-> [!NOTE]
-> Missing info: official Cursor MCP docs URL is not referenced in this repo.
-
 </details>
 
 <details>
@@ -132,9 +118,6 @@ Add to `claude_desktop_config.json`:
   }
 }
 ```
-
-> [!NOTE]
-> Missing info: official Claude Desktop MCP docs URL is not referenced in this repo.
 
 </details>
 
@@ -213,11 +196,6 @@ Task-augmented tool calls are supported for `reasoning.think` with `taskSupport:
 | Mode  | Description                   |
 | ----- | ----------------------------- |
 | stdio | The only supported transport. |
-
-### Environment Variables
-
-> [!NOTE]
-> Missing info: no environment variables are documented in this repo.
 
 ## Development
 
