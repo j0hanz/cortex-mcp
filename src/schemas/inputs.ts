@@ -39,20 +39,22 @@ export const ReasoningThinkInputSchema = z
         'Execution mode (default: "step"). "step" appends a single thought per call. "run_to_completion" consumes all supplied thought inputs in one request.'
       ),
     thought: z
-      .string()
-      .min(1)
-      .max(100000)
+      .union([
+        z.string().min(1).max(100000),
+        z.array(z.string().min(1).max(100000)).min(1).max(25),
+      ])
       .describe(
         'Your full reasoning content for this step. ' +
           'The server stores this text verbatim as the thought in the session trace. ' +
-          'Write your complete analysis, observations, and conclusions here — this is what appears in trace.md.'
+          'Write your complete analysis, observations, and conclusions here — this is what appears in trace.md. ' +
+          'Can be a single string or an array of strings (for batch execution).'
       ),
     thoughts: z
       .array(z.string().min(1).max(100000))
       .max(25)
       .optional()
       .describe(
-        'Optional additional thought inputs consumed in order when runMode is "run_to_completion".'
+        '(Deprecated) Optional additional thought inputs. Use "thought" as an array instead.'
       ),
   })
   .superRefine((data, ctx) => {
@@ -84,6 +86,14 @@ export const ReasoningThinkInputSchema = z
         message:
           'targetThoughts is required for run_to_completion when sessionId is not provided',
         path: ['targetThoughts'],
+      });
+    }
+
+    if (runMode === 'step' && Array.isArray(data.thought)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'thought must be a string when runMode is "step"',
+        path: ['thought'],
       });
     }
 

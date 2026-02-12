@@ -280,7 +280,10 @@ function resolveRunMode(params: ReasoningThinkInput): ReasoningRunMode {
 }
 
 function buildThoughtInputs(params: ReasoningThinkInput): string[] {
-  return [params.thought, ...(params.thoughts ?? [])];
+  const primary = Array.isArray(params.thought)
+    ? params.thought
+    : [params.thought];
+  return [...primary, ...(params.thoughts ?? [])];
 }
 
 function getStartingThoughtCount(sessionId?: string): number {
