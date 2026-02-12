@@ -410,7 +410,7 @@ function buildSummary(
     return `Session cancelled at thought ${String(session.thoughts.length)}/${String(session.totalThoughts)}. Session ${session.id}.`;
   }
   return (
-    `CONTINUE: Call reasoning.think with { sessionId: "${session.id}", level: "${session.level}", thought: "<your next reasoning step>" }. ` +
+    `CONTINUE: Call reasoning_think with { sessionId: "${session.id}", level: "${session.level}", thought: "<your next reasoning step>" }. ` +
     `Progress: ${String(session.thoughts.length)}/${String(session.totalThoughts)} thoughts, ${String(remainingThoughts)} remaining.`
   );
 }
@@ -792,7 +792,7 @@ export function registerReasoningThinkTool(
         const parseResult = ReasoningThinkInputSchema.safeParse(rawParams);
         if (!parseResult.success) {
           throw new Error(
-            `Invalid reasoning.think params: ${parseResult.error.message}`
+            `Invalid reasoning_think params: ${parseResult.error.message}`
           );
         }
         const params = parseResult.data;

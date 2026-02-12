@@ -51,6 +51,7 @@
     "type-check:trace": "node -e \"require('fs').rmSync('.ts-trace',{recursive:true,force:true})\" && tsc --noEmit --generateTrace .ts-trace",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "check:docs:mcp": "node scripts/check-mcp-docs-quality.mjs",
     "test": "node scripts/tasks.mjs test",
     "test:fast": "node --test --import tsx/esm src/__tests__/**/*.test.ts",
     "test:coverage": "node scripts/tasks.mjs test --coverage",

@@ -4,7 +4,7 @@
 
 ## 1) Project Context
 
-- **Domain:** Multi-level reasoning MCP server that exposes a `reasoning.think` tool over stdio transport with configurable depth levels (`basic`, `normal`, `high`).
+- **Domain:** Multi-level reasoning MCP server that exposes a `reasoning_think` tool over stdio transport with configurable depth levels (`basic`, `normal`, `high`).
 - **Tech Stack (Verified):**
   - **Languages:** TypeScript 5.9+ (see `package.json` `devDependencies`, `tsconfig.json` `strict: true`)
   - **Frameworks:** `@modelcontextprotocol/sdk` ^1.26.0 — MCP protocol server SDK (see `package.json` `dependencies`)
@@ -21,7 +21,7 @@
 - `src/index.ts`: CLI entrypoint — shebang, stdio transport wiring, SIGTERM/SIGINT shutdown handlers
 - `src/server.ts`: `McpServer` instance creation, capability declaration, tool/prompt/resource registration, resource subscription support
 - `src/tools/`: Tool implementations — one file per tool; `index.ts` barrel exports `registerAllTools()`
-- `src/tools/reasoning-think.ts`: Core `reasoning.think` tool with task support and progress reporting
+- `src/tools/reasoning-think.ts`: Core `reasoning_think` tool with task support and progress reporting
 - `src/engine/`: Reasoning engine — session store, level configs, `AsyncLocalStorage` context, `EventEmitter` events, `reason()` function
 - `src/schemas/`: Zod v4 input/output schemas (`z.strictObject()` for all object shapes)
 - `src/lib/`: Shared helpers — `getErrorMessage()`, `createToolResponse()`, `createErrorResponse()`, shared types
@@ -94,7 +94,7 @@
   - `helpers.test.ts` — tests `getErrorMessage()`, `createToolResponse()`, `createErrorResponse()`
   - `session-store.test.ts` — tests `SessionStore` create/get/delete, `addThought()`, `reviseThought()`, TTL eviction
   - `reasoner.test.ts` — tests `reason()` thought count per level, abort signal, progress callback, session reuse
-  - `tool-registration.test.ts` — verifies `registerAllTools` registers `reasoning.think` on the server
+  - `tool-registration.test.ts` — verifies `registerAllTools` registers `reasoning_think` on the server
   - `events.test.ts` — tests engine event emission
 - **Approach:** Unit tests with deterministic assertions; no external services or DB required. Tests are excluded from build via `tsconfig.json` and `tsconfig.build.json` `exclude` arrays. ESLint ignores test files (see `eslint.config.mjs` `ignores`).
 - **Run targeted tests:** `node --test --import tsx/esm src/__tests__/<file>.test.ts`

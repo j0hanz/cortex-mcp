@@ -98,7 +98,7 @@ Add to `~/.cursor/mcp.json`:
 
 ### Tools
 
-#### `reasoning.think`
+#### `reasoning_think`
 
 Perform multi-step reasoning on a query with a selected depth level.
 
@@ -137,7 +137,7 @@ Perform multi-step reasoning on a query with a selected depth level.
 
 ### Tasks
 
-Task-augmented tool calls are supported for `reasoning.think`. Use `tools/call` with task support to run long-running reasoning sessions asynchronously.
+Task-augmented tool calls are supported for `reasoning_think`. Use `tools/call` with task support to run long-running reasoning sessions asynchronously.
 
 ## Configuration
 

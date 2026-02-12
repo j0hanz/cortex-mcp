@@ -76,7 +76,7 @@ function registerLevelPrompt(
     },
     ({ query, targetThoughts }) => {
       // Create user message
-      const text = `Initiate a ${level}-depth reasoning session for the query: ${JSON.stringify(query)}. Use the "reasoning.think" tool${formatTargetThoughts(targetThoughts)}. For each call, provide your full reasoning in the "thought" parameter — this is stored verbatim in the session trace. Repeat calls with the returned sessionId until totalThoughts is reached.`;
+      const text = `Initiate a ${level}-depth reasoning session for the query: ${JSON.stringify(query)}. Use the "reasoning_think" tool${formatTargetThoughts(targetThoughts)}. For each call, provide your full reasoning in the "thought" parameter — this is stored verbatim in the session trace. Repeat calls with the returned sessionId until totalThoughts is reached.`;
 
       return {
         messages: [
@@ -133,7 +133,7 @@ export function registerAllPrompts(
       },
     },
     ({ query, level, targetThoughts }) => {
-      const text = `Retry the reasoning session for query: ${JSON.stringify(query)}. Use the "reasoning.think" tool with level="${level}"${formatTargetThoughts(targetThoughts)}. Provide your full reasoning in the "thought" parameter for each step.`;
+      const text = `Retry the reasoning session for query: ${JSON.stringify(query)}. Use the "reasoning_think" tool with level="${level}"${formatTargetThoughts(targetThoughts)}. Provide your full reasoning in the "thought" parameter for each step.`;
       return {
         messages: [
           {
@@ -200,8 +200,11 @@ export function registerAllPrompts(
         level: completable(
           z
             .enum(['basic', 'normal', 'high'])
-            .describe('Optional in the tool; session level is used if provided'),
-          (value) => completeLevel(value)
+            .optional()
+            .describe(
+              'Optional in the tool; session level is used if provided'
+            ),
+          (value) => completeLevel(value ?? '')
         ),
         targetThoughts: z
           .number()
@@ -217,7 +220,8 @@ export function registerAllPrompts(
     ({ sessionId, query, level, targetThoughts }) => {
       const followUpText =
         query === undefined ? '' : ` with follow-up: ${JSON.stringify(query)}`;
-      const text = `Continue reasoning session ${JSON.stringify(sessionId)}${followUpText}. Use "reasoning.think" with level="${level}"${formatTargetThoughts(targetThoughts)}. Provide your reasoning in the "thought" parameter for each step.`;
+      const levelText = level === undefined ? '' : ` with level="${level}"`;
+      const text = `Continue reasoning session ${JSON.stringify(sessionId)}${followUpText}. Use "reasoning_think"${levelText}${formatTargetThoughts(targetThoughts)}. Provide your reasoning in the "thought" parameter for each step.`;
       return {
         messages: [
           {

@@ -9,7 +9,7 @@ import { engineEvents } from '../engine/events.js';
 import { createServer } from '../server.js';
 
 describe('server registration', () => {
-  it('registers reasoning.think as a task-capable tool', async () => {
+  it('registers reasoning_think as a task-capable tool', async () => {
     const server = createServer();
 
     const [clientTransport, serverTransport] =
@@ -21,9 +21,9 @@ describe('server registration', () => {
     await client.connect(clientTransport);
 
     const result = await client.listTools();
-    const tool = result.tools.find((t) => t.name === 'reasoning.think');
+    const tool = result.tools.find((t) => t.name === 'reasoning_think');
 
-    assert.ok(tool, 'Expected reasoning.think to be registered');
+    assert.ok(tool, 'Expected reasoning_think to be registered');
     assert.equal(tool.execution?.taskSupport, 'optional');
     assert.equal(tool.inputSchema?.type, 'object');
     assert.equal(tool.outputSchema?.type, 'object');
@@ -167,7 +167,7 @@ describe('server registration', () => {
     assert.equal(prompt.messages.length, 1);
 
     const toolResult = await client.callTool({
-      name: 'reasoning.think',
+      name: 'reasoning_think',
       arguments: {
         query: 'Create one session',
         level: 'basic',
@@ -266,7 +266,7 @@ describe('server registration', () => {
     await client.connect(clientTransport);
 
     const toolResult = await client.callTool({
-      name: 'reasoning.think',
+      name: 'reasoning_think',
       arguments: {
         query: 'Batch reasoning test',
         level: 'basic',
@@ -333,7 +333,7 @@ describe('server registration', () => {
     await client.connect(clientTransport);
 
     const toolResult = await client.callTool({
-      name: 'reasoning.think',
+      name: 'reasoning_think',
       arguments: {
         query: 'Completion probe',
         level: 'basic',
@@ -393,7 +393,7 @@ describe('server registration', () => {
     await client.connect(clientTransport);
 
     const result = await client.callTool({
-      name: 'reasoning.think',
+      name: 'reasoning_think',
       arguments: {
         query: 'insufficient thoughts',
         level: 'basic',

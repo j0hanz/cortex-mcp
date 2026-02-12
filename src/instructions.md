@@ -8,7 +8,7 @@ These instructions are available as a resource (internal://instructions) or prom
 
 - Domain: Multi-level reasoning engine that decomposes queries into structured thought chains at configurable depth levels (basic, normal, high).
 - Primary Resources: Reasoning sessions (in-memory, 30-minute TTL), thought chains, progress notifications.
-- Tools: `reasoning.think` (WRITE — creates/extends sessions with LLM-authored thoughts).
+- Tools: `reasoning_think` (WRITE — creates/extends sessions with LLM-authored thoughts).
 
 ---
 
@@ -40,7 +40,7 @@ These instructions are available as a resource (internal://instructions) or prom
 ## PROGRESS & TASKS
 
 - Include `_meta.progressToken` in requests to receive `notifications/progress` updates during reasoning.
-- Task-augmented tool calls are supported for `reasoning.think`:
+- Task-augmented tool calls are supported for `reasoning_think`:
   - `execution.taskSupport: "optional"` — invoke normally or as a task.
   - Send `tools/call` with `task` to get a task id.
   - Poll `tasks/get` and fetch results via `tasks/result`.
@@ -54,7 +54,7 @@ These instructions are available as a resource (internal://instructions) or prom
 
 ### WORKFLOW A: Sequential Reasoning (Most Common)
 
-1. Call `reasoning.think` with `{ query: "...", level: "basic", thought: "Your detailed reasoning for step 1..." }`.
+1. Call `reasoning_think` with `{ query: "...", level: "basic", thought: "Your detailed reasoning for step 1..." }`.
 2. Read the response — note the `sessionId` and `remainingThoughts` fields.
 3. **You MUST continue**: Call again with `{ sessionId: "<from response>", level: "<same level>", thought: "Your next reasoning step..." }`.
 4. Repeat step 3 until the response shows `status: "completed"` or `remainingThoughts: 0`.
@@ -62,20 +62,20 @@ These instructions are available as a resource (internal://instructions) or prom
 
 ### WORKFLOW B: Multi-Turn Reasoning (Session Continuation)
 
-1. Call `reasoning.think` with `{ query: "initial question", level: "normal", thought: "Your first reasoning step..." }` — note the returned `sessionId`.
-2. Call `reasoning.think` with `{ sessionId: "<id>", level: "normal", thought: "Your next reasoning step..." }` (optional: add `query` for follow-up context).
+1. Call `reasoning_think` with `{ query: "initial question", level: "normal", thought: "Your first reasoning step..." }` — note the returned `sessionId`.
+2. Call `reasoning_think` with `{ sessionId: "<id>", level: "normal", thought: "Your next reasoning step..." }` (optional: add `query` for follow-up context).
 3. Repeat until `status: "completed"` or `remainingThoughts: 0`, then read `reasoning://sessions/{sessionId}` for the full chain.
    NOTE: The `level` parameter is optional when continuing; if provided and mismatched, the session level is used.
 
 ### WORKFLOW C: Controlled Depth Reasoning
 
-1. Call `reasoning.think` with `{ query: "...", level: "normal", targetThoughts: 8, thought: "Your reasoning..." }` to set the session's planned step count.
+1. Call `reasoning_think` with `{ query: "...", level: "normal", targetThoughts: 8, thought: "Your reasoning..." }` to set the session's planned step count.
 2. Repeat calls with the returned `sessionId` and your next `thought` until `result.totalThoughts` is reached.
    NOTE: `targetThoughts` must fall within the level range (basic: 3–5, normal: 6–10, high: 15–25). Out-of-range values return `E_INVALID_THOUGHT_COUNT`.
 
 ### WORKFLOW D: Async Task Execution
 
-1. Call `reasoning.think` as a task (send `tools/call` with `task` field) for long-running `high`-level reasoning.
+1. Call `reasoning_think` as a task (send `tools/call` with `task` field) for long-running `high`-level reasoning.
 2. Poll `tasks/get` until status is `completed` or `failed`.
 3. Retrieve the result via `tasks/result`.
 4. Use `tasks/cancel` to abort if needed.
@@ -90,7 +90,7 @@ These instructions are available as a resource (internal://instructions) or prom
 
 ## TOOL NUANCES & GOTCHAS
 
-`reasoning.think`
+`reasoning_think`
 
 - Purpose: Generate a multi-step reasoning chain for a given query at a specified depth level.
 - Input:
@@ -117,9 +117,9 @@ These instructions are available as a resource (internal://instructions) or prom
 
 ## CROSS-FEATURE RELATIONSHIPS
 
-- Use `reasoning.basic` / `reasoning.normal` / `reasoning.high` prompts to construct a correctly parameterized `reasoning.think` call.
+- Use `reasoning.basic` / `reasoning.normal` / `reasoning.high` prompts to construct a correctly parameterized `reasoning_think` call.
 - Use `reasoning.continue` prompt to construct a session-continuation call — it enforces `sessionId` and `level` pairing.
-- After calling `reasoning.think`, read `reasoning://sessions/{sessionId}` to retrieve the full session state including all accumulated thoughts.
+- After calling `reasoning_think`, read `reasoning://sessions/{sessionId}` to retrieve the full session state including all accumulated thoughts.
 - Use `reasoning://sessions` to discover active sessions before attempting continuation — avoids `E_SESSION_NOT_FOUND`.
 
 ---
