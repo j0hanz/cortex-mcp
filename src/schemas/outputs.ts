@@ -41,7 +41,16 @@ const ReasoningThinkSuccessSchema = z.strictObject({
     expiresAt: z.number(),
     createdAt: z.number(),
     updatedAt: z.number(),
-    summary: z.string(),
+    remainingThoughts: z
+      .number()
+      .describe(
+        'Number of thoughts remaining before the session reaches totalThoughts'
+      ),
+    summary: z
+      .string()
+      .describe(
+        'Actionable next-step instruction when active, or completion status when done'
+      ),
   }),
 });
 
@@ -72,3 +81,5 @@ export const ReasoningThinkToolOutputSchema = z.strictObject({
     })
     .optional(),
 });
+
+export type ReasoningThinkSuccess = z.infer<typeof ReasoningThinkSuccessSchema>;

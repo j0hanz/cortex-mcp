@@ -225,6 +225,7 @@ describe('ReasoningThinkResultSchema', () => {
         generatedThoughts: 1,
         requestedThoughts: 1,
         totalThoughts: 1,
+        remainingThoughts: 0,
         tokenBudget: 2048,
         tokensUsed: 6,
         ttlMs: 1800000,

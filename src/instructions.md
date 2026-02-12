@@ -55,19 +55,19 @@ These instructions are available as a resource (internal://instructions) or prom
 
 ## THE "GOLDEN PATH" WORKFLOWS (CRITICAL)
 
-### WORKFLOW A: Sequential Reasoning
+### WORKFLOW A: Sequential Reasoning (Most Common)
 
 1. Call `reasoning.think` with `{ query: "...", level: "basic", thought: "Your detailed reasoning for step 1..." }`.
-2. Read `result.thoughts` for the accumulated reasoning chain (each call appends one thought).
-3. Repeat calls with the same `sessionId`, providing your next `thought` content each time.
-4. Continue until `result.totalThoughts` is reached.
-   NOTE: Choose level based on query complexity — `basic` for straightforward questions, `high` for multi-faceted analysis.
+2. Read the response — note the `sessionId` and `remainingThoughts` fields.
+3. **You MUST continue**: Call again with `{ sessionId: "<from response>", level: "<same level>", thought: "Your next reasoning step..." }`.
+4. Repeat step 3 until the response shows `status: "completed"` or `remainingThoughts: 0`.
+   NOTE: The `summary` field contains the exact continuation call you should make next.
 
 ### WORKFLOW B: Multi-Turn Reasoning (Session Continuation)
 
 1. Call `reasoning.think` with `{ query: "initial question", level: "normal", thought: "Your first reasoning step..." }` — note the returned `sessionId`.
-2. Call `reasoning.think` with `{ level: "normal", sessionId: "<id>", thought: "Your next reasoning step..." }` (optional: add `query` for follow-up context).
-3. Repeat until `result.totalThoughts` is reached, then read `reasoning://sessions/{sessionId}` for the full chain.
+2. Call `reasoning.think` with `{ sessionId: "<id>", level: "normal", thought: "Your next reasoning step..." }` (optional: add `query` for follow-up context).
+3. Repeat until `status: "completed"` or `remainingThoughts: 0`, then read `reasoning://sessions/{sessionId}` for the full chain.
    NOTE: The `level` MUST match the original session level. Mismatches return `E_SESSION_LEVEL_MISMATCH`.
 
 ### WORKFLOW C: Controlled Depth Reasoning
@@ -104,8 +104,10 @@ These instructions are available as a resource (internal://instructions) or prom
   - `thoughts` (array of string, optional): Additional thought inputs consumed in order when `runMode` is `run_to_completion`.
   - `targetThoughts` (int, 1–25, optional): Override automatic step count. Must fit within the level range.
   - `sessionId` (string, 1–128 chars, optional): Continue an existing session. Level must match.
-- Output: `{ ok, result: { sessionId, level, thoughts[], generatedThoughts, requestedThoughts, totalThoughts, tokenBudget, tokensUsed, ttlMs, expiresAt, createdAt, updatedAt, summary } }`
+- Output: `{ ok, result: { sessionId, level, status, thoughts[], generatedThoughts, requestedThoughts, totalThoughts, remainingThoughts, tokenBudget, tokensUsed, ttlMs, expiresAt, createdAt, updatedAt, summary } }`
 - Side effects: Creates or modifies an in-memory session. Sessions expire after 30 minutes of inactivity.
+- Gotcha: When `status` is `"active"`, the `summary` field contains the exact next call you should make — follow it to continue the session.
+- Gotcha: `remainingThoughts` tells you how many more calls are needed. When it reaches 0, the session is complete.
 - Gotcha: `runMode="step"` appends one thought per call. `runMode="run_to_completion"` can append multiple thoughts in one call using `thought` + `thoughts[]`.
 - Gotcha: The `thought` content is stored verbatim — the trace shows exactly what you write. Write thorough, structured reasoning for useful traces.
 - Gotcha: `requestedThoughts` is the effective requested count for this run: it equals `targetThoughts` when provided, otherwise `totalThoughts`.

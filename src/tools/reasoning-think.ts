@@ -67,6 +67,7 @@ interface ReasoningStructuredResult {
     generatedThoughts: number;
     requestedThoughts: number;
     totalThoughts: number;
+    remainingThoughts: number;
     tokenBudget: number;
     tokensUsed: number;
     ttlMs: number;
@@ -365,6 +366,10 @@ function buildStructuredResult(
     sessionStore.getExpiresAt(session.id) ?? session.updatedAt + ttlMs;
 
   const requestedThoughts = targetThoughts ?? session.totalThoughts;
+  const remainingThoughts = Math.max(
+    0,
+    session.totalThoughts - session.thoughts.length
+  );
 
   return {
     ok: true,
@@ -376,15 +381,32 @@ function buildStructuredResult(
       generatedThoughts,
       requestedThoughts,
       totalThoughts: session.totalThoughts,
+      remainingThoughts,
       tokenBudget: session.tokenBudget,
       tokensUsed: session.tokensUsed,
       ttlMs,
       expiresAt,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
-      summary: `Session [${session.id}] at level [${session.level}] with [${session.thoughts.length}] thoughts.`,
+      summary: buildSummary(session, remainingThoughts),
     },
   };
+}
+
+function buildSummary(
+  session: Readonly<Session>,
+  remainingThoughts: number
+): string {
+  if (session.status === 'completed') {
+    return `Reasoning complete. ${String(session.thoughts.length)} thoughts produced at level "${session.level}". Session ${session.id}.`;
+  }
+  if (session.status === 'cancelled') {
+    return `Session cancelled at thought ${String(session.thoughts.length)}/${String(session.totalThoughts)}. Session ${session.id}.`;
+  }
+  return (
+    `CONTINUE: Call reasoning.think with { sessionId: "${session.id}", level: "${session.level}", thought: "<your next reasoning step>" }. ` +
+    `Progress: ${String(session.thoughts.length)}/${String(session.totalThoughts)} thoughts, ${String(remainingThoughts)} remaining.`
+  );
 }
 
 async function emitLog(
@@ -732,12 +754,15 @@ export function registerReasoningThinkTool(
     {
       title: 'Reasoning Think',
       description:
-        'Perform multi-level reasoning on a query. Provide your full reasoning content in the `thought` parameter — it is stored verbatim in the session trace. ' +
-        'Supports three depth levels: basic (3–5 thoughts, 2K token budget), normal (6–10 thoughts, 8K budget), and high (15–25 thoughts, 32K budget). ' +
-        'Default `runMode="step"` appends one thought to the session per call. `runMode="run_to_completion"` consumes `thought` + `thoughts[]` in one request. ' +
-        'When continuing an existing session, `query` is optional. Repeat calls with the same sessionId and your next thought until totalThoughts is reached. ' +
-        'Returns a session with accumulated thoughts, token usage, and TTL metadata. ' +
-        'Supports task-augmented execution for multi-step high-level reasoning.',
+        'Structured multi-step reasoning tool. Decomposes analysis into sequential thought steps stored in a persistent session trace.\n\n' +
+        'USAGE PATTERN:\n' +
+        '1. Start: { query: "...", level: "basic"|"normal"|"high", thought: "your analysis..." }\n' +
+        '2. Continue: { sessionId: "<from response>", level: "<same level>", thought: "next step..." }\n' +
+        '3. Repeat step 2 until response shows status: "completed"\n\n' +
+        'IMPORTANT: You MUST pass the returned sessionId on every continuation call, and use the same level throughout.\n' +
+        'The thought parameter stores YOUR reasoning verbatim — write thorough analysis in each step.\n\n' +
+        'Levels: basic (3–5 steps, 2K budget), normal (6–10, 8K), high (15–25, 32K).\n' +
+        'Alternative: Use runMode="run_to_completion" with thought + thoughts[] to submit all steps in one call.',
       inputSchema: ReasoningThinkInputSchema,
       outputSchema: ReasoningThinkToolOutputSchema,
       annotations: {
