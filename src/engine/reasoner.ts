@@ -55,7 +55,7 @@ interface LevelConfig {
 
 export async function reason(
   query: string,
-  level: ReasoningLevel,
+  level: ReasoningLevel | undefined,
   options?: ReasonOptions
 ): Promise<Readonly<Session>> {
   if (!options?.thought) {
@@ -64,14 +64,8 @@ export async function reason(
   const { sessionId, targetThoughts, thought, abortSignal, onProgress } =
     options;
 
-  const config = LEVEL_CONFIGS[level];
-  const session = resolveSession(
-    level,
-    sessionId,
-    query,
-    config,
-    targetThoughts
-  );
+  const session = resolveSession(level, sessionId, query, targetThoughts);
+  const config = LEVEL_CONFIGS[session.level];
   const { totalThoughts } = session;
 
   return runWithContext(
@@ -175,10 +169,9 @@ function emitBudgetExhausted(data: {
 }
 
 function resolveSession(
-  level: ReasoningLevel,
+  level: ReasoningLevel | undefined,
   sessionId: string | undefined,
   query: string,
-  config: LevelConfig,
   targetThoughts?: number
 ): Readonly<Session> {
   if (sessionId) {
@@ -186,10 +179,8 @@ function resolveSession(
     if (!existing) {
       throw new Error(`Session not found: ${sessionId}`);
     }
-    if (existing.level !== level) {
-      throw new Error(
-        `Session level mismatch: session "${sessionId}" uses level "${existing.level}", but "${level}" was requested. Use level: "${existing.level}" to continue this session.`
-      );
+    if (level !== undefined && existing.level !== level) {
+      // Warning: ignoring provided level in favor of session level
     }
     if (
       targetThoughts !== undefined &&
@@ -204,6 +195,11 @@ function resolveSession(
     return existing;
   }
 
+  if (level === undefined) {
+    throw new Error('level is required for new sessions');
+  }
+
+  const config = LEVEL_CONFIGS[level];
   const totalThoughts = resolveThoughtCount(
     level,
     query,

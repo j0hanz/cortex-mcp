@@ -183,6 +183,32 @@ describe('ReasoningThinkInputSchema', () => {
     assert.equal(result.success, false);
   });
 
+  it('accepts sessionId without level', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      sessionId: 'abc-123',
+      thought: 'Continuing without level.',
+    });
+    assert.equal(result.success, true);
+  });
+
+  it('rejects missing level when sessionId is missing', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      query: 'New session',
+      thought: 'Starting without level.',
+    });
+    assert.equal(result.success, false);
+  });
+
+  it('accepts run_to_completion without targetThoughts when sessionId is provided', () => {
+    const result = ReasoningThinkInputSchema.safeParse({
+      sessionId: 'abc-123',
+      runMode: 'run_to_completion',
+      thought: 'Step 1',
+      thoughts: ['Step 2'],
+    });
+    assert.equal(result.success, true);
+  });
+
   it('rejects thoughts when runMode is step', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'test',

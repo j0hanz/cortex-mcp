@@ -121,21 +121,31 @@ describe('reason', () => {
     sessionStore.delete(first.id);
   });
 
-  it('rejects reusing a session with a different level', async () => {
+  it('ignores level mismatch when continuing a session', async () => {
     const first = await reason('Initial query', 'basic', {
       thought: 'First thought.',
     });
-    await assert.rejects(
-      () =>
-        reason('Follow-up', 'high', {
-          sessionId: first.id,
-          thought: 'This should fail.',
-        }),
-      {
-        message:
-          /Session level mismatch.*uses level "basic".*Use level: "basic"/,
-      }
-    );
+    const second = await reason('Follow-up', 'high', {
+      sessionId: first.id,
+      thought: 'This should succeed and stay basic.',
+    });
+
+    assert.equal(second.level, 'basic');
+    assert.equal(second.thoughts.length, 2);
+    sessionStore.delete(first.id);
+  });
+
+  it('continues session without explicit level', async () => {
+    const first = await reason('Initial query', 'basic', {
+      thought: 'First thought.',
+    });
+    const second = await reason('Follow-up', undefined, {
+      sessionId: first.id,
+      thought: 'This should succeed.',
+    });
+
+    assert.equal(second.level, 'basic');
+    assert.equal(second.thoughts.length, 2);
     sessionStore.delete(first.id);
   });
 

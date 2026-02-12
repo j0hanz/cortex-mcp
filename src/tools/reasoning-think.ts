@@ -267,7 +267,7 @@ function mapReasoningErrorCode(message: string): string {
 function shouldEmitProgress(
   progress: number,
   total: number,
-  level: ReasoningLevel
+  level: ReasoningLevel | undefined
 ): boolean {
   if (progress <= 1 || progress >= total || level !== 'high') {
     return true;
@@ -307,7 +307,7 @@ async function executeReasoningSteps(args: {
   taskId: string;
   controller: AbortController;
   queryText: string;
-  level: ReasoningLevel;
+  level: ReasoningLevel | undefined;
   sessionId?: string;
   targetThoughts?: number;
   runMode: ReasoningRunMode;
@@ -475,7 +475,7 @@ function createProgressHandler(args: {
   server: McpServer;
   taskStore: TaskStoreLike;
   taskId: string;
-  level: ReasoningLevel;
+  level: ReasoningLevel | undefined;
   progressToken?: ProgressToken;
   controller: AbortController;
 }): (progress: number, total: number) => Promise<void> {

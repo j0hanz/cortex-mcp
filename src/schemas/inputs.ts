@@ -12,7 +12,10 @@ export const ReasoningThinkInputSchema = z
       .describe('The question or problem to reason about'),
     level: z
       .enum(['basic', 'normal', 'high'])
-      .describe('Reasoning depth level'),
+      .optional()
+      .describe(
+        'Reasoning depth level (required for new sessions, optional for continuing)'
+      ),
     targetThoughts: z
       .number()
       .int()
@@ -63,6 +66,14 @@ export const ReasoningThinkInputSchema = z
       });
     }
 
+    if (data.sessionId === undefined && data.level === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'level is required when sessionId is not provided',
+        path: ['level'],
+      });
+    }
+
     if (
       runMode === 'run_to_completion' &&
       data.sessionId === undefined &&
@@ -84,7 +95,7 @@ export const ReasoningThinkInputSchema = z
       });
     }
 
-    if (data.targetThoughts === undefined) {
+    if (data.targetThoughts === undefined || data.level === undefined) {
       return;
     }
 
