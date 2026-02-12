@@ -30,7 +30,7 @@ export const ReasoningThinkInputSchema = z
       .max(128)
       .optional()
       .describe(
-        'Session ID to continue. Must use the same level as the original session.'
+        'Session ID to continue. The session level is used when continuing; provided level is optional.'
       ),
     runMode: z
       .enum(['step', 'run_to_completion'])

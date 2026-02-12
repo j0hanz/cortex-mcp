@@ -200,7 +200,7 @@ export function registerAllPrompts(
         level: completable(
           z
             .enum(['basic', 'normal', 'high'])
-            .describe('Must match the session level'),
+            .describe('Optional in the tool; session level is used if provided'),
           (value) => completeLevel(value)
         ),
         targetThoughts: z

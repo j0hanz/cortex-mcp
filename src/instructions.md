@@ -65,7 +65,7 @@ These instructions are available as a resource (internal://instructions) or prom
 1. Call `reasoning.think` with `{ query: "initial question", level: "normal", thought: "Your first reasoning step..." }` — note the returned `sessionId`.
 2. Call `reasoning.think` with `{ sessionId: "<id>", level: "normal", thought: "Your next reasoning step..." }` (optional: add `query` for follow-up context).
 3. Repeat until `status: "completed"` or `remainingThoughts: 0`, then read `reasoning://sessions/{sessionId}` for the full chain.
-   NOTE: The `level` MUST match the original session level. Mismatches return `E_SESSION_LEVEL_MISMATCH`.
+   NOTE: The `level` parameter is optional when continuing; if provided and mismatched, the session level is used.
 
 ### WORKFLOW C: Controlled Depth Reasoning
 
@@ -140,7 +140,6 @@ These instructions are available as a resource (internal://instructions) or prom
 ## ERROR HANDLING STRATEGY
 
 - `E_SESSION_NOT_FOUND`: Session expired or never existed. Call `reasoning://sessions` to list active sessions, or start a new session without `sessionId`.
-- `E_SESSION_LEVEL_MISMATCH`: Requested level differs from the existing session. Use the same level as the original session, or start a new session.
 - `E_INVALID_THOUGHT_COUNT`: `targetThoughts` is outside the level range. Check ranges: basic (3–5), normal (6–10), high (15–25).
 - `E_INSUFFICIENT_THOUGHTS`: In `run_to_completion`, the request did not provide enough thought inputs for planned remaining steps.
 - `E_INVALID_RUN_MODE_ARGS`: Invalid `runMode` argument combination (for example, missing `targetThoughts` when starting a new run-to-completion session).
