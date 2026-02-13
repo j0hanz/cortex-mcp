@@ -21,6 +21,17 @@ function stringifyUnknown(value: unknown): string {
   return inspect(value, INSPECT_OPTIONS);
 }
 
+function getMessageFromErrorLike(value: unknown): string | undefined {
+  if (typeof value !== 'object' || value === null) {
+    return undefined;
+  }
+
+  const maybeError = value as { message?: unknown };
+  return typeof maybeError.message === 'string'
+    ? maybeError.message
+    : undefined;
+}
+
 export function getErrorMessage(error: unknown): string {
   if (typeof error === 'string') {
     return error;
@@ -31,11 +42,9 @@ export function getErrorMessage(error: unknown): string {
   if (error === null || error === undefined) {
     return 'Unknown error';
   }
-  if (typeof error === 'object') {
-    const maybeError = error as { message?: unknown };
-    if (typeof maybeError.message === 'string') {
-      return maybeError.message;
-    }
+  const errorLikeMessage = getMessageFromErrorLike(error);
+  if (errorLikeMessage !== undefined) {
+    return errorLikeMessage;
   }
   return stringifyUnknown(error);
 }

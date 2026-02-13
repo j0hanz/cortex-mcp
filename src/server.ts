@@ -64,21 +64,30 @@ function loadVersion(): string {
 }
 
 function attachEngineEventHandlers(server: McpServer): () => void {
+  const logNotificationFailure = (
+    method: string,
+    error: unknown,
+    data?: Record<string, unknown>
+  ): void => {
+    void server
+      .sendLoggingMessage({
+        level: 'debug',
+        logger: 'cortex-mcp.server',
+        data: {
+          event: 'notification_failed',
+          method,
+          ...(data ?? {}),
+          error: getErrorMessage(error),
+        },
+      })
+      .catch(() => {
+        // Never fail on logging errors.
+      });
+  };
+
   const onResourcesChanged = (): void => {
     void server.server.sendResourceListChanged().catch((err: unknown) => {
-      void server
-        .sendLoggingMessage({
-          level: 'debug',
-          logger: 'cortex-mcp.server',
-          data: {
-            event: 'notification_failed',
-            method: 'resources/list_changed',
-            error: getErrorMessage(err),
-          },
-        })
-        .catch(() => {
-          // Never fail on logging errors.
-        });
+      logNotificationFailure('resources/list_changed', err);
     });
   };
 
@@ -86,20 +95,7 @@ function attachEngineEventHandlers(server: McpServer): () => void {
     void server.server
       .sendResourceUpdated({ uri: data.uri })
       .catch((err: unknown) => {
-        void server
-          .sendLoggingMessage({
-            level: 'debug',
-            logger: 'cortex-mcp.server',
-            data: {
-              event: 'notification_failed',
-              method: 'resources/updated',
-              uri: data.uri,
-              error: getErrorMessage(err),
-            },
-          })
-          .catch(() => {
-            // Never fail on logging errors.
-          });
+        logNotificationFailure('resources/updated', err, { uri: data.uri });
       });
   };
 

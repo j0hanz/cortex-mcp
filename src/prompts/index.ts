@@ -42,6 +42,26 @@ function completeLevel(value: string): PromptLevel[] {
   return LEVEL_VALUES.filter((level) => level.startsWith(normalized));
 }
 
+function withIconMeta(iconMeta?: IconMeta): { icons: IconMeta[] } | undefined {
+  return iconMeta ? { icons: [iconMeta] } : undefined;
+}
+
+function createTextPrompt(text: string): {
+  messages: [{ role: 'user'; content: { type: 'text'; text: string } }];
+} {
+  return {
+    messages: [
+      {
+        role: 'user',
+        content: {
+          type: 'text',
+          text,
+        },
+      },
+    ],
+  };
+}
+
 function registerLevelPrompt(
   server: McpServer,
   level: PromptLevel,
@@ -52,11 +72,7 @@ function registerLevelPrompt(
     {
       title: `Reasoning ${levelTitle(level)}`,
       description: `Prepare a ${level}-depth reasoning request.`,
-      ...(iconMeta
-        ? {
-            icons: [iconMeta],
-          }
-        : {}),
+      ...(withIconMeta(iconMeta) ?? {}),
       argsSchema: {
         query: z
           .string()
@@ -78,17 +94,7 @@ function registerLevelPrompt(
       // Create user message
       const text = `Initiate a ${level}-depth reasoning session for the query: ${JSON.stringify(query)}. Use the "reasoning_think" tool${formatTargetThoughts(targetThoughts)}. For each call, provide your full reasoning in the "thought" parameter — this is stored verbatim in the session trace. Repeat calls with the returned sessionId until totalThoughts is reached.`;
 
-      return {
-        messages: [
-          {
-            role: 'user',
-            content: {
-              type: 'text',
-              text,
-            },
-          },
-        ],
-      };
+      return createTextPrompt(text);
     }
   );
 }
@@ -106,11 +112,7 @@ export function registerAllPrompts(
     {
       title: 'Retry Reasoning',
       description: 'Retry a failed reasoning task with modified parameters.',
-      ...(iconMeta
-        ? {
-            icons: [iconMeta],
-          }
-        : {}),
+      ...(withIconMeta(iconMeta) ?? {}),
       argsSchema: {
         query: z
           .string()
@@ -134,17 +136,7 @@ export function registerAllPrompts(
     },
     ({ query, level, targetThoughts }) => {
       const text = `Retry the reasoning session for query: ${JSON.stringify(query)}. Use the "reasoning_think" tool with level="${level}"${formatTargetThoughts(targetThoughts)}. Provide your full reasoning in the "thought" parameter for each step.`;
-      return {
-        messages: [
-          {
-            role: 'user',
-            content: {
-              type: 'text',
-              text,
-            },
-          },
-        ],
-      };
+      return createTextPrompt(text);
     }
   );
 
@@ -155,20 +147,9 @@ export function registerAllPrompts(
     {
       title: 'Get Help',
       description: 'Return the server usage instructions.',
-      ...(iconMeta
-        ? {
-            icons: [iconMeta],
-          }
-        : {}),
+      ...(withIconMeta(iconMeta) ?? {}),
     },
-    () => ({
-      messages: [
-        {
-          role: 'user',
-          content: { type: 'text', text: instructions },
-        },
-      ],
-    })
+    () => createTextPrompt(instructions)
   );
 
   server.registerPrompt(
@@ -177,11 +158,7 @@ export function registerAllPrompts(
       title: 'Continue Reasoning',
       description:
         'Continue an existing reasoning session with a follow-up query.',
-      ...(iconMeta
-        ? {
-            icons: [iconMeta],
-          }
-        : {}),
+      ...(withIconMeta(iconMeta) ?? {}),
       argsSchema: {
         sessionId: completable(
           z
@@ -222,17 +199,7 @@ export function registerAllPrompts(
         query === undefined ? '' : ` with follow-up: ${JSON.stringify(query)}`;
       const levelText = level === undefined ? '' : ` with level="${level}"`;
       const text = `Continue reasoning session ${JSON.stringify(sessionId)}${followUpText}. Use "reasoning_think"${levelText}${formatTargetThoughts(targetThoughts)}. Provide your reasoning in the "thought" parameter for each step.`;
-      return {
-        messages: [
-          {
-            role: 'user',
-            content: {
-              type: 'text',
-              text,
-            },
-          },
-        ],
-      };
+      return createTextPrompt(text);
     }
   );
 }

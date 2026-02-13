@@ -67,6 +67,22 @@ export const ReasoningThinkResultSchema = z.discriminatedUnion('ok', [
   ReasoningThinkErrorSchema,
 ]);
 
+function getMissingFieldIssue(data: {
+  ok: boolean;
+  result?: unknown;
+  error?: unknown;
+}): { message: string; path: ['result'] | ['error'] } | undefined {
+  if (data.ok && data.result === undefined) {
+    return { message: 'result is required when ok is true', path: ['result'] };
+  }
+
+  if (!data.ok && data.error === undefined) {
+    return { message: 'error is required when ok is false', path: ['error'] };
+  }
+
+  return undefined;
+}
+
 /**
  * Tool-facing output schema kept as a strict object so SDK tooling
  * can advertise outputSchema via tools/list.
@@ -83,22 +99,14 @@ export const ReasoningThinkToolOutputSchema = z
       .optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.ok) {
-      if (data.result === undefined) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'result is required when ok is true',
-          path: ['result'],
-        });
-      }
-    } else {
-      if (data.error === undefined) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'error is required when ok is false',
-          path: ['error'],
-        });
-      }
+    const missingFieldIssue = getMissingFieldIssue(data);
+
+    if (missingFieldIssue) {
+      ctx.addIssue({
+        code: 'custom',
+        message: missingFieldIssue.message,
+        path: missingFieldIssue.path,
+      });
     }
   });
 

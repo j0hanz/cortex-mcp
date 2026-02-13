@@ -1,6 +1,17 @@
 import { Buffer } from 'node:buffer';
 import { StringDecoder } from 'node:string_decoder';
 
+const UTF8 = 'utf8';
+const TRUNCATE_SUFFIX = '...';
+
+function clampNonNegative(value: number): number {
+  return Math.max(0, value);
+}
+
+function utf8ByteLength(value: string): number {
+  return Buffer.byteLength(value, UTF8);
+}
+
 /**
  * Creates an Intl.Segmenter instance if available in the environment.
  * gracefully handles missing Intl support or specific locale issues.
@@ -26,23 +37,21 @@ export function truncate(
   maxLength: number,
   segmenter?: Intl.Segmenter
 ): string {
-  const suffix = '...';
-  // If maxLength is negative, treat as 0
-  const maxBytes = Math.max(0, maxLength);
-  const suffixBytes = Buffer.byteLength(suffix, 'utf8');
+  const maxBytes = clampNonNegative(maxLength);
+  const suffixBytes = utf8ByteLength(TRUNCATE_SUFFIX);
 
-  if (Buffer.byteLength(str, 'utf8') <= maxBytes) {
+  if (utf8ByteLength(str) <= maxBytes) {
     return str;
   }
 
   // If we can't even fit the suffix, just return the suffix truncated (e.g. "." or "..")
   if (maxBytes <= suffixBytes) {
-    return suffix.slice(0, maxBytes);
+    return TRUNCATE_SUFFIX.slice(0, maxBytes);
   }
 
   const targetBytes = maxBytes - suffixBytes;
   const truncated = truncateByGrapheme(str, targetBytes, segmenter);
-  return truncated + suffix;
+  return truncated + TRUNCATE_SUFFIX;
 }
 
 function truncateByGrapheme(
@@ -57,7 +66,7 @@ function truncateByGrapheme(
   let result = '';
   let usedBytes = 0;
   for (const part of segmenter.segment(str)) {
-    const segmentBytes = Buffer.byteLength(part.segment, 'utf8');
+    const segmentBytes = utf8ByteLength(part.segment);
     if (usedBytes + segmentBytes > maxBytes) {
       break;
     }
@@ -73,8 +82,8 @@ function truncateByGrapheme(
  * Drops incomplete characters at the end rather than using replacement characters.
  */
 export function truncateByUtf8Boundary(str: string, maxBytes: number): string {
-  const safeMaxBytes = Math.max(0, maxBytes);
-  const encoded = Buffer.from(str, 'utf8');
+  const safeMaxBytes = clampNonNegative(maxBytes);
+  const encoded = Buffer.from(str, UTF8);
   if (encoded.length <= safeMaxBytes) {
     return str;
   }

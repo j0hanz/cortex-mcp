@@ -2,6 +2,18 @@ import { z } from 'zod';
 
 import { getTargetThoughtsError } from '../lib/validators.js';
 
+function addCustomIssue(
+  ctx: z.RefinementCtx,
+  path: string[],
+  message: string
+): void {
+  ctx.addIssue({
+    code: 'custom',
+    message,
+    path,
+  });
+}
+
 export const ReasoningThinkInputSchema = z
   .strictObject({
     query: z
@@ -61,19 +73,19 @@ export const ReasoningThinkInputSchema = z
     const runMode = data.runMode ?? 'step';
 
     if (data.sessionId === undefined && data.query === undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'query is required when sessionId is not provided',
-        path: ['query'],
-      });
+      addCustomIssue(
+        ctx,
+        ['query'],
+        'query is required when sessionId is not provided'
+      );
     }
 
     if (data.sessionId === undefined && data.level === undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'level is required when sessionId is not provided',
-        path: ['level'],
-      });
+      addCustomIssue(
+        ctx,
+        ['level'],
+        'level is required when sessionId is not provided'
+      );
     }
 
     if (
@@ -81,28 +93,27 @@ export const ReasoningThinkInputSchema = z
       data.sessionId === undefined &&
       data.targetThoughts === undefined
     ) {
-      ctx.addIssue({
-        code: 'custom',
-        message:
-          'targetThoughts is required for run_to_completion when sessionId is not provided',
-        path: ['targetThoughts'],
-      });
+      addCustomIssue(
+        ctx,
+        ['targetThoughts'],
+        'targetThoughts is required for run_to_completion when sessionId is not provided'
+      );
     }
 
     if (runMode === 'step' && Array.isArray(data.thought)) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'thought must be a string when runMode is "step"',
-        path: ['thought'],
-      });
+      addCustomIssue(
+        ctx,
+        ['thought'],
+        'thought must be a string when runMode is "step"'
+      );
     }
 
     if (runMode === 'step' && data.thoughts !== undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'thoughts is only allowed when runMode is "run_to_completion"',
-        path: ['thoughts'],
-      });
+      addCustomIssue(
+        ctx,
+        ['thoughts'],
+        'thoughts is only allowed when runMode is "run_to_completion"'
+      );
     }
 
     if (data.targetThoughts === undefined || data.level === undefined) {
@@ -111,11 +122,7 @@ export const ReasoningThinkInputSchema = z
 
     const error = getTargetThoughtsError(data.level, data.targetThoughts);
     if (error) {
-      ctx.addIssue({
-        code: 'custom',
-        message: error,
-        path: ['targetThoughts'],
-      });
+      addCustomIssue(ctx, ['targetThoughts'], error);
     }
   });
 

@@ -78,6 +78,14 @@ interface ReasoningStructuredResult {
   };
 }
 
+function buildTraceResource(session: Readonly<Session>): TextResourceContents {
+  return {
+    uri: `file:///cortex/sessions/${session.id}/trace.md`,
+    mimeType: 'text/markdown',
+    text: formatThoughtsToMarkdown(session),
+  };
+}
+
 function parsePositiveInt(
   rawValue: string | undefined,
   fallbackValue: number
@@ -572,6 +580,7 @@ async function handleTaskFailure(args: {
   const { server, taskStore, taskId, sessionId, error } = args;
   const message = getErrorMessage(error);
   const errorCode = mapReasoningErrorCode(message);
+  const response = createErrorResponse(errorCode, message);
 
   if (await isTaskCancelled(taskStore, taskId)) {
     await emitLog(
@@ -589,11 +598,7 @@ async function handleTaskFailure(args: {
     if (sessionId) {
       sessionStore.markCancelled(sessionId);
     }
-    await storeTaskFailure(
-      taskStore,
-      taskId,
-      createErrorResponse(errorCode, message)
-    );
+    await storeTaskFailure(taskStore, taskId, response);
     await emitLog(
       server,
       'notice',
@@ -603,11 +608,7 @@ async function handleTaskFailure(args: {
     return;
   }
 
-  await storeTaskFailure(
-    taskStore,
-    taskId,
-    createErrorResponse(errorCode, message)
-  );
+  await storeTaskFailure(taskStore, taskId, response);
   await emitLog(
     server,
     'error',
@@ -661,16 +662,14 @@ async function runReasoningTask(args: {
 
     const startingCount = getStartingThoughtCount(params.sessionId);
 
-    const progressArgs = {
+    const onProgress = createProgressHandler({
       server,
       taskStore,
       taskId,
       level,
       controller,
       ...(progressToken !== undefined ? { progressToken } : {}),
-    };
-
-    const onProgress = createProgressHandler(progressArgs);
+    });
     const session = await executeReasoningSteps({
       taskStore,
       taskId,
@@ -706,17 +705,10 @@ async function runReasoningTask(args: {
       targetThoughts
     );
 
-    const markdownTrace = formatThoughtsToMarkdown(session);
-    const embeddedResource: TextResourceContents = {
-      uri: `file:///cortex/sessions/${session.id}/trace.md`,
-      mimeType: 'text/markdown',
-      text: markdownTrace,
-    };
-
     await taskStore.storeTaskResult(
       taskId,
       'completed',
-      createToolResponse(result, embeddedResource)
+      createToolResponse(result, buildTraceResource(session))
     );
     await emitLog(
       server,
@@ -731,14 +723,13 @@ async function runReasoningTask(args: {
       sessionId
     );
   } catch (error) {
-    const failureArgs = {
+    await handleTaskFailure({
       server,
       taskStore,
       taskId,
       error,
       ...(sessionId !== undefined ? { sessionId } : {}),
-    };
-    await handleTaskFailure(failureArgs);
+    });
   }
 }
 
@@ -810,7 +801,7 @@ export function registerReasoningThinkTool(
 
         try {
           const controller = createCancellationController(extra.signal);
-          const taskArgs = {
+          void runReasoningTask({
             server,
             taskStore: extra.taskStore,
             taskId: task.taskId,
@@ -820,8 +811,7 @@ export function registerReasoningThinkTool(
             ...(extra.sessionId !== undefined
               ? { sessionId: extra.sessionId }
               : {}),
-          };
-          void runReasoningTask(taskArgs).finally(() => {
+          }).finally(() => {
             reasoningTaskLimiter.release();
           });
         } catch (error) {

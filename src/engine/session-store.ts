@@ -123,8 +123,7 @@ export class SessionStore {
       return false;
     }
     engineEvents.emit('session:deleted', { sessionId: id });
-    this.emitSessionsListChanged();
-    this.emitSessionsResourceUpdated();
+    this.emitSessionsCollectionUpdated();
     return true;
   }
 
@@ -143,10 +142,7 @@ export class SessionStore {
     session.thoughts.push(thought);
     session.tokensUsed += tokens;
     this.totalTokens += tokens;
-    session.updatedAt = Date.now();
-    this.touchOrder(session.id);
-    this.sortedSessionIdsCache = null;
-    this.emitSessionResourcesUpdated(sessionId);
+    this.markSessionTouched(session);
     return this.snapshotThought(thought);
   }
 
@@ -179,32 +175,26 @@ export class SessionStore {
     session.thoughts[thoughtIndex] = revised;
     session.tokensUsed = session.tokensUsed - oldTokens + newTokens;
     this.totalTokens += delta;
-    session.updatedAt = Date.now();
-    this.touchOrder(session.id);
-    this.sortedSessionIdsCache = null;
-    this.emitSessionResourcesUpdated(sessionId);
+    this.markSessionTouched(session);
     return this.snapshotThought(revised);
   }
 
   markCompleted(sessionId: string): void {
-    const session = this.sessions.get(sessionId);
-    if (session?.status === 'active') {
-      session.status = 'completed';
-      session.updatedAt = Date.now();
-      this.touchOrder(session.id);
-      this.sortedSessionIdsCache = null;
-      this.emitSessionResourcesUpdated(sessionId);
-    }
+    this.updateSessionStatus(sessionId, 'completed');
   }
 
   markCancelled(sessionId: string): void {
+    this.updateSessionStatus(sessionId, 'cancelled');
+  }
+
+  private updateSessionStatus(
+    sessionId: string,
+    status: 'completed' | 'cancelled'
+  ): void {
     const session = this.sessions.get(sessionId);
     if (session?.status === 'active') {
-      session.status = 'cancelled';
-      session.updatedAt = Date.now();
-      this.touchOrder(session.id);
-      this.sortedSessionIdsCache = null;
-      this.emitSessionResourcesUpdated(sessionId);
+      session.status = status;
+      this.markSessionTouched(session);
     }
   }
 
@@ -217,8 +207,7 @@ export class SessionStore {
         sessionId: oldest.id,
         reason: 'max_sessions',
       });
-      this.emitSessionsListChanged();
-      this.emitSessionsResourceUpdated();
+      this.emitSessionsCollectionUpdated();
     }
   }
 
@@ -237,8 +226,7 @@ export class SessionStore {
         sessionId: oldest.id,
         reason: 'max_total_tokens',
       });
-      this.emitSessionsListChanged();
-      this.emitSessionsResourceUpdated();
+      this.emitSessionsCollectionUpdated();
     }
   }
 
@@ -279,8 +267,7 @@ export class SessionStore {
       changed = true;
     }
     if (changed) {
-      this.emitSessionsListChanged();
-      this.emitSessionsResourceUpdated();
+      this.emitSessionsCollectionUpdated();
     }
   }
 
@@ -401,6 +388,13 @@ export class SessionStore {
     return session;
   }
 
+  private markSessionTouched(session: MutableSession): void {
+    session.updatedAt = Date.now();
+    this.touchOrder(session.id);
+    this.sortedSessionIdsCache = null;
+    this.emitSessionResourcesUpdated(session.id);
+  }
+
   private snapshotThought(thought: MutableThought): Thought {
     return {
       index: thought.index,
@@ -431,6 +425,11 @@ export class SessionStore {
 
   private emitSessionsResourceUpdated(): void {
     engineEvents.emit('resource:updated', { uri: 'reasoning://sessions' });
+  }
+
+  private emitSessionsCollectionUpdated(): void {
+    this.emitSessionsListChanged();
+    this.emitSessionsResourceUpdated();
   }
 
   private emitSessionResourcesUpdated(sessionId: string): void {

@@ -32,7 +32,7 @@ function resolveSession(sessionId: string, uri: URL): Readonly<Session> {
   return session;
 }
 
-function buildSessionSummary(sessionId: string): {
+interface SessionSummary {
   id: string;
   level: 'basic' | 'normal' | 'high';
   status: 'active' | 'completed' | 'cancelled';
@@ -45,15 +45,11 @@ function buildSessionSummary(sessionId: string): {
   createdAt: number;
   updatedAt: number;
   expiresAt: number;
-} {
-  const session = sessionStore.get(sessionId);
-  if (!session) {
-    throw new McpError(
-      -32002,
-      `Resource not found: reasoning://sessions/${sessionId}`
-    );
-  }
+}
 
+function buildSessionSummaryFromSession(
+  session: Readonly<Session>
+): SessionSummary {
   const ttlMs = sessionStore.getTtlMs();
   const expiresAt =
     sessionStore.getExpiresAt(session.id) ?? session.updatedAt + ttlMs;
@@ -75,6 +71,17 @@ function buildSessionSummary(sessionId: string): {
     updatedAt: session.updatedAt,
     expiresAt,
   };
+}
+
+function buildSessionSummary(sessionId: string): SessionSummary {
+  const session = sessionStore.get(sessionId);
+  if (!session) {
+    throw new McpError(
+      -32002,
+      `Resource not found: reasoning://sessions/${sessionId}`
+    );
+  }
+  return buildSessionSummaryFromSession(session);
 }
 
 const THOUGHT_NAME_PATTERN = /^Thought-(\d+)(?:-Revised)?$/;
@@ -106,6 +113,10 @@ function parseThoughtName(
 
 function serializeJson(data: unknown): string {
   return JSON.stringify(data, null, 2);
+}
+
+function withIconMeta(iconMeta?: IconMeta): { icons: IconMeta[] } | undefined {
+  return iconMeta ? { icons: [iconMeta] } : undefined;
 }
 
 interface CompletionCacheEntry {
@@ -199,16 +210,7 @@ export function registerAllResources(
       description: 'Usage instructions for the MCP server.',
       mimeType: 'text/markdown',
       annotations: { audience: ['assistant'], priority: 0.8 },
-      ...(iconMeta
-        ? {
-            icons: [
-              {
-                src: iconMeta.src,
-                mimeType: iconMeta.mimeType,
-              },
-            ],
-          }
-        : {}),
+      ...(withIconMeta(iconMeta) ?? {}),
     },
     (uri) => ({
       contents: [
@@ -229,22 +231,13 @@ export function registerAllResources(
         audience: ['assistant', 'user'],
         priority: 0.7,
       },
-      ...(iconMeta
-        ? {
-            icons: [
-              {
-                src: iconMeta.src,
-                mimeType: iconMeta.mimeType,
-              },
-            ],
-          }
-        : {}),
+      ...(withIconMeta(iconMeta) ?? {}),
     },
     () => {
       const ttlMs = sessionStore.getTtlMs();
-      const sessions = sessionStore.list().map((session) => ({
-        ...buildSessionSummary(session.id),
-      }));
+      const sessions = sessionStore
+        .list()
+        .map((session) => buildSessionSummaryFromSession(session));
 
       return {
         contents: [
@@ -275,11 +268,7 @@ export function registerAllResources(
       title: 'Reasoning Trace',
       description: 'Markdown trace of a reasoning session (full content).',
       mimeType: 'text/markdown',
-      ...(iconMeta
-        ? {
-            icons: [iconMeta],
-          }
-        : {}),
+      ...(withIconMeta(iconMeta) ?? {}),
     },
     (uri, variables) => {
       const sessionId = extractStringVariable(variables, 'sessionId', uri);
@@ -319,11 +308,7 @@ export function registerAllResources(
       title: 'Reasoning Thought',
       description: 'Markdown content of a single thought (e.g. Thought-1.md).',
       mimeType: 'text/markdown',
-      ...(iconMeta
-        ? {
-            icons: [iconMeta],
-          }
-        : {}),
+      ...(withIconMeta(iconMeta) ?? {}),
     },
     (uri, variables) => {
       const sessionId = extractStringVariable(variables, 'sessionId', uri);
@@ -391,16 +376,7 @@ export function registerAllResources(
       description:
         'Detailed view of a single reasoning session, including all thoughts and metadata.',
       mimeType: 'application/json',
-      ...(iconMeta
-        ? {
-            icons: [
-              {
-                src: iconMeta.src,
-                mimeType: iconMeta.mimeType,
-              },
-            ],
-          }
-        : {}),
+      ...(withIconMeta(iconMeta) ?? {}),
     },
     (uri, variables) => {
       const sessionId = extractStringVariable(variables, 'sessionId', uri);

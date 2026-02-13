@@ -75,14 +75,14 @@ export async function reason(
         throwIfReasoningAborted(abortSignal);
 
         const current = getSessionOrThrow(session.id);
-        if (current.tokensUsed >= config.tokenBudget) {
-          emitBudgetExhausted({
-            sessionId: session.id,
-            tokensUsed: current.tokensUsed,
+        if (
+          emitBudgetExhaustedIfNeeded({
+            session: current,
             tokenBudget: config.tokenBudget,
             generatedThoughts: 0,
             requestedThoughts: totalThoughts,
-          });
+          })
+        ) {
           return current;
         }
 
@@ -91,9 +91,7 @@ export async function reason(
           return current;
         }
 
-        const stepContent = thought;
-
-        const addedThought = sessionStore.addThought(session.id, stepContent);
+        const addedThought = sessionStore.addThought(session.id, thought);
         engineEvents.emit('thought:added', {
           sessionId: session.id,
           index: addedThought.index,
@@ -101,15 +99,12 @@ export async function reason(
         });
 
         const updated = getSessionOrThrow(session.id);
-        if (updated.tokensUsed >= config.tokenBudget) {
-          emitBudgetExhausted({
-            sessionId: session.id,
-            tokensUsed: updated.tokensUsed,
-            tokenBudget: config.tokenBudget,
-            generatedThoughts: addedThought.index + 1,
-            requestedThoughts: totalThoughts,
-          });
-        }
+        emitBudgetExhaustedIfNeeded({
+          session: updated,
+          tokenBudget: config.tokenBudget,
+          generatedThoughts: addedThought.index + 1,
+          requestedThoughts: totalThoughts,
+        });
 
         if (updated.thoughts.length >= totalThoughts) {
           sessionStore.markCompleted(session.id);
@@ -168,6 +163,47 @@ function emitBudgetExhausted(data: {
   engineEvents.emit('thought:budget-exhausted', data);
 }
 
+function emitBudgetExhaustedIfNeeded(args: {
+  session: Readonly<Session>;
+  tokenBudget: number;
+  generatedThoughts: number;
+  requestedThoughts: number;
+}): boolean {
+  const { session, tokenBudget, generatedThoughts, requestedThoughts } = args;
+  if (session.tokensUsed < tokenBudget) {
+    return false;
+  }
+
+  emitBudgetExhausted({
+    sessionId: session.id,
+    tokensUsed: session.tokensUsed,
+    tokenBudget,
+    generatedThoughts,
+    requestedThoughts,
+  });
+  return true;
+}
+
+function assertExistingSessionConstraints(
+  existing: Readonly<Session>,
+  level: ReasoningLevel | undefined,
+  targetThoughts?: number
+): void {
+  if (level !== undefined && existing.level !== level) {
+    // Warning: ignoring provided level in favor of session level
+  }
+  if (
+    targetThoughts !== undefined &&
+    targetThoughts !== existing.totalThoughts
+  ) {
+    throw new Error(
+      `Cannot change targetThoughts on an existing session (current: ${String(
+        existing.totalThoughts
+      )}). Omit targetThoughts or pass ${String(existing.totalThoughts)}.`
+    );
+  }
+}
+
 function resolveSession(
   level: ReasoningLevel | undefined,
   sessionId: string | undefined,
@@ -179,19 +215,7 @@ function resolveSession(
     if (!existing) {
       throw new Error(`Session not found: ${sessionId}`);
     }
-    if (level !== undefined && existing.level !== level) {
-      // Warning: ignoring provided level in favor of session level
-    }
-    if (
-      targetThoughts !== undefined &&
-      targetThoughts !== existing.totalThoughts
-    ) {
-      throw new Error(
-        `Cannot change targetThoughts on an existing session (current: ${String(
-          existing.totalThoughts
-        )}). Omit targetThoughts or pass ${String(existing.totalThoughts)}.`
-      );
-    }
+    assertExistingSessionConstraints(existing, level, targetThoughts);
     return existing;
   }
 

@@ -5,6 +5,9 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 
 import { createServer } from './server.js';
 
+const SHUTDOWN_SIGNALS = ['SIGTERM', 'SIGINT'] as const;
+type ShutdownSignal = (typeof SHUTDOWN_SIGNALS)[number];
+
 let activeServer: ReturnType<typeof createServer> | undefined;
 let shutdownPromise: Promise<void> | undefined;
 
@@ -45,14 +48,17 @@ async function shutdown(exitCode: number, reason: string): Promise<void> {
   return shutdownPromise;
 }
 
+function registerShutdownSignal(signal: ShutdownSignal): void {
+  process.once(signal, () => {
+    void shutdown(0, signal);
+  });
+}
+
 main().catch((err: unknown) => {
   console.error('Fatal error:', err);
   void shutdown(1, 'fatal error');
 });
 
-process.once('SIGTERM', () => {
-  void shutdown(0, 'SIGTERM');
-});
-process.once('SIGINT', () => {
-  void shutdown(0, 'SIGINT');
-});
+for (const signal of SHUTDOWN_SIGNALS) {
+  registerShutdownSignal(signal);
+}

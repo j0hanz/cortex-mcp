@@ -103,6 +103,19 @@ function formatThoughtHeading(thought: Readonly<Thought>): string {
   return `𖦹 Thought [${String(thoughtNumber)}]${suffix}`;
 }
 
+function selectThoughts(
+  allThoughts: readonly Thought[],
+  range?: { start: number; end: number }
+): readonly Thought[] {
+  if (!range) {
+    return allThoughts;
+  }
+
+  const startIndex = Math.max(0, range.start - 1);
+  const endIndex = Math.min(allThoughts.length, range.end);
+  return allThoughts.slice(startIndex, endIndex);
+}
+
 /**
  * Format a session's thoughts as Markdown.
  *
@@ -118,20 +131,13 @@ export function formatThoughtsToMarkdown(
 ): string {
   const { thoughts: allThoughts } = session;
   const isFullTrace = range === undefined;
-
-  let thoughts: readonly Thought[];
-  if (range) {
-    const startIndex = Math.max(0, range.start - 1);
-    const endIndex = Math.min(allThoughts.length, range.end);
-    thoughts = allThoughts.slice(startIndex, endIndex);
-  } else {
-    thoughts = allThoughts;
-  }
+  const thoughts = selectThoughts(allThoughts, range);
+  const hasFullTraceThoughts = isFullTrace && thoughts.length > 0;
 
   const sections: string[] = [];
 
   // --- Header ---
-  if (isFullTrace && thoughts.length > 0) {
+  if (hasFullTraceThoughts) {
     sections.push(
       `# Reasoning Trace — [${session.level}]\n` +
         `> Session [${session.id}] · [${String(allThoughts.length)}] thoughts`
@@ -139,7 +145,7 @@ export function formatThoughtsToMarkdown(
   }
 
   // --- Pinned sections (full trace only) ---
-  if (isFullTrace && thoughts.length > 0) {
+  if (hasFullTraceThoughts) {
     const pinned = extractPinnedSections(thoughts);
     const pinnedMd = renderPinnedSections(pinned);
     if (pinnedMd.length > 0) {
