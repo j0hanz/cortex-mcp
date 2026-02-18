@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { Buffer } from 'node:buffer';
 import { describe, it } from 'node:test';
 
 import {

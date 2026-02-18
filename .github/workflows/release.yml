@@ -82,7 +82,9 @@ jobs:
         run: |
           npm ci
           npm run lint
+          npm run lint:tests
           npm run type-check
+          npm run type-check:tests
           npm run test
           npm run build
 

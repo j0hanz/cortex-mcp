@@ -160,6 +160,10 @@ function isProgressToken(value: unknown): value is ProgressToken {
   return typeof value === 'string' || typeof value === 'number';
 }
 
+function isFiniteNonNegativeNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
 function isReasoningTaskExtra(value: unknown): value is ReasoningTaskExtra {
   if (!isObjectRecord(value)) {
     return false;
@@ -176,7 +180,7 @@ function isReasoningTaskExtra(value: unknown): value is ReasoningTaskExtra {
   if (
     value.taskRequestedTtl !== undefined &&
     value.taskRequestedTtl !== null &&
-    typeof value.taskRequestedTtl !== 'number'
+    !isFiniteNonNegativeNumber(value.taskRequestedTtl)
   ) {
     return false;
   }
@@ -814,34 +818,34 @@ export function registerReasoningThinkTool(
         const extra = parseReasoningTaskExtra(rawExtra);
         const progressToken = extra._meta?.progressToken;
 
-        const task = await extra.taskStore.createTask({
-          ttl: extra.taskRequestedTtl ?? null,
-          pollInterval: 500,
-        });
-
         if (!reasoningTaskLimiter.tryAcquire()) {
           throw new Error(TASK_OVERLOAD_MESSAGE);
         }
 
-        try {
-          const controller = createCancellationController(extra.signal);
-          void runReasoningTask({
-            server,
-            taskStore: extra.taskStore,
-            taskId: task.taskId,
-            params,
-            controller,
-            ...(progressToken !== undefined ? { progressToken } : {}),
-            ...(extra.sessionId !== undefined
-              ? { sessionId: extra.sessionId }
-              : {}),
-          }).finally(() => {
+        const task = await extra.taskStore
+          .createTask({
+            ttl: extra.taskRequestedTtl ?? null,
+            pollInterval: 500,
+          })
+          .catch((error: unknown) => {
             reasoningTaskLimiter.release();
+            throw error;
           });
-        } catch (error) {
+
+        const controller = createCancellationController(extra.signal);
+        void runReasoningTask({
+          server,
+          taskStore: extra.taskStore,
+          taskId: task.taskId,
+          params,
+          controller,
+          ...(progressToken !== undefined ? { progressToken } : {}),
+          ...(extra.sessionId !== undefined
+            ? { sessionId: extra.sessionId }
+            : {}),
+        }).finally(() => {
           reasoningTaskLimiter.release();
-          throw error;
-        }
+        });
 
         return { task };
       },

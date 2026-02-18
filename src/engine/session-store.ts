@@ -5,6 +5,7 @@ import type {
   LevelConfig,
   ReasoningLevel,
   Session,
+  SessionSummary,
   Thought,
 } from '../lib/types.js';
 
@@ -89,16 +90,37 @@ export class SessionStore {
     return session ? this.snapshotSession(session) : undefined;
   }
 
+  getSummary(id: string): Readonly<SessionSummary> | undefined {
+    const session = this.sessions.get(id);
+    return session ? this.snapshotSessionSummary(session) : undefined;
+  }
+
   list(): Readonly<Session>[] {
-    this.sortedSessionIdsCache ??= this.buildSortedSessionIdsCache();
+    const sessionIds = this.listSessionIds();
     const sessions: Session[] = [];
-    for (const sessionId of this.sortedSessionIdsCache) {
+    for (const sessionId of sessionIds) {
       const session = this.sessions.get(sessionId);
       if (session) {
         sessions.push(this.snapshotSession(session));
       }
     }
     return sessions;
+  }
+
+  listSessionIds(): readonly string[] {
+    this.sortedSessionIdsCache ??= this.buildSortedSessionIdsCache();
+    return [...this.sortedSessionIdsCache];
+  }
+
+  listSummaries(): readonly SessionSummary[] {
+    const summaries: SessionSummary[] = [];
+    for (const sessionId of this.listSessionIds()) {
+      const session = this.sessions.get(sessionId);
+      if (session) {
+        summaries.push(this.snapshotSessionSummary(session));
+      }
+    }
+    return summaries;
   }
 
   getTtlMs(): number {
@@ -411,6 +433,20 @@ export class SessionStore {
       thoughts: session.thoughts.map((thought) =>
         this.snapshotThought(thought)
       ),
+      totalThoughts: session.totalThoughts,
+      tokenBudget: session.tokenBudget,
+      tokensUsed: session.tokensUsed,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+    };
+  }
+
+  private snapshotSessionSummary(session: MutableSession): SessionSummary {
+    return {
+      id: session.id,
+      level: session.level,
+      status: session.status,
+      generatedThoughts: session.thoughts.length,
       totalThoughts: session.totalThoughts,
       tokenBudget: session.tokenBudget,
       tokensUsed: session.tokensUsed,

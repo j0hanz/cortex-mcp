@@ -266,7 +266,7 @@ describe('reason', () => {
         'Step 1: Identifying the core components of X and their relationships.',
     });
 
-    const step2 = await reason('Analyze X', 'basic', {
+    await reason('Analyze X', 'basic', {
       sessionId: session.id,
       thought:
         'Step 2: Evaluating the performance characteristics and bottlenecks.',

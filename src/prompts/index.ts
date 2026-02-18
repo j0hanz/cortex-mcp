@@ -25,11 +25,11 @@ function formatTargetThoughts(targetThoughts?: number): string {
 
 function completeSessionId(value: string): string[] {
   const results: string[] = [];
-  for (const session of sessionStore.list()) {
-    if (!session.id.startsWith(value)) {
+  for (const sessionId of sessionStore.listSessionIds()) {
+    if (!sessionId.startsWith(value)) {
       continue;
     }
-    results.push(session.id);
+    results.push(sessionId);
     if (results.length >= COMPLETION_LIMIT) {
       break;
     }

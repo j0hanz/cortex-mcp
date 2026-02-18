@@ -34,7 +34,7 @@ export default defineConfig(
       ecmaVersion: 2022,
       sourceType: 'module',
       parserOptions: {
-        project: ['./tsconfig.json'],
+        project: ['./tsconfig.json', './tsconfig.tests.json'],
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -197,6 +197,19 @@ export default defineConfig(
           minimumDescriptionLength: 10,
         },
       ],
+    },
+  },
+  {
+    files: ['src/__tests__/**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'off',
+      '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+      '@typescript-eslint/restrict-template-expressions': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/array-type': 'off',
     },
   },
 

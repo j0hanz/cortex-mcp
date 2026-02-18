@@ -8,6 +8,18 @@ import { engineEvents } from '../engine/events.js';
 
 import { createServer } from '../server.js';
 
+function getResourceText(content: unknown): string {
+  if (
+    typeof content !== 'object' ||
+    content === null ||
+    !('text' in content) ||
+    typeof content.text !== 'string'
+  ) {
+    throw new Error('Expected text resource content');
+  }
+  return content.text;
+}
+
 describe('server registration', () => {
   it('registers reasoning_think as a task-capable tool', async () => {
     const server = createServer();
@@ -183,6 +195,9 @@ describe('server registration', () => {
     assert.equal(structured.ok, true);
     const sessionId = structured.result?.sessionId;
     assert.equal(typeof sessionId, 'string');
+    if (sessionId === undefined) {
+      assert.fail('Expected sessionId in tool result');
+    }
 
     const continuePrompt = await client.getPrompt({
       name: 'reasoning.continue',
@@ -207,8 +222,10 @@ describe('server registration', () => {
       uri: `file:///cortex/sessions/${sessionId}/trace.md`,
     });
     assert.equal(trace.contents.length, 1);
-    assert.equal(trace.contents[0].mimeType, 'text/markdown');
-    const traceText = trace.contents[0].text as string;
+    const traceContent = trace.contents[0];
+    assert.ok(traceContent);
+    assert.equal(traceContent.mimeType, 'text/markdown');
+    const traceText = getResourceText(traceContent);
     assert.ok(
       traceText.includes('# Reasoning Trace'),
       'Trace should contain session header'
@@ -223,7 +240,9 @@ describe('server registration', () => {
       uri: `file:///cortex/sessions/${sessionId}/Thought-1.md`,
     });
     assert.equal(thought1.contents.length, 1);
-    const text1 = thought1.contents[0].text as string;
+    const thought1Content = thought1.contents[0];
+    assert.ok(thought1Content);
+    const text1 = getResourceText(thought1Content);
     assert.ok(
       text1.includes('𖦹 Thought [1]'),
       'Single thought should contain heading'
@@ -234,9 +253,14 @@ describe('server registration', () => {
     );
 
     // Test last generated thought
-    const detailJson = JSON.parse(sessionDetail.contents[0].text as string);
-    const count = detailJson.generatedThoughts as number;
-    const planned = detailJson.totalThoughts as number;
+    const sessionDetailContent = sessionDetail.contents[0];
+    assert.ok(sessionDetailContent);
+    const detailJson = JSON.parse(getResourceText(sessionDetailContent)) as {
+      generatedThoughts: number;
+      totalThoughts: number;
+    };
+    const count = detailJson.generatedThoughts;
+    const planned = detailJson.totalThoughts;
     assert.equal(planned, 3);
     assert.equal(count, 1);
 
@@ -244,7 +268,9 @@ describe('server registration', () => {
       const lastThoughtUri = `file:///cortex/sessions/${sessionId}/Thought-${count}.md`;
       const thoughtLast = await client.readResource({ uri: lastThoughtUri });
       assert.equal(thoughtLast.contents.length, 1);
-      const textLast = thoughtLast.contents[0].text as string;
+      const thoughtLastContent = thoughtLast.contents[0];
+      assert.ok(thoughtLastContent);
+      const textLast = getResourceText(thoughtLastContent);
       assert.ok(
         textLast.includes(`𖦹 Thought [${count}]`),
         `Last thought should contain heading for Thought ${count}`
@@ -298,16 +324,16 @@ describe('server registration', () => {
     const sessionsIndex = await client.readResource({
       uri: 'reasoning://sessions',
     });
-    const sessionsJson = JSON.parse(
-      sessionsIndex.contents[0].text as string
-    ) as {
-      sessions: Array<{
+    const sessionsContent = sessionsIndex.contents[0];
+    assert.ok(sessionsContent);
+    const sessionsJson = JSON.parse(getResourceText(sessionsContent)) as {
+      sessions: {
         id: string;
         generatedThoughts: number;
         remainingThoughts: number;
         plannedThoughts: number;
         totalThoughts: number;
-      }>;
+      }[];
     };
     const entry = sessionsJson.sessions.find(
       (session) => session.id === sessionId
@@ -345,13 +371,16 @@ describe('server registration', () => {
       toolResult.structuredContent as { result?: { sessionId?: string } }
     ).result?.sessionId;
     assert.equal(typeof sessionId, 'string');
-    const prefix = sessionId!.slice(0, 8);
+    if (sessionId === undefined) {
+      assert.fail('Expected sessionId for completion test');
+    }
+    const prefix = sessionId.slice(0, 8);
 
     const promptSessionCompletion = await client.complete({
       ref: { type: 'ref/prompt', name: 'reasoning.continue' },
       argument: { name: 'sessionId', value: prefix },
     });
-    assert.ok(promptSessionCompletion.completion.values.includes(sessionId!));
+    assert.ok(promptSessionCompletion.completion.values.includes(sessionId));
 
     const promptLevelCompletion = await client.complete({
       ref: { type: 'ref/prompt', name: 'reasoning.continue' },
@@ -366,7 +395,7 @@ describe('server registration', () => {
       },
       argument: { name: 'sessionId', value: prefix },
     });
-    assert.ok(traceCompletion.completion.values.includes(sessionId!));
+    assert.ok(traceCompletion.completion.values.includes(sessionId));
 
     const thoughtCompletion = await client.complete({
       ref: {
@@ -374,7 +403,7 @@ describe('server registration', () => {
         uri: 'file:///cortex/sessions/{sessionId}/{thoughtName}.md',
       },
       argument: { name: 'thoughtName', value: 'Thought-' },
-      context: { arguments: { sessionId: sessionId! } },
+      context: { arguments: { sessionId } },
     });
     assert.ok(thoughtCompletion.completion.values.includes('Thought-1'));
 
@@ -409,6 +438,32 @@ describe('server registration', () => {
     };
     assert.equal(structured.ok, false);
     assert.equal(structured.error?.code, 'E_INSUFFICIENT_THOUGHTS');
+
+    await client.close();
+    await server.close();
+  });
+
+  it('rejects invalid negative task ttl metadata', async () => {
+    const server = createServer();
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+
+    await server.connect(serverTransport);
+
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await client.connect(clientTransport);
+
+    await assert.rejects(
+      client.callTool({
+        name: 'reasoning_think',
+        task: { ttl: -1 },
+        arguments: {
+          query: 'invalid ttl',
+          level: 'basic',
+          thought: 'test',
+        },
+      })
+    );
 
     await client.close();
     await server.close();

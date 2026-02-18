@@ -7,7 +7,11 @@ import { sessionStore } from '../engine/reasoner.js';
 
 import { formatThoughtsToMarkdown } from '../lib/formatting.js';
 import { loadInstructions } from '../lib/instructions.js';
-import type { IconMeta, Session } from '../lib/types.js';
+import type {
+  IconMeta,
+  Session,
+  SessionSummary as StoreSessionSummary,
+} from '../lib/types.js';
 
 // --- Helpers ---
 
@@ -32,7 +36,7 @@ function resolveSession(sessionId: string, uri: URL): Readonly<Session> {
   return session;
 }
 
-interface SessionSummary {
+interface SessionResourceSummary {
   id: string;
   level: 'basic' | 'normal' | 'high';
   status: 'active' | 'completed' | 'cancelled';
@@ -47,9 +51,9 @@ interface SessionSummary {
   expiresAt: number;
 }
 
-function buildSessionSummaryFromSession(
-  session: Readonly<Session>
-): SessionSummary {
+function buildSessionSummaryFromSummary(
+  session: Readonly<StoreSessionSummary>
+): SessionResourceSummary {
   const ttlMs = sessionStore.getTtlMs();
   const expiresAt =
     sessionStore.getExpiresAt(session.id) ?? session.updatedAt + ttlMs;
@@ -58,10 +62,10 @@ function buildSessionSummaryFromSession(
     id: session.id,
     level: session.level,
     status: session.status,
-    generatedThoughts: session.thoughts.length,
+    generatedThoughts: session.generatedThoughts,
     remainingThoughts: Math.max(
       0,
-      session.totalThoughts - session.thoughts.length
+      session.totalThoughts - session.generatedThoughts
     ),
     plannedThoughts: session.totalThoughts,
     totalThoughts: session.totalThoughts,
@@ -73,15 +77,15 @@ function buildSessionSummaryFromSession(
   };
 }
 
-function buildSessionSummary(sessionId: string): SessionSummary {
-  const session = sessionStore.get(sessionId);
+function buildSessionSummary(sessionId: string): SessionResourceSummary {
+  const session = sessionStore.getSummary(sessionId);
   if (!session) {
     throw new McpError(
       -32002,
       `Resource not found: reasoning://sessions/${sessionId}`
     );
   }
-  return buildSessionSummaryFromSession(session);
+  return buildSessionSummaryFromSummary(session);
 }
 
 const THOUGHT_NAME_PATTERN = /^Thought-(\d+)(?:-Revised)?$/;
@@ -156,11 +160,11 @@ function completeSessionIds(value: string): string[] {
   }
 
   const results: string[] = [];
-  for (const session of sessionStore.list()) {
-    if (!session.id.startsWith(value)) {
+  for (const sessionId of sessionStore.listSessionIds()) {
+    if (!sessionId.startsWith(value)) {
       continue;
     }
-    results.push(session.id);
+    results.push(sessionId);
     if (results.length >= MAX_COMPLETION_RESULTS) {
       break;
     }
@@ -236,8 +240,8 @@ export function registerAllResources(
     () => {
       const ttlMs = sessionStore.getTtlMs();
       const sessions = sessionStore
-        .list()
-        .map((session) => buildSessionSummaryFromSession(session));
+        .listSummaries()
+        .map((session) => buildSessionSummaryFromSummary(session));
 
       return {
         contents: [
@@ -260,11 +264,11 @@ export function registerAllResources(
     'reasoning.trace',
     new ResourceTemplate('file:///cortex/sessions/{sessionId}/trace.md', {
       list: () => ({
-        resources: sessionStore.list().map((session) => ({
+        resources: sessionStore.listSummaries().map((session) => ({
           uri: `file:///cortex/sessions/${session.id}/trace.md`,
           name: `trace-${session.id.slice(0, 8)}`,
           title: `Reasoning Trace ${session.id.slice(0, 8)}`,
-          description: `${session.level} session trace with ${String(session.thoughts.length)} thought(s).`,
+          description: `${session.level} session trace with ${String(session.generatedThoughts)} thought(s).`,
           mimeType: 'text/markdown',
           annotations: {
             lastModified: new Date(session.updatedAt).toISOString(),
@@ -364,12 +368,12 @@ export function registerAllResources(
     'reasoning://sessions/{sessionId}',
     {
       list: () => ({
-        resources: sessionStore.list().map((session) => ({
+        resources: sessionStore.listSummaries().map((session) => ({
           uri: `reasoning://sessions/${session.id}`,
           name: `session-${session.id.slice(0, 8)}`,
           title: `Reasoning Session ${session.id.slice(0, 8)}`,
           description: `${session.level} session with ${String(
-            session.thoughts.length
+            session.generatedThoughts
           )}/${String(session.totalThoughts)} thought(s).`,
           mimeType: 'application/json',
           annotations: {

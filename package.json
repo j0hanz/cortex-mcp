@@ -47,9 +47,11 @@
     "start": "node dist/index.js",
     "format": "prettier --write .",
     "type-check": "node scripts/tasks.mjs type-check",
+    "type-check:tests": "tsc --noEmit -p tsconfig.tests.json",
     "type-check:diagnostics": "tsc --noEmit --extendedDiagnostics",
     "type-check:trace": "node -e \"require('fs').rmSync('.ts-trace',{recursive:true,force:true})\" && tsc --noEmit --generateTrace .ts-trace",
     "lint": "eslint .",
+    "lint:tests": "eslint --no-ignore src/__tests__/**/*.test.ts",
     "lint:fix": "eslint . --fix",
     "check:docs:mcp": "node scripts/check-mcp-docs-quality.mjs",
     "test": "node scripts/tasks.mjs test",
@@ -58,7 +60,7 @@
     "knip": "knip",
     "knip:fix": "knip --fix",
     "inspector": "npm run build && npx -y @modelcontextprotocol/inspector node dist/index.js ${workspaceFolder}",
-    "prepublishOnly": "npm run lint && npm run type-check && npm run build"
+    "prepublishOnly": "npm run lint && npm run lint:tests && npm run type-check && npm run type-check:tests && npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",

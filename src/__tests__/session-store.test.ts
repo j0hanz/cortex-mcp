@@ -57,6 +57,36 @@ describe('SessionStore', () => {
     });
   });
 
+  describe('summary reads', () => {
+    it('returns session ids in newest-first order without exposing internals', () => {
+      const store = new SessionStore();
+      const first = store.create('basic');
+      const second = store.create('normal');
+
+      const ids = store.listSessionIds();
+      assert.deepEqual(ids, [second.id, first.id]);
+
+      const mutableCopy = [...ids];
+      mutableCopy.reverse();
+      assert.deepEqual(store.listSessionIds(), [second.id, first.id]);
+    });
+
+    it('returns generated thought counts via summaries', () => {
+      const store = new SessionStore();
+      const session = store.create('basic');
+      store.addThought(session.id, 'one');
+      store.addThought(session.id, 'two');
+
+      const summary = store.getSummary(session.id);
+      assert.equal(summary?.generatedThoughts, 2);
+      assert.equal(summary?.totalThoughts, session.totalThoughts);
+
+      const listed = store.listSummaries();
+      assert.equal(listed[0]?.id, session.id);
+      assert.equal(listed[0]?.generatedThoughts, 2);
+    });
+  });
+
   describe('delete', () => {
     it('removes session', () => {
       const store = new SessionStore();
