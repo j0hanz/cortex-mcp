@@ -91,6 +91,6 @@ export function truncateByUtf8Boundary(str: string, maxBytes: number): string {
     return '';
   }
 
-  const decoder = new StringDecoder('utf8');
+  const decoder = new StringDecoder(UTF8);
   return decoder.write(encoded.subarray(0, safeMaxBytes));
 }

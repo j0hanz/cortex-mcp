@@ -11,6 +11,9 @@ import type { IconMeta } from '../lib/types.js';
 type PromptLevel = 'basic' | 'normal' | 'high';
 const COMPLETION_LIMIT = 20;
 const LEVEL_VALUES: PromptLevel[] = ['basic', 'normal', 'high'];
+const REASONING_TOOL_NAME = 'reasoning_think';
+const THOUGHT_PARAMETER_GUIDANCE =
+  'Provide your full reasoning in the "thought" parameter for each step.';
 
 function levelTitle(level: PromptLevel): string {
   return `${level.charAt(0).toUpperCase()}${level.slice(1)}`;
@@ -92,7 +95,7 @@ function registerLevelPrompt(
     },
     ({ query, targetThoughts }) => {
       // Create user message
-      const text = `Initiate a ${level}-depth reasoning session for the query: ${JSON.stringify(query)}. Use the "reasoning_think" tool${formatTargetThoughts(targetThoughts)}. For each call, provide your full reasoning in the "thought" parameter — this is stored verbatim in the session trace. Repeat calls with the returned sessionId until totalThoughts is reached.`;
+      const text = `Initiate a ${level}-depth reasoning session for the query: ${JSON.stringify(query)}. Use the "${REASONING_TOOL_NAME}" tool${formatTargetThoughts(targetThoughts)}. For each call, provide your full reasoning in the "thought" parameter — this is stored verbatim in the session trace. Repeat calls with the returned sessionId until totalThoughts is reached.`;
 
       return createTextPrompt(text);
     }
@@ -135,7 +138,7 @@ export function registerAllPrompts(
       },
     },
     ({ query, level, targetThoughts }) => {
-      const text = `Retry the reasoning session for query: ${JSON.stringify(query)}. Use the "reasoning_think" tool with level="${level}"${formatTargetThoughts(targetThoughts)}. Provide your full reasoning in the "thought" parameter for each step.`;
+      const text = `Retry the reasoning session for query: ${JSON.stringify(query)}. Use the "${REASONING_TOOL_NAME}" tool with level="${level}"${formatTargetThoughts(targetThoughts)}. ${THOUGHT_PARAMETER_GUIDANCE}`;
       return createTextPrompt(text);
     }
   );
@@ -198,7 +201,7 @@ export function registerAllPrompts(
       const followUpText =
         query === undefined ? '' : ` with follow-up: ${JSON.stringify(query)}`;
       const levelText = level === undefined ? '' : ` with level="${level}"`;
-      const text = `Continue reasoning session ${JSON.stringify(sessionId)}${followUpText}. Use "reasoning_think"${levelText}${formatTargetThoughts(targetThoughts)}. Provide your reasoning in the "thought" parameter for each step.`;
+      const text = `Continue reasoning session ${JSON.stringify(sessionId)}${followUpText}. Use "${REASONING_TOOL_NAME}"${levelText}${formatTargetThoughts(targetThoughts)}. ${THOUGHT_PARAMETER_GUIDANCE}`;
       return createTextPrompt(text);
     }
   );

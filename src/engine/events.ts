@@ -3,6 +3,8 @@ import { EventEmitter } from 'node:events';
 import { getErrorMessage } from '../lib/errors.js';
 import type { ReasoningLevel } from '../lib/types.js';
 
+const ENGINE_ERROR_LOG_PREFIX = '[engine]';
+
 interface EngineEvents {
   'thought:added': [{ sessionId: string; index: number; content: string }];
   'thought:revised': [
@@ -45,6 +47,8 @@ export const engineEvents = new EventEmitter({
   captureRejections: true,
 }) as TypedEmitter<EngineEvents>;
 
-engineEvents.on('error', (err) => {
-  process.stderr.write(`[engine] ${getErrorMessage(err)}\n`);
-});
+function logEngineError(err: unknown): void {
+  process.stderr.write(`${ENGINE_ERROR_LOG_PREFIX} ${getErrorMessage(err)}\n`);
+}
+
+engineEvents.on('error', logEngineError);

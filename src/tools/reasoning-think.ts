@@ -242,38 +242,28 @@ function assertCallToolResult(value: unknown): asserts value is CallToolResult {
 }
 
 function mapReasoningErrorCode(message: string): string {
-  if (
-    message === 'Reasoning aborted' ||
-    message === 'Reasoning task cancelled'
-  ) {
-    return 'E_ABORTED';
-  }
-  if (
-    message.startsWith('targetThoughts must be') ||
-    message.startsWith('Cannot change targetThoughts')
-  ) {
-    return 'E_INVALID_THOUGHT_COUNT';
-  }
-  if (message.startsWith('Session not found:')) {
-    return 'E_SESSION_NOT_FOUND';
-  }
-  if (message.startsWith('Session level mismatch:')) {
-    return 'E_SESSION_LEVEL_MISMATCH';
-  }
-  if (message.startsWith('run_to_completion requires at least')) {
-    return 'E_INSUFFICIENT_THOUGHTS';
-  }
-  if (
-    message.startsWith(
+  switch (true) {
+    case message === 'Reasoning aborted':
+    case message === 'Reasoning task cancelled':
+      return 'E_ABORTED';
+    case message.startsWith('targetThoughts must be'):
+    case message.startsWith('Cannot change targetThoughts'):
+      return 'E_INVALID_THOUGHT_COUNT';
+    case message.startsWith('Session not found:'):
+      return 'E_SESSION_NOT_FOUND';
+    case message.startsWith('Session level mismatch:'):
+      return 'E_SESSION_LEVEL_MISMATCH';
+    case message.startsWith('run_to_completion requires at least'):
+      return 'E_INSUFFICIENT_THOUGHTS';
+    case message.startsWith(
       'targetThoughts is required for run_to_completion when sessionId is not provided'
-    )
-  ) {
-    return 'E_INVALID_RUN_MODE_ARGS';
+    ):
+      return 'E_INVALID_RUN_MODE_ARGS';
+    case message === TASK_OVERLOAD_MESSAGE:
+      return 'E_SERVER_BUSY';
+    default:
+      return 'E_REASONING';
   }
-  if (message === TASK_OVERLOAD_MESSAGE) {
-    return 'E_SERVER_BUSY';
-  }
-  return 'E_REASONING';
 }
 
 function shouldEmitProgress(
@@ -542,6 +532,21 @@ async function setTaskFailureStatusMessage(
   }
 }
 
+async function notifyTaskStatus(
+  server: McpServer,
+  taskId: string,
+  status: 'completed' | 'failed'
+): Promise<void> {
+  try {
+    await server.server.notification({
+      method: 'notifications/tasks/status',
+      params: { taskId, status },
+    });
+  } catch {
+    // Notification failure must never fail the task operation.
+  }
+}
+
 function assertRunToCompletionInputCount(
   params: ReasoningThinkInput,
   thoughtInputs: string[]
@@ -603,14 +608,7 @@ async function handleTaskFailure(args: {
       sessionStore.markCancelled(sessionId);
     }
     await storeTaskFailure(taskStore, taskId, response);
-    try {
-      await server.server.notification({
-        method: 'notifications/tasks/status',
-        params: { taskId, status: 'failed' },
-      });
-    } catch {
-      // Notification failure must never fail the task operation.
-    }
+    await notifyTaskStatus(server, taskId, 'failed');
     await emitLog(
       server,
       'notice',
@@ -621,14 +619,7 @@ async function handleTaskFailure(args: {
   }
 
   await storeTaskFailure(taskStore, taskId, response);
-  try {
-    await server.server.notification({
-      method: 'notifications/tasks/status',
-      params: { taskId, status: 'failed' },
-    });
-  } catch {
-    // Notification failure must never fail the task operation.
-  }
+  await notifyTaskStatus(server, taskId, 'failed');
   await emitLog(
     server,
     'error',
@@ -730,14 +721,7 @@ async function runReasoningTask(args: {
       'completed',
       createToolResponse(result, buildTraceResource(session))
     );
-    try {
-      await server.server.notification({
-        method: 'notifications/tasks/status',
-        params: { taskId, status: 'completed' },
-      });
-    } catch {
-      // Notification failure must never fail the task operation.
-    }
+    await notifyTaskStatus(server, taskId, 'completed');
     await emitLog(
       server,
       'info',

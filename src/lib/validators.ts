@@ -6,7 +6,7 @@ interface ThoughtBounds {
 }
 
 /** Level-specific thought count boundaries for validation. */
-const THOUGHT_BOUNDS: Record<ReasoningLevel, ThoughtBounds> = {
+const THOUGHT_BOUNDS: Readonly<Record<ReasoningLevel, ThoughtBounds>> = {
   basic: { min: 3, max: 5 },
   normal: { min: 6, max: 10 },
   high: { min: 15, max: 25 },
@@ -32,9 +32,14 @@ export function getTargetThoughtsError(
     return 'targetThoughts must be an integer';
   }
 
-  const bounds = THOUGHT_BOUNDS[level];
-  if (isOutOfBounds(targetThoughts, bounds)) {
-    return `targetThoughts must be between ${String(bounds.min)} and ${String(bounds.max)} for level "${level}" (received ${String(targetThoughts)})`;
+  const bounds = getThoughtBounds(level);
+  if (
+    isOutOfBounds(targetThoughts, {
+      min: bounds.minThoughts,
+      max: bounds.maxThoughts,
+    })
+  ) {
+    return `targetThoughts must be between ${String(bounds.minThoughts)} and ${String(bounds.maxThoughts)} for level "${level}" (received ${String(targetThoughts)})`;
   }
 
   return undefined;

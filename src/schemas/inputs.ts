@@ -2,6 +2,9 @@ import { z } from 'zod';
 
 import { getTargetThoughtsError } from '../lib/validators.js';
 
+const RUN_MODE_VALUES = ['step', 'run_to_completion'] as const;
+const DEFAULT_RUN_MODE = 'step';
+
 function addCustomIssue(
   ctx: z.RefinementCtx,
   path: string[],
@@ -45,7 +48,7 @@ export const ReasoningThinkInputSchema = z
         'Session ID to continue. The session level is used when continuing; provided level is optional.'
       ),
     runMode: z
-      .enum(['step', 'run_to_completion'])
+      .enum(RUN_MODE_VALUES)
       .optional()
       .describe(
         'Execution mode (default: "step"). "step" appends a single thought per call. "run_to_completion" consumes all supplied thought inputs in one request.'
@@ -70,7 +73,7 @@ export const ReasoningThinkInputSchema = z
       ),
   })
   .superRefine((data, ctx) => {
-    const runMode = data.runMode ?? 'step';
+    const runMode = data.runMode ?? DEFAULT_RUN_MODE;
 
     if (data.sessionId === undefined && data.query === undefined) {
       addCustomIssue(

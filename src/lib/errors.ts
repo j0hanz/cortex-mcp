@@ -12,6 +12,10 @@ interface ErrorResponse {
   isError: true;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 function stringifyUnknown(value: unknown): string {
   try {
     return JSON.stringify(value);
@@ -22,14 +26,11 @@ function stringifyUnknown(value: unknown): string {
 }
 
 function getMessageFromErrorLike(value: unknown): string | undefined {
-  if (typeof value !== 'object' || value === null) {
+  if (!isRecord(value)) {
     return undefined;
   }
 
-  const maybeError = value as { message?: unknown };
-  return typeof maybeError.message === 'string'
-    ? maybeError.message
-    : undefined;
+  return typeof value.message === 'string' ? value.message : undefined;
 }
 
 export function getErrorMessage(error: unknown): string {

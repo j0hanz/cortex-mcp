@@ -17,6 +17,15 @@ import { registerAllPrompts } from './prompts/index.js';
 import { registerAllResources } from './resources/index.js';
 
 const ICON_MIME = 'image/svg+xml';
+const SERVER_NAME = 'cortex-mcp';
+const SERVER_TITLE = 'Cortex MCP';
+const SERVER_WEBSITE_URL = 'https://github.com/j0hanz/cortex-mcp';
+const SERVER_DESCRIPTION =
+  'Multi-level reasoning MCP server with configurable depth levels.';
+const ICON_URL_CANDIDATES = [
+  new URL('../assets/logo.svg', import.meta.url),
+  new URL('./assets/logo.svg', import.meta.url),
+];
 
 interface BudgetExhaustedEvent {
   sessionId: string;
@@ -27,12 +36,7 @@ interface BudgetExhaustedEvent {
 }
 
 function getLocalIconData(): string | undefined {
-  const candidates = [
-    new URL('../assets/logo.svg', import.meta.url),
-    new URL('./assets/logo.svg', import.meta.url),
-  ];
-
-  for (const candidate of candidates) {
+  for (const candidate of ICON_URL_CANDIDATES) {
     try {
       const data = readFileSync(candidate);
       return `data:${ICON_MIME};base64,${data.toString('base64')}`;
@@ -44,14 +48,7 @@ function getLocalIconData(): string | undefined {
   return undefined;
 }
 
-function loadVersion(): string {
-  const packageJsonPath = findPackageJSON(import.meta.url);
-  if (!packageJsonPath) {
-    throw new Error('Unable to locate package.json for cortex-mcp.');
-  }
-
-  const packageJson = readFileSync(packageJsonPath, 'utf8');
-  const parsed: unknown = JSON.parse(packageJson);
+function getPackageVersion(parsed: unknown): string {
   if (
     typeof parsed !== 'object' ||
     parsed === null ||
@@ -61,6 +58,30 @@ function loadVersion(): string {
     throw new Error('Invalid package.json: missing or invalid version field');
   }
   return parsed.version;
+}
+
+function loadVersion(): string {
+  const packageJsonPath = findPackageJSON(import.meta.url);
+  if (!packageJsonPath) {
+    throw new Error('Unable to locate package.json for cortex-mcp.');
+  }
+
+  const packageJson = readFileSync(packageJsonPath, 'utf8');
+  return getPackageVersion(JSON.parse(packageJson) as unknown);
+}
+
+function getServerIcons(
+  iconMeta?: IconMeta
+): { src: string; mimeType: string }[] | undefined {
+  if (!iconMeta) {
+    return undefined;
+  }
+  return [
+    {
+      src: iconMeta.src,
+      mimeType: iconMeta.mimeType,
+    },
+  ];
 }
 
 function attachEngineEventHandlers(server: McpServer): () => void {
@@ -160,25 +181,16 @@ export function createServer(): McpServer {
   const iconMeta: IconMeta | undefined = localIcon
     ? { src: localIcon, mimeType: ICON_MIME }
     : undefined;
+  const icons = getServerIcons(iconMeta);
 
   const server = new McpServer(
     {
-      name: 'cortex-mcp',
-      title: 'Cortex MCP',
-      description:
-        'Multi-level reasoning MCP server with configurable depth levels.',
-      websiteUrl: 'https://github.com/j0hanz/cortex-mcp',
+      name: SERVER_NAME,
+      title: SERVER_TITLE,
+      description: SERVER_DESCRIPTION,
+      websiteUrl: SERVER_WEBSITE_URL,
       version,
-      ...(iconMeta
-        ? {
-            icons: [
-              {
-                src: iconMeta.src,
-                mimeType: iconMeta.mimeType,
-              },
-            ],
-          }
-        : {}),
+      ...(icons ? { icons } : {}),
     },
     {
       capabilities: {

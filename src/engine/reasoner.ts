@@ -1,9 +1,9 @@
 import { Buffer } from 'node:buffer';
 
 import { createSegmenter } from '../lib/text.js';
-import type { ReasoningLevel, Session } from '../lib/types.js';
+import type { LevelConfig, ReasoningLevel, Session } from '../lib/types.js';
 
-import { assertTargetThoughtsInRange, LEVEL_CONFIGS } from './config.js';
+import { assertTargetThoughtsInRange, getLevelConfig } from './config.js';
 import { runWithContext } from './context.js';
 import { engineEvents } from './events.js';
 import { SessionStore } from './session-store.js';
@@ -47,12 +47,6 @@ interface ReasonOptions {
   onProgress?: (progress: number, total: number) => void | Promise<void>;
 }
 
-interface LevelConfig {
-  minThoughts: number;
-  maxThoughts: number;
-  tokenBudget: number;
-}
-
 export async function reason(
   query: string,
   level: ReasoningLevel | undefined,
@@ -65,7 +59,7 @@ export async function reason(
     options;
 
   const session = resolveSession(level, sessionId, query, targetThoughts);
-  const config = LEVEL_CONFIGS[session.level];
+  const config = getLevelConfig(session.level);
   const { totalThoughts } = session;
 
   return runWithContext(
@@ -223,7 +217,7 @@ function resolveSession(
     throw new Error('level is required for new sessions');
   }
 
-  const config = LEVEL_CONFIGS[level];
+  const config = getLevelConfig(level);
   const totalThoughts = resolveThoughtCount(
     level,
     query,

@@ -13,6 +13,10 @@ import type {
   SessionSummary as StoreSessionSummary,
 } from '../lib/types.js';
 
+const SESSIONS_RESOURCE_URI = 'reasoning://sessions';
+const SESSION_RESOURCE_PREFIX = `${SESSIONS_RESOURCE_URI}/`;
+const TRACE_RESOURCE_PREFIX = 'file:///cortex/sessions/';
+
 // --- Helpers ---
 
 function extractStringVariable(
@@ -82,7 +86,7 @@ function buildSessionSummary(sessionId: string): SessionResourceSummary {
   if (!session) {
     throw new McpError(
       -32002,
-      `Resource not found: reasoning://sessions/${sessionId}`
+      `Resource not found: ${SESSION_RESOURCE_PREFIX}${sessionId}`
     );
   }
   return buildSessionSummaryFromSummary(session);
@@ -121,6 +125,10 @@ function serializeJson(data: unknown): string {
 
 function withIconMeta(iconMeta?: IconMeta): { icons: IconMeta[] } | undefined {
   return iconMeta ? { icons: [iconMeta] } : undefined;
+}
+
+function shortSessionId(sessionId: string): string {
+  return sessionId.slice(0, 8);
 }
 
 interface CompletionCacheEntry {
@@ -225,7 +233,7 @@ export function registerAllResources(
 
   server.registerResource(
     'reasoning.sessions',
-    'reasoning://sessions',
+    SESSIONS_RESOURCE_URI,
     {
       title: 'Reasoning Sessions',
       description:
@@ -246,7 +254,7 @@ export function registerAllResources(
       return {
         contents: [
           {
-            uri: 'reasoning://sessions',
+            uri: SESSIONS_RESOURCE_URI,
             mimeType: 'application/json',
             text: serializeJson({
               ttlMs,
@@ -265,9 +273,9 @@ export function registerAllResources(
     new ResourceTemplate('file:///cortex/sessions/{sessionId}/trace.md', {
       list: () => ({
         resources: sessionStore.listSummaries().map((session) => ({
-          uri: `file:///cortex/sessions/${session.id}/trace.md`,
-          name: `trace-${session.id.slice(0, 8)}`,
-          title: `Reasoning Trace ${session.id.slice(0, 8)}`,
+          uri: `${TRACE_RESOURCE_PREFIX}${session.id}/trace.md`,
+          name: `trace-${shortSessionId(session.id)}`,
+          title: `Reasoning Trace ${shortSessionId(session.id)}`,
           description: `${session.level} session trace with ${String(session.generatedThoughts)} thought(s).`,
           mimeType: 'text/markdown',
           annotations: {
@@ -369,9 +377,9 @@ export function registerAllResources(
     {
       list: () => ({
         resources: sessionStore.listSummaries().map((session) => ({
-          uri: `reasoning://sessions/${session.id}`,
-          name: `session-${session.id.slice(0, 8)}`,
-          title: `Reasoning Session ${session.id.slice(0, 8)}`,
+          uri: `${SESSION_RESOURCE_PREFIX}${session.id}`,
+          name: `session-${shortSessionId(session.id)}`,
+          title: `Reasoning Session ${shortSessionId(session.id)}`,
           description: `${session.level} session with ${String(
             session.generatedThoughts
           )}/${String(session.totalThoughts)} thought(s).`,

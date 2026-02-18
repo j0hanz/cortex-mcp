@@ -7,6 +7,10 @@ export const LEVEL_CONFIGS = {
   high: { minThoughts: 15, maxThoughts: 25, tokenBudget: 32768 },
 } as const satisfies Record<ReasoningLevel, LevelConfig>;
 
+export function getLevelConfig(level: ReasoningLevel): LevelConfig {
+  return LEVEL_CONFIGS[level];
+}
+
 export function assertTargetThoughtsInRange(
   level: ReasoningLevel,
   targetThoughts: number

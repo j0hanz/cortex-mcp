@@ -4,9 +4,12 @@ import type { IconMeta } from '../lib/types.js';
 
 import { registerReasoningThinkTool } from './reasoning-think.js';
 
-/**
- * Registers all tools with the MCP server.
- */
+type ToolRegistrar = (server: McpServer, iconMeta?: IconMeta) => void;
+
+const TOOL_REGISTRARS: readonly ToolRegistrar[] = [registerReasoningThinkTool];
+
 export function registerAllTools(server: McpServer, iconMeta?: IconMeta): void {
-  registerReasoningThinkTool(server, iconMeta);
+  for (const registerTool of TOOL_REGISTRARS) {
+    registerTool(server, iconMeta);
+  }
 }

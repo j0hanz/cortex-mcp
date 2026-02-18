@@ -10,3 +10,7 @@ const storage = new AsyncLocalStorage<EngineContext>();
 export function runWithContext<T>(ctx: EngineContext, fn: () => T): T {
   return storage.run(ctx, fn);
 }
+
+export function getContext(): EngineContext | undefined {
+  return storage.getStore();
+}

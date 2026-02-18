@@ -9,12 +9,15 @@ import type {
   Thought,
 } from '../lib/types.js';
 
-import { LEVEL_CONFIGS } from './config.js';
+import { getLevelConfig } from './config.js';
 import { engineEvents } from './events.js';
 
 const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const DEFAULT_MAX_SESSIONS = 100;
 const DEFAULT_MAX_TOTAL_TOKENS = 500_000;
+const TOKEN_ESTIMATE_DIVISOR = 4;
+const MIN_SWEEP_INTERVAL_MS = 10;
+const MAX_SWEEP_INTERVAL_MS = 60_000;
 
 interface SessionOrderNode {
   prevId: string | undefined;
@@ -32,7 +35,14 @@ type MutableSession = Omit<Mutable<Session>, 'thoughts'> & {
 
 function estimateTokens(text: string): number {
   const byteLength = Buffer.byteLength(text, 'utf8');
-  return Math.max(1, Math.ceil(byteLength / 4));
+  return Math.max(1, Math.ceil(byteLength / TOKEN_ESTIMATE_DIVISOR));
+}
+
+function resolveSweepInterval(ttlMs: number): number {
+  return Math.max(
+    MIN_SWEEP_INTERVAL_MS,
+    Math.min(MAX_SWEEP_INTERVAL_MS, ttlMs)
+  );
 }
 
 export class SessionStore {
@@ -55,7 +65,7 @@ export class SessionStore {
     this.ttlMs = ttlMs;
     this.maxSessions = maxSessions;
     this.maxTotalTokens = maxTotalTokens;
-    const sweepInterval = Math.max(10, Math.min(60_000, ttlMs));
+    const sweepInterval = resolveSweepInterval(ttlMs);
     this.cleanupInterval = setInterval(() => {
       this.sweep();
     }, sweepInterval);
@@ -64,7 +74,7 @@ export class SessionStore {
 
   create(level: ReasoningLevel, totalThoughts?: number): Readonly<Session> {
     this.evictIfAtCapacity();
-    const config: LevelConfig = LEVEL_CONFIGS[level];
+    const config: LevelConfig = getLevelConfig(level);
     const now = Date.now();
     const session: MutableSession = {
       id: randomUUID(),
@@ -225,11 +235,7 @@ export class SessionStore {
       const oldest = this.findOldestSession();
       if (!oldest) break;
       this.deleteSessionInternal(oldest.id);
-      engineEvents.emit('session:evicted', {
-        sessionId: oldest.id,
-        reason: 'max_sessions',
-      });
-      this.emitSessionsCollectionUpdated();
+      this.emitSessionEvicted(oldest.id, 'max_sessions');
     }
   }
 
@@ -244,11 +250,7 @@ export class SessionStore {
       const oldest = this.findOldestSession(protectedSessionId);
       if (!oldest) break;
       this.deleteSessionInternal(oldest.id);
-      engineEvents.emit('session:evicted', {
-        sessionId: oldest.id,
-        reason: 'max_total_tokens',
-      });
-      this.emitSessionsCollectionUpdated();
+      this.emitSessionEvicted(oldest.id, 'max_total_tokens');
     }
   }
 
@@ -466,6 +468,14 @@ export class SessionStore {
   private emitSessionsCollectionUpdated(): void {
     this.emitSessionsListChanged();
     this.emitSessionsResourceUpdated();
+  }
+
+  private emitSessionEvicted(sessionId: string, reason: string): void {
+    engineEvents.emit('session:evicted', {
+      sessionId,
+      reason,
+    });
+    this.emitSessionsCollectionUpdated();
   }
 
   private emitSessionResourcesUpdated(sessionId: string): void {

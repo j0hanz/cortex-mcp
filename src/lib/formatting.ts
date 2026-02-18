@@ -16,6 +16,8 @@ export interface PinnedSection {
 
 const PIN_START = '<!-- pin:';
 const PIN_END = '<!-- /pin -->';
+const TRACE_SEPARATOR = '\n\n---\n\n';
+const PINNED_SECTION_TITLE = '## 📌 Pinned';
 
 /**
  * Extract pinned sections from thought content.
@@ -82,7 +84,7 @@ function renderPinnedSections(sections: readonly PinnedSection[]): string {
     return '';
   }
 
-  const lines = ['## 📌 Pinned', ''];
+  const lines = [PINNED_SECTION_TITLE, ''];
   for (const pin of sections) {
     lines.push(`### ${pin.title} *(Thought ${String(pin.thoughtIndex + 1)})*`);
     if (pin.content.length > 0) {
@@ -159,5 +161,5 @@ export function formatThoughtsToMarkdown(
     sections.push(`${heading}\n\n${thought.content}`);
   }
 
-  return sections.join('\n\n---\n\n');
+  return sections.join(TRACE_SEPARATOR);
 }

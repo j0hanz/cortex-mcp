@@ -1,14 +1,14 @@
 import { z } from 'zod';
 
+const ErrorInfoSchema = z.strictObject({
+  code: z.string(),
+  message: z.string(),
+});
+
 export const DefaultOutputSchema = z.strictObject({
   ok: z.boolean(),
   result: z.unknown().optional(),
-  error: z
-    .strictObject({
-      code: z.string(),
-      message: z.string(),
-    })
-    .optional(),
+  error: ErrorInfoSchema.optional(),
 });
 
 const ReasoningThinkSuccessSchema = z.strictObject({
@@ -56,10 +56,7 @@ const ReasoningThinkSuccessSchema = z.strictObject({
 
 const ReasoningThinkErrorSchema = z.strictObject({
   ok: z.literal(false),
-  error: z.strictObject({
-    code: z.string(),
-    message: z.string(),
-  }),
+  error: ErrorInfoSchema,
 });
 
 export const ReasoningThinkResultSchema = z.discriminatedUnion('ok', [
@@ -91,12 +88,7 @@ export const ReasoningThinkToolOutputSchema = z
   .strictObject({
     ok: z.boolean(),
     result: ReasoningThinkSuccessSchema.shape.result.optional(),
-    error: z
-      .strictObject({
-        code: z.string(),
-        message: z.string(),
-      })
-      .optional(),
+    error: ErrorInfoSchema.optional(),
   })
   .superRefine((data, ctx) => {
     const missingFieldIssue = getMissingFieldIssue(data);
