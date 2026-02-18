@@ -259,7 +259,18 @@ export function registerAllResources(
   server.registerResource(
     'reasoning.trace',
     new ResourceTemplate('file:///cortex/sessions/{sessionId}/trace.md', {
-      list: undefined,
+      list: () => ({
+        resources: sessionStore.list().map((session) => ({
+          uri: `file:///cortex/sessions/${session.id}/trace.md`,
+          name: `trace-${session.id.slice(0, 8)}`,
+          title: `Reasoning Trace ${session.id.slice(0, 8)}`,
+          description: `${session.level} session trace with ${String(session.thoughts.length)} thought(s).`,
+          mimeType: 'text/markdown',
+          annotations: {
+            lastModified: new Date(session.updatedAt).toISOString(),
+          },
+        })),
+      }),
       complete: {
         sessionId: completeSessionIds,
       },
@@ -279,6 +290,9 @@ export function registerAllResources(
             uri: uri.toString(),
             mimeType: 'text/markdown',
             text: formatThoughtsToMarkdown(session),
+            annotations: {
+              lastModified: new Date(session.updatedAt).toISOString(),
+            },
           },
         ],
       };
@@ -337,6 +351,9 @@ export function registerAllResources(
               start: index,
               end: index,
             }),
+            annotations: {
+              lastModified: new Date(session.updatedAt).toISOString(),
+            },
           },
         ],
       };

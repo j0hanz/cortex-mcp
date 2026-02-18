@@ -599,6 +599,14 @@ async function handleTaskFailure(args: {
       sessionStore.markCancelled(sessionId);
     }
     await storeTaskFailure(taskStore, taskId, response);
+    try {
+      await server.server.notification({
+        method: 'notifications/tasks/status',
+        params: { taskId, status: 'failed' },
+      });
+    } catch {
+      // Notification failure must never fail the task operation.
+    }
     await emitLog(
       server,
       'notice',
@@ -609,6 +617,14 @@ async function handleTaskFailure(args: {
   }
 
   await storeTaskFailure(taskStore, taskId, response);
+  try {
+    await server.server.notification({
+      method: 'notifications/tasks/status',
+      params: { taskId, status: 'failed' },
+    });
+  } catch {
+    // Notification failure must never fail the task operation.
+  }
   await emitLog(
     server,
     'error',
@@ -710,6 +726,14 @@ async function runReasoningTask(args: {
       'completed',
       createToolResponse(result, buildTraceResource(session))
     );
+    try {
+      await server.server.notification({
+        method: 'notifications/tasks/status',
+        params: { taskId, status: 'completed' },
+      });
+    } catch {
+      // Notification failure must never fail the task operation.
+    }
     await emitLog(
       server,
       'info',
