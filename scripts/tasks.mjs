@@ -1,26 +1,13 @@
 /* eslint-disable */
 import { spawn } from 'node:child_process';
-import {
-  access,
-  chmod,
-  cp,
-  glob,
-  mkdir,
-  readdir,
-  rm,
-  stat,
-} from 'node:fs/promises';
-import { createRequire } from 'node:module';
+import { access, chmod, cp, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import process from 'node:process';
-import { parseArgs } from 'node:util';
 
-const require = createRequire(import.meta.url);
-
-// --- Configuration Layer (Constants & Settings) ---
+// --- Configuration (Single Source of Truth) ---
 const BIN = {
-  tsc: require.resolve('typescript/bin/tsc'),
+  tsc: join('node_modules', 'typescript', 'bin', 'tsc'),
 };
 
 const CONFIG = {
@@ -50,22 +37,6 @@ const CONFIG = {
   },
 };
 
-const DEFAULT_TASK_TIMEOUT_MS = Number.parseInt(
-  process.env.TASK_TIMEOUT_MS ?? '',
-  10
-);
-const TASK_TIMEOUT_MS =
-  Number.isFinite(DEFAULT_TASK_TIMEOUT_MS) && DEFAULT_TASK_TIMEOUT_MS > 0
-    ? DEFAULT_TASK_TIMEOUT_MS
-    : undefined;
-
-function getReasonText(reason) {
-  if (reason instanceof Error) {
-    return reason.message;
-  }
-  return reason ? String(reason) : undefined;
-}
-
 // --- Infrastructure Layer (IO & System) ---
 const Logger = {
   startGroup: (name) => process.stdout.write(`> ${name}... `),
@@ -83,14 +54,6 @@ const System = {
     try {
       await access(path);
       return true;
-    } catch {
-      return false;
-    }
-  },
-  async isDirectory(path) {
-    try {
-      const stats = await stat(path);
-      return stats.isDirectory();
     } catch {
       return false;
     }
@@ -115,85 +78,21 @@ const System = {
     await chmod(path, mode);
   },
 
-  exec(command, args = [], options = {}) {
+  exec(command, args = []) {
     return new Promise((resolve, reject) => {
       const resolvedCommand = command === 'node' ? process.execPath : command;
-      const timeoutMs = options.timeoutMs ?? TASK_TIMEOUT_MS;
-      const timeoutSignal =
-        typeof timeoutMs === 'number' && timeoutMs > 0
-          ? AbortSignal.timeout(timeoutMs)
-          : undefined;
-      const combinedSignal =
-        options.signal && timeoutSignal
-          ? AbortSignal.any([options.signal, timeoutSignal])
-          : (options.signal ?? timeoutSignal);
-
-      if (combinedSignal?.aborted) {
-        const reasonText = getReasonText(combinedSignal.reason);
-        reject(
-          new Error(
-            `${command} aborted before start${reasonText ? `: ${reasonText}` : ''}`
-          )
-        );
-        return;
-      }
 
       const proc = spawn(resolvedCommand, args, {
         stdio: 'inherit',
         shell: false,
         windowsHide: true,
-        ...(combinedSignal ? { signal: combinedSignal } : {}),
       });
 
-      let aborted = false;
-      let abortReason;
-      const abortListener = combinedSignal
-        ? () => {
-            aborted = true;
-            abortReason = combinedSignal.reason;
-          }
-        : null;
-
-      if (combinedSignal && abortListener) {
-        combinedSignal.addEventListener('abort', abortListener, { once: true });
-      }
-
-      const cleanup = () => {
-        if (combinedSignal && abortListener) {
-          try {
-            combinedSignal.removeEventListener('abort', abortListener);
-          } catch {
-            /* ignore */
-          }
-        }
-      };
-
       proc.on('error', (error) => {
-        cleanup();
-        if (aborted) {
-          const reasonText = getReasonText(abortReason);
-          reject(
-            new Error(
-              `${command} aborted${reasonText ? `: ${reasonText}` : ''}`
-            )
-          );
-          return;
-        }
         reject(error);
       });
 
       proc.on('close', (code, signal) => {
-        cleanup();
-        if (aborted) {
-          const reasonText = getReasonText(abortReason);
-          const suffix = signal ? ` (signal ${signal})` : '';
-          reject(
-            new Error(
-              `${command} aborted${suffix}${reasonText ? `: ${reasonText}` : ''}`
-            )
-          );
-          return;
-        }
         if (code === 0) return resolve();
         const suffix = signal ? ` (signal ${signal})` : '';
         reject(new Error(`${command} exited with code ${code}${suffix}`));
@@ -224,29 +123,7 @@ const BuildTasks = {
     await System.makeDir(CONFIG.paths.dist);
     await System.copy(CONFIG.paths.instructions, CONFIG.paths.distInstructions);
 
-    if (await System.isDirectory(CONFIG.paths.assets)) {
-      try {
-        const files = await readdir(CONFIG.paths.assets);
-        const iconFiles = files.filter((file) =>
-          /^logo\.(svg|png|jpe?g)$/i.test(file)
-        );
-        const sizes = await Promise.all(
-          iconFiles.map(async (file) => {
-            const stats = await stat(join(CONFIG.paths.assets, file));
-            return { file, size: stats.size };
-          })
-        );
-        for (const { file, size } of sizes) {
-          if (size >= 2 * 1024 * 1024) {
-            Logger.info(
-              `[WARNING] Icon ${file} is size ${size} bytes (>= 2MB). Large icons may be rejected by clients.`
-            );
-          }
-        }
-      } catch {
-        // ignore errors during check
-      }
-
+    if (await System.exists(CONFIG.paths.assets)) {
       await System.copy(CONFIG.paths.assets, CONFIG.paths.distAssets, {
         recursive: true,
       });
@@ -260,19 +137,13 @@ const BuildTasks = {
 
 // --- Test Helpers (Pure Functions) ---
 async function detectTestLoader() {
-  try {
-    require.resolve('tsx/esm');
+  if (await System.exists('node_modules/tsx')) {
     return ['--import', 'tsx/esm'];
-  } catch {
-    // continue checking next loader
   }
-
-  try {
-    require.resolve('ts-node/esm');
+  if (await System.exists('node_modules/ts-node')) {
     return ['--loader', 'ts-node/esm'];
-  } catch {
-    return [];
   }
+  return [];
 }
 
 function getCoverageArgs(args) {
@@ -280,10 +151,14 @@ function getCoverageArgs(args) {
 }
 
 async function findTestPatterns() {
-  const matches = await Promise.all(
-    CONFIG.test.patterns.map((pattern) => Array.fromAsync(glob(pattern)))
-  );
-  return [...new Set(matches.flat())].sort();
+  const existing = [];
+  for (const pattern of CONFIG.test.patterns) {
+    const basePath = pattern.split('/')[0];
+    if (await System.exists(basePath)) {
+      existing.push(pattern);
+    }
+  }
+  return existing;
 }
 
 const TestTasks = {
@@ -295,12 +170,12 @@ const TestTasks = {
   },
 
   async test(args = []) {
-    await Pipeline.testBuild();
+    await Pipeline.fullBuild();
 
-    const testFiles = await findTestPatterns();
-    if (testFiles.length === 0) {
+    const patterns = await findTestPatterns();
+    if (patterns.length === 0) {
       throw new Error(
-        `No test files found. Expected one of: ${CONFIG.test.patterns.join(
+        `No test directories found. Expected one of: ${CONFIG.test.patterns.join(
           ', '
         )}`
       );
@@ -314,7 +189,7 @@ const TestTasks = {
         '--test',
         ...loader,
         ...coverage,
-        ...testFiles,
+        ...patterns,
       ]);
     });
   },
@@ -362,14 +237,6 @@ const Pipeline = {
       )}s`
     );
   },
-
-  async testBuild() {
-    await Runner.runTask('Validating instructions', BuildTasks.validate);
-    await Runner.runShellTask('Type-checking src', async () => {
-      const [cmd, args] = CONFIG.commands.tscCheck;
-      await System.exec(cmd, args);
-    });
-  },
 };
 
 // --- Interface Layer (CLI) ---
@@ -387,28 +254,8 @@ const CLI = {
   },
 
   async main(args) {
-    const rawArgs = args.slice(2);
-    let parsed;
-    try {
-      parsed = parseArgs({
-        args: rawArgs,
-        allowPositionals: true,
-        strict: false,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      Logger.error(`Invalid arguments: ${message}`);
-      process.exitCode = 1;
-      return;
-    }
-
-    const positionals = parsed.positionals ?? [];
-    const taskName =
-      positionals.find((candidate) => candidate in this.routes) ??
-      positionals[0] ??
-      'build';
-    const taskIndex = rawArgs.indexOf(taskName);
-    const restArgs = taskIndex >= 0 ? rawArgs.slice(taskIndex + 1) : [];
+    const taskName = args[2] ?? 'build';
+    const restArgs = args.slice(3);
     const action = this.routes[taskName];
 
     if (!action) {
