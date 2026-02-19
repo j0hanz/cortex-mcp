@@ -4,6 +4,13 @@ const ErrorInfoSchema = z.strictObject({
   code: z.string(),
   message: z.string(),
 });
+const MISSING_RESULT_PATH: ['result'] = ['result'];
+const MISSING_ERROR_PATH: ['error'] = ['error'];
+const ThoughtSchema = z.strictObject({
+  index: z.number(),
+  content: z.string(),
+  revision: z.number(),
+});
 
 export const DefaultOutputSchema = z.strictObject({
   ok: z.boolean(),
@@ -17,13 +24,7 @@ const ReasoningThinkSuccessSchema = z.strictObject({
     sessionId: z.string(),
     level: z.enum(['basic', 'normal', 'high']),
     status: z.enum(['active', 'completed', 'cancelled']),
-    thoughts: z.array(
-      z.strictObject({
-        index: z.number(),
-        content: z.string(),
-        revision: z.number(),
-      })
-    ),
+    thoughts: z.array(ThoughtSchema),
     generatedThoughts: z.number(),
     requestedThoughts: z.number(),
     totalThoughts: z.number(),
@@ -70,11 +71,17 @@ function getMissingFieldIssue(data: {
   error?: unknown;
 }): { message: string; path: ['result'] | ['error'] } | undefined {
   if (data.ok && data.result === undefined) {
-    return { message: 'result is required when ok is true', path: ['result'] };
+    return {
+      message: 'result is required when ok is true',
+      path: MISSING_RESULT_PATH,
+    };
   }
 
   if (!data.ok && data.error === undefined) {
-    return { message: 'error is required when ok is false', path: ['error'] };
+    return {
+      message: 'error is required when ok is false',
+      path: MISSING_ERROR_PATH,
+    };
   }
 
   return undefined;

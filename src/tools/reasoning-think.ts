@@ -344,13 +344,25 @@ async function executeReasoningSteps(args: {
       break;
     }
 
-    session = await reason(queryText, level, {
-      ...(activeSessionId !== undefined ? { sessionId: activeSessionId } : {}),
-      ...(targetThoughts !== undefined ? { targetThoughts } : {}),
+    const reasonOptions: {
+      sessionId?: string;
+      targetThoughts?: number;
+      thought: string;
+      abortSignal: AbortSignal;
+      onProgress: (progress: number, total: number) => Promise<void>;
+    } = {
       thought: inputThought,
       abortSignal: controller.signal,
       onProgress,
-    });
+    };
+    if (activeSessionId !== undefined) {
+      reasonOptions.sessionId = activeSessionId;
+    }
+    if (targetThoughts !== undefined) {
+      reasonOptions.targetThoughts = targetThoughts;
+    }
+
+    session = await reason(queryText, level, reasonOptions);
 
     activeSessionId = session.id;
     if (shouldStopReasoningLoop(session, runMode)) {
@@ -443,10 +455,15 @@ function createCancellationController(signal: AbortSignal): AbortController {
     controller.abort();
     return controller;
   }
-  signal.addEventListener(
+
+  const onAbort = (): void => {
+    controller.abort();
+  };
+  signal.addEventListener('abort', onAbort, { once: true });
+  controller.signal.addEventListener(
     'abort',
     () => {
-      controller.abort();
+      signal.removeEventListener('abort', onAbort);
     },
     { once: true }
   );
@@ -673,28 +690,34 @@ async function runReasoningTask(args: {
 
     const startingCount = getStartingThoughtCount(params.sessionId);
 
-    const onProgress = createProgressHandler({
+    const progressArgs: Parameters<typeof createProgressHandler>[0] = {
       server,
       taskStore,
       taskId,
       level,
       controller,
-      ...(progressToken !== undefined ? { progressToken } : {}),
-    });
-    const session = await executeReasoningSteps({
+    };
+    if (progressToken !== undefined) {
+      progressArgs.progressToken = progressToken;
+    }
+    const onProgress = createProgressHandler(progressArgs);
+    const executeArgs: Parameters<typeof executeReasoningSteps>[0] = {
       taskStore,
       taskId,
       controller,
       queryText,
       level,
-      ...(params.sessionId !== undefined
-        ? { sessionId: params.sessionId }
-        : {}),
-      ...(targetThoughts !== undefined ? { targetThoughts } : {}),
       runMode,
       thoughtInputs,
       onProgress,
-    });
+    };
+    if (params.sessionId !== undefined) {
+      executeArgs.sessionId = params.sessionId;
+    }
+    if (targetThoughts !== undefined) {
+      executeArgs.targetThoughts = targetThoughts;
+    }
+    const session = await executeReasoningSteps(executeArgs);
 
     if (await isTaskCancelled(taskStore, taskId)) {
       await emitLog(
@@ -735,13 +758,16 @@ async function runReasoningTask(args: {
       sessionId
     );
   } catch (error) {
-    await handleTaskFailure({
+    const failureArgs: Parameters<typeof handleTaskFailure>[0] = {
       server,
       taskStore,
       taskId,
       error,
-      ...(sessionId !== undefined ? { sessionId } : {}),
-    });
+    };
+    if (sessionId !== undefined) {
+      failureArgs.sessionId = sessionId;
+    }
+    await handleTaskFailure(failureArgs);
   }
 }
 
@@ -817,17 +843,21 @@ export function registerReasoningThinkTool(
           });
 
         const controller = createCancellationController(extra.signal);
-        void runReasoningTask({
+        const runReasoningArgs: Parameters<typeof runReasoningTask>[0] = {
           server,
           taskStore: extra.taskStore,
           taskId: task.taskId,
           params,
           controller,
-          ...(progressToken !== undefined ? { progressToken } : {}),
-          ...(extra.sessionId !== undefined
-            ? { sessionId: extra.sessionId }
-            : {}),
-        }).finally(() => {
+        };
+        if (progressToken !== undefined) {
+          runReasoningArgs.progressToken = progressToken;
+        }
+        if (extra.sessionId !== undefined) {
+          runReasoningArgs.sessionId = extra.sessionId;
+        }
+
+        void runReasoningTask(runReasoningArgs).finally(() => {
           reasoningTaskLimiter.release();
         });
 

@@ -37,37 +37,37 @@ export function extractPinnedSections(
   const byTitle = new Map<string, PinnedSection>();
 
   for (const thought of thoughts) {
+    const { content } = thought;
     let searchFrom = 0;
 
-    while (searchFrom < thought.content.length) {
-      const startIdx = thought.content.indexOf(PIN_START, searchFrom);
+    while (searchFrom < content.length) {
+      const startIdx = content.indexOf(PIN_START, searchFrom);
       if (startIdx === -1) {
         break;
       }
 
-      const arrowIdx = thought.content.indexOf(
-        '-->',
-        startIdx + PIN_START.length
-      );
+      const arrowIdx = content.indexOf('-->', startIdx + PIN_START.length);
       if (arrowIdx === -1) {
         break;
       }
 
-      const title = thought.content
-        .slice(startIdx + PIN_START.length, arrowIdx)
-        .trim();
+      const title = content.slice(startIdx + PIN_START.length, arrowIdx).trim();
 
       const contentStart = arrowIdx + 3;
-      const endIdx = thought.content.indexOf(PIN_END, contentStart);
+      const endIdx = content.indexOf(PIN_END, contentStart);
       if (endIdx === -1) {
         break;
       }
 
-      const content = thought.content.slice(contentStart, endIdx).trim();
+      const pinContent = content.slice(contentStart, endIdx).trim();
       searchFrom = endIdx + PIN_END.length;
 
       if (title.length > 0) {
-        byTitle.set(title, { title, content, thoughtIndex: thought.index });
+        byTitle.set(title, {
+          title,
+          content: pinContent,
+          thoughtIndex: thought.index,
+        });
       }
     }
   }

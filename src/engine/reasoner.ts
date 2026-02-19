@@ -11,6 +11,9 @@ import { SessionStore } from './session-store.js';
 const DEFAULT_SESSION_TTL_MS = 30 * 60 * 1000;
 const DEFAULT_MAX_SESSIONS = 100;
 const DEFAULT_MAX_TOTAL_TOKENS = 500_000;
+const NON_WHITESPACE = /\S/u;
+const COMPLEXITY_KEYWORDS =
+  /\b(compare|analy[sz]e|trade[- ]?off|design|plan|critique|evaluate|review|architecture)\b/i;
 
 function parsePositiveIntEnv(
   name: string,
@@ -253,9 +256,7 @@ function resolveThoughtCount(
   const queryByteLength = Buffer.byteLength(queryText, 'utf8');
   const lengthScore = Math.min(1, queryByteLength / 400);
   const structureScore = Math.min(0.4, getStructureDensityScore(queryText));
-  const keywords =
-    /\b(compare|analy[sz]e|trade[- ]?off|design|plan|critique|evaluate|review|architecture)\b/i;
-  const keywordScore = keywords.test(queryText) ? 0.25 : 0;
+  const keywordScore = COMPLEXITY_KEYWORDS.test(queryText) ? 0.25 : 0;
   const score = Math.min(1, lengthScore + structureScore + keywordScore);
 
   return config.minThoughts + Math.round(span * score);
@@ -268,7 +269,7 @@ function countSentences(queryText: string): number {
 
   let count = 0;
   for (const sentence of sentenceSegmenter.segment(queryText)) {
-    if (sentence.segment.trim().length > 0) {
+    if (NON_WHITESPACE.test(sentence.segment)) {
       count++;
     }
   }
@@ -281,7 +282,21 @@ function getStructureDensityScore(queryText: string): number {
     return (sentenceCount - 1) * 0.08;
   }
 
-  const markerMatches = queryText.match(/[?:;,\n]/g)?.length ?? 0;
+  let markerMatches = 0;
+  for (let index = 0; index < queryText.length; index++) {
+    switch (queryText.charCodeAt(index)) {
+      case 63: // ?
+      case 58: // :
+      case 59: // ;
+      case 44: // ,
+      case 10: // \n
+        markerMatches += 1;
+        break;
+      default:
+        break;
+    }
+  }
+
   return markerMatches * 0.05;
 }
 

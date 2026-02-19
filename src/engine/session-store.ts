@@ -106,7 +106,7 @@ export class SessionStore {
   }
 
   list(): Readonly<Session>[] {
-    const sessionIds = this.listSessionIds();
+    const sessionIds = this.getSessionIdsForIteration();
     const sessions: Session[] = [];
     for (const sessionId of sessionIds) {
       const session = this.sessions.get(sessionId);
@@ -124,7 +124,7 @@ export class SessionStore {
 
   listSummaries(): readonly SessionSummary[] {
     const summaries: SessionSummary[] = [];
-    for (const sessionId of this.listSessionIds()) {
+    for (const sessionId of this.getSessionIdsForIteration()) {
       const session = this.sessions.get(sessionId);
       if (session) {
         summaries.push(this.snapshotSessionSummary(session));
@@ -267,29 +267,26 @@ export class SessionStore {
 
   private sweep(): void {
     const now = Date.now();
-    const expiredSessionIds: string[] = [];
     let changed = false;
     let currentId = this.oldestSessionId;
     while (currentId) {
+      const nextId = this.sessionOrder.get(currentId)?.nextId;
       const session = this.sessions.get(currentId);
       if (!session) {
-        const node = this.sessionOrder.get(currentId);
-        currentId = node?.nextId;
+        currentId = nextId;
         continue;
       }
       if (session.updatedAt + this.ttlMs >= now) {
         break;
       }
-      expiredSessionIds.push(currentId);
-      currentId = this.sessionOrder.get(currentId)?.nextId;
-    }
-    for (const sessionId of expiredSessionIds) {
-      if (!this.deleteSessionInternal(sessionId)) {
-        continue;
+
+      if (this.deleteSessionInternal(currentId)) {
+        engineEvents.emit('session:expired', { sessionId: currentId });
+        changed = true;
       }
-      engineEvents.emit('session:expired', { sessionId });
-      changed = true;
+      currentId = nextId;
     }
+
     if (changed) {
       this.emitSessionsCollectionUpdated();
     }
@@ -419,6 +416,11 @@ export class SessionStore {
     this.emitSessionResourcesUpdated(session.id);
   }
 
+  private getSessionIdsForIteration(): readonly string[] {
+    this.sortedSessionIdsCache ??= this.buildSortedSessionIdsCache();
+    return this.sortedSessionIdsCache;
+  }
+
   private snapshotThought(thought: MutableThought): Thought {
     return {
       index: thought.index,
@@ -428,13 +430,16 @@ export class SessionStore {
   }
 
   private snapshotSession(session: MutableSession): Session {
+    const thoughts: Thought[] = [];
+    for (const thought of session.thoughts) {
+      thoughts.push(this.snapshotThought(thought));
+    }
+
     return {
       id: session.id,
       level: session.level,
       status: session.status,
-      thoughts: session.thoughts.map((thought) =>
-        this.snapshotThought(thought)
-      ),
+      thoughts,
       totalThoughts: session.totalThoughts,
       tokenBudget: session.tokenBudget,
       tokensUsed: session.tokensUsed,

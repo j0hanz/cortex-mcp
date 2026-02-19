@@ -9,6 +9,10 @@ type ToolRegistrar = (server: McpServer, iconMeta?: IconMeta) => void;
 const TOOL_REGISTRARS: readonly ToolRegistrar[] = [registerReasoningThinkTool];
 
 export function registerAllTools(server: McpServer, iconMeta?: IconMeta): void {
+  if (TOOL_REGISTRARS.length === 0) {
+    return;
+  }
+
   for (const registerTool of TOOL_REGISTRARS) {
     registerTool(server, iconMeta);
   }

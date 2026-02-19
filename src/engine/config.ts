@@ -15,8 +15,10 @@ export function assertTargetThoughtsInRange(
   level: ReasoningLevel,
   targetThoughts: number
 ): void {
-  const error = getTargetThoughtsError(level, targetThoughts);
-  if (error) {
-    throw new Error(error);
+  const validationError = getTargetThoughtsError(level, targetThoughts);
+  if (!validationError) {
+    return;
   }
+
+  throw new Error(validationError);
 }

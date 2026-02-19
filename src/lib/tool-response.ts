@@ -7,12 +7,6 @@ function createStructuredTextBlock(structured: object): ContentBlock {
   return { type: 'text', text: JSON.stringify(structured) };
 }
 
-function hasEmbeddedResource(
-  embeddedResource: TextResourceContents | undefined
-): embeddedResource is TextResourceContents {
-  return embeddedResource !== undefined;
-}
-
 export function createToolResponse<T extends object>(
   structured: T,
   embeddedResource?: TextResourceContents
@@ -21,7 +15,7 @@ export function createToolResponse<T extends object>(
   structuredContent: T;
 } {
   const content: ContentBlock[] = [createStructuredTextBlock(structured)];
-  if (hasEmbeddedResource(embeddedResource)) {
+  if (embeddedResource !== undefined) {
     content.push({ type: 'resource', resource: embeddedResource });
   }
   return {

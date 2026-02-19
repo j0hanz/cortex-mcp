@@ -4,6 +4,7 @@ const INSPECT_OPTIONS = {
   depth: 3,
   breakLength: 120,
 } as const;
+const UNKNOWN_ERROR_MESSAGE = 'Unknown error';
 
 interface ErrorResponse {
   [key: string]: unknown;
@@ -41,7 +42,7 @@ export function getErrorMessage(error: unknown): string {
     return error.message;
   }
   if (error === null || error === undefined) {
-    return 'Unknown error';
+    return UNKNOWN_ERROR_MESSAGE;
   }
   const errorLikeMessage = getMessageFromErrorLike(error);
   if (errorLikeMessage !== undefined) {

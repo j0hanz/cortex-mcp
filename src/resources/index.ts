@@ -140,8 +140,14 @@ const COMPLETION_CACHE_TTL_MS = 1000;
 const COMPLETION_CACHE_MAX_ENTRIES = 512;
 const MAX_COMPLETION_RESULTS = 20;
 const completionCache = new Map<string, CompletionCacheEntry>();
+let lastCompletionCachePruneAt = 0;
 
-function pruneCompletionCache(now: number): void {
+function pruneCompletionCacheIfNeeded(now: number): void {
+  if (now - lastCompletionCachePruneAt < COMPLETION_CACHE_TTL_MS) {
+    return;
+  }
+  lastCompletionCachePruneAt = now;
+
   for (const [cacheKey, entry] of completionCache.entries()) {
     if (now - entry.timestamp >= COMPLETION_CACHE_TTL_MS) {
       completionCache.delete(cacheKey);
@@ -159,7 +165,7 @@ function pruneCompletionCache(now: number): void {
 
 function completeSessionIds(value: string): string[] {
   const now = Date.now();
-  pruneCompletionCache(now);
+  pruneCompletionCacheIfNeeded(now);
   const cacheKey = `sessionId:${value}`;
   const cached = completionCache.get(cacheKey);
 
@@ -179,7 +185,6 @@ function completeSessionIds(value: string): string[] {
   }
 
   completionCache.set(cacheKey, { results, timestamp: now });
-  pruneCompletionCache(now);
   return results;
 }
 

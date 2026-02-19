@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 
 const INSTRUCTIONS_URL = new URL('../instructions.md', import.meta.url);
 const DEFAULT_INSTRUCTIONS_FALLBACK = '(Instructions not available)';
+let cachedInstructionsText: string | undefined;
+let instructionsLoadFailed = false;
 
 function resolveInstructionsText(text: string, fallback: string): string {
   const trimmed = text.trim();
@@ -14,10 +16,18 @@ function resolveInstructionsText(text: string, fallback: string): string {
 export function loadInstructions(
   fallback = DEFAULT_INSTRUCTIONS_FALLBACK
 ): string {
+  if (cachedInstructionsText !== undefined) {
+    return resolveInstructionsText(cachedInstructionsText, fallback);
+  }
+  if (instructionsLoadFailed) {
+    return fallback;
+  }
+
   try {
-    const text = readFileSync(INSTRUCTIONS_URL, 'utf8');
-    return resolveInstructionsText(text, fallback);
+    cachedInstructionsText = readFileSync(INSTRUCTIONS_URL, 'utf8');
+    return resolveInstructionsText(cachedInstructionsText, fallback);
   } catch {
+    instructionsLoadFailed = true;
     return fallback;
   }
 }

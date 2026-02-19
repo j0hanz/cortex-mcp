@@ -10,13 +10,18 @@ import type { IconMeta } from '../lib/types.js';
 
 type PromptLevel = 'basic' | 'normal' | 'high';
 const COMPLETION_LIMIT = 20;
-const LEVEL_VALUES: PromptLevel[] = ['basic', 'normal', 'high'];
+const LEVEL_VALUES: readonly PromptLevel[] = ['basic', 'normal', 'high'];
+const LEVEL_TITLES: Readonly<Record<PromptLevel, string>> = {
+  basic: 'Basic',
+  normal: 'Normal',
+  high: 'High',
+};
 const REASONING_TOOL_NAME = 'reasoning_think';
 const THOUGHT_PARAMETER_GUIDANCE =
   'Provide your full reasoning in the "thought" parameter for each step.';
 
 function levelTitle(level: PromptLevel): string {
-  return `${level.charAt(0).toUpperCase()}${level.slice(1)}`;
+  return LEVEL_TITLES[level];
 }
 
 function formatTargetThoughts(targetThoughts?: number): string {
@@ -42,7 +47,13 @@ function completeSessionId(value: string): string[] {
 
 function completeLevel(value: string): PromptLevel[] {
   const normalized = value.toLowerCase();
-  return LEVEL_VALUES.filter((level) => level.startsWith(normalized));
+  const results: PromptLevel[] = [];
+  for (const level of LEVEL_VALUES) {
+    if (level.startsWith(normalized)) {
+      results.push(level);
+    }
+  }
+  return results;
 }
 
 function withIconMeta(iconMeta?: IconMeta): { icons: IconMeta[] } | undefined {
@@ -95,7 +106,7 @@ function registerLevelPrompt(
     },
     ({ query, targetThoughts }) => {
       // Create user message
-      const text = `Initiate a ${level}-depth reasoning session for the query: ${JSON.stringify(query)}. Use the "${REASONING_TOOL_NAME}" tool${formatTargetThoughts(targetThoughts)}. For each call, provide your full reasoning in the "thought" parameter — this is stored verbatim in the session trace. Repeat calls with the returned sessionId until totalThoughts is reached.`;
+      const text = `Initiate a ${level}-depth reasoning session for the query: ${JSON.stringify(query)}. Use the "${REASONING_TOOL_NAME}" tool${formatTargetThoughts(targetThoughts)}. ${THOUGHT_PARAMETER_GUIDANCE} This is stored verbatim in the session trace. Repeat calls with the returned sessionId until totalThoughts is reached.`;
 
       return createTextPrompt(text);
     }

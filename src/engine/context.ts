@@ -1,8 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 interface EngineContext {
-  sessionId: string;
-  abortSignal?: AbortSignal;
+  readonly sessionId: string;
+  readonly abortSignal?: AbortSignal;
 }
 
 const storage = new AsyncLocalStorage<EngineContext>();

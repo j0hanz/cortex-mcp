@@ -4,6 +4,10 @@ import { getTargetThoughtsError } from '../lib/validators.js';
 
 const RUN_MODE_VALUES = ['step', 'run_to_completion'] as const;
 const DEFAULT_RUN_MODE = 'step';
+const QUERY_TEXT_SCHEMA = z.string().min(1).max(10000);
+const LEVEL_SCHEMA = z.enum(['basic', 'normal', 'high']);
+const THOUGHT_TEXT_SCHEMA = z.string().min(1).max(100000);
+const THOUGHT_BATCH_SCHEMA = z.array(THOUGHT_TEXT_SCHEMA).min(1).max(25);
 
 function addCustomIssue(
   ctx: z.RefinementCtx,
@@ -19,18 +23,12 @@ function addCustomIssue(
 
 export const ReasoningThinkInputSchema = z
   .strictObject({
-    query: z
-      .string()
-      .min(1)
-      .max(10000)
-      .optional()
-      .describe('The question or problem to reason about'),
-    level: z
-      .enum(['basic', 'normal', 'high'])
-      .optional()
-      .describe(
-        'Reasoning depth level (required for new sessions, optional for continuing)'
-      ),
+    query: QUERY_TEXT_SCHEMA.optional().describe(
+      'The question or problem to reason about'
+    ),
+    level: LEVEL_SCHEMA.optional().describe(
+      'Reasoning depth level (required for new sessions, optional for continuing)'
+    ),
     targetThoughts: z
       .number()
       .int()
@@ -54,10 +52,7 @@ export const ReasoningThinkInputSchema = z
         'Execution mode (default: "step"). "step" appends a single thought per call. "run_to_completion" consumes all supplied thought inputs in one request.'
       ),
     thought: z
-      .union([
-        z.string().min(1).max(100000),
-        z.array(z.string().min(1).max(100000)).min(1).max(25),
-      ])
+      .union([THOUGHT_TEXT_SCHEMA, THOUGHT_BATCH_SCHEMA])
       .describe(
         'Your full reasoning content for this step. ' +
           'The server stores this text verbatim as the thought in the session trace. ' +
@@ -65,7 +60,7 @@ export const ReasoningThinkInputSchema = z
           'Can be a single string or an array of strings (for batch execution).'
       ),
     thoughts: z
-      .array(z.string().min(1).max(100000))
+      .array(THOUGHT_TEXT_SCHEMA)
       .max(25)
       .optional()
       .describe(

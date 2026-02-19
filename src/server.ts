@@ -26,6 +26,8 @@ const ICON_URL_CANDIDATES = [
   new URL('../assets/logo.svg', import.meta.url),
   new URL('./assets/logo.svg', import.meta.url),
 ];
+let cachedLocalIconData: string | null | undefined;
+let cachedVersion: string | undefined;
 
 interface BudgetExhaustedEvent {
   sessionId: string;
@@ -36,15 +38,21 @@ interface BudgetExhaustedEvent {
 }
 
 function getLocalIconData(): string | undefined {
+  if (cachedLocalIconData !== undefined) {
+    return cachedLocalIconData ?? undefined;
+  }
+
   for (const candidate of ICON_URL_CANDIDATES) {
     try {
       const data = readFileSync(candidate);
-      return `data:${ICON_MIME};base64,${data.toString('base64')}`;
+      cachedLocalIconData = `data:${ICON_MIME};base64,${data.toString('base64')}`;
+      return cachedLocalIconData;
     } catch {
       continue;
     }
   }
 
+  cachedLocalIconData = null;
   return undefined;
 }
 
@@ -61,13 +69,18 @@ function getPackageVersion(parsed: unknown): string {
 }
 
 function loadVersion(): string {
+  if (cachedVersion) {
+    return cachedVersion;
+  }
+
   const packageJsonPath = findPackageJSON(import.meta.url);
   if (!packageJsonPath) {
     throw new Error('Unable to locate package.json for cortex-mcp.');
   }
 
   const packageJson = readFileSync(packageJsonPath, 'utf8');
-  return getPackageVersion(JSON.parse(packageJson) as unknown);
+  cachedVersion = getPackageVersion(JSON.parse(packageJson) as unknown);
+  return cachedVersion;
 }
 
 function getServerIcons(

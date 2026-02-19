@@ -3,6 +3,7 @@ import { StringDecoder } from 'node:string_decoder';
 
 const UTF8 = 'utf8';
 const TRUNCATE_SUFFIX = '...';
+const TRUNCATE_SUFFIX_BYTES = Buffer.byteLength(TRUNCATE_SUFFIX, UTF8);
 
 function clampNonNegative(value: number): number {
   return Math.max(0, value);
@@ -38,18 +39,17 @@ export function truncate(
   segmenter?: Intl.Segmenter
 ): string {
   const maxBytes = clampNonNegative(maxLength);
-  const suffixBytes = utf8ByteLength(TRUNCATE_SUFFIX);
 
   if (utf8ByteLength(str) <= maxBytes) {
     return str;
   }
 
   // If we can't even fit the suffix, just return the suffix truncated (e.g. "." or "..")
-  if (maxBytes <= suffixBytes) {
+  if (maxBytes <= TRUNCATE_SUFFIX_BYTES) {
     return TRUNCATE_SUFFIX.slice(0, maxBytes);
   }
 
-  const targetBytes = maxBytes - suffixBytes;
+  const targetBytes = maxBytes - TRUNCATE_SUFFIX_BYTES;
   const truncated = truncateByGrapheme(str, targetBytes, segmenter);
   return truncated + TRUNCATE_SUFFIX;
 }
@@ -63,18 +63,18 @@ function truncateByGrapheme(
     return truncateByUtf8Boundary(str, maxBytes);
   }
 
-  let result = '';
+  const segments: string[] = [];
   let usedBytes = 0;
   for (const part of segmenter.segment(str)) {
     const segmentBytes = utf8ByteLength(part.segment);
     if (usedBytes + segmentBytes > maxBytes) {
       break;
     }
-    result += part.segment;
+    segments.push(part.segment);
     usedBytes += segmentBytes;
   }
 
-  return result;
+  return segments.join('');
 }
 
 /**
@@ -83,14 +83,15 @@ function truncateByGrapheme(
  */
 export function truncateByUtf8Boundary(str: string, maxBytes: number): string {
   const safeMaxBytes = clampNonNegative(maxBytes);
-  const encoded = Buffer.from(str, UTF8);
-  if (encoded.length <= safeMaxBytes) {
+  const byteLength = utf8ByteLength(str);
+  if (byteLength <= safeMaxBytes) {
     return str;
   }
   if (safeMaxBytes === 0) {
     return '';
   }
 
+  const encoded = Buffer.from(str, UTF8);
   const decoder = new StringDecoder(UTF8);
   return decoder.write(encoded.subarray(0, safeMaxBytes));
 }
