@@ -14,10 +14,14 @@ export function createToolResponse<T extends object>(
   content: ContentBlock[];
   structuredContent: T;
 } {
-  const content: ContentBlock[] = [createStructuredTextBlock(structured)];
-  if (embeddedResource !== undefined) {
-    content.push({ type: 'resource', resource: embeddedResource });
-  }
+  const content: ContentBlock[] =
+    embeddedResource === undefined
+      ? [createStructuredTextBlock(structured)]
+      : [
+          createStructuredTextBlock(structured),
+          { type: 'resource', resource: embeddedResource },
+        ];
+
   return {
     content,
     structuredContent: structured,

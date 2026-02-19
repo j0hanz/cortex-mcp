@@ -160,24 +160,40 @@ function emitBudgetExhausted(data: {
   engineEvents.emit('thought:budget-exhausted', data);
 }
 
+function createBudgetExhaustedPayload(args: {
+  session: Readonly<Session>;
+  tokenBudget: number;
+  generatedThoughts: number;
+  requestedThoughts: number;
+}): {
+  sessionId: string;
+  tokensUsed: number;
+  tokenBudget: number;
+  generatedThoughts: number;
+  requestedThoughts: number;
+} {
+  const { session, tokenBudget, generatedThoughts, requestedThoughts } = args;
+  return {
+    sessionId: session.id,
+    tokensUsed: session.tokensUsed,
+    tokenBudget,
+    generatedThoughts,
+    requestedThoughts,
+  };
+}
+
 function emitBudgetExhaustedIfNeeded(args: {
   session: Readonly<Session>;
   tokenBudget: number;
   generatedThoughts: number;
   requestedThoughts: number;
 }): boolean {
-  const { session, tokenBudget, generatedThoughts, requestedThoughts } = args;
+  const { session, tokenBudget } = args;
   if (session.tokensUsed < tokenBudget) {
     return false;
   }
 
-  emitBudgetExhausted({
-    sessionId: session.id,
-    tokensUsed: session.tokensUsed,
-    tokenBudget,
-    generatedThoughts,
-    requestedThoughts,
-  });
+  emitBudgetExhausted(createBudgetExhaustedPayload(args));
   return true;
 }
 

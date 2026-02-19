@@ -20,6 +20,8 @@ const ICON_MIME = 'image/svg+xml';
 const SERVER_NAME = 'cortex-mcp';
 const SERVER_TITLE = 'Cortex MCP';
 const SERVER_WEBSITE_URL = 'https://github.com/j0hanz/cortex-mcp';
+const RESOURCE_LIST_CHANGED_METHOD = 'resources/list_changed';
+const RESOURCE_UPDATED_METHOD = 'resources/updated';
 const SERVER_DESCRIPTION =
   'Multi-level reasoning MCP server with configurable depth levels.';
 const ICON_URL_CANDIDATES = [
@@ -121,7 +123,7 @@ function attachEngineEventHandlers(server: McpServer): () => void {
 
   const onResourcesChanged = (): void => {
     void server.server.sendResourceListChanged().catch((err: unknown) => {
-      logNotificationFailure('resources/list_changed', err);
+      logNotificationFailure(RESOURCE_LIST_CHANGED_METHOD, err);
     });
   };
 
@@ -129,7 +131,9 @@ function attachEngineEventHandlers(server: McpServer): () => void {
     void server.server
       .sendResourceUpdated({ uri: data.uri })
       .catch((err: unknown) => {
-        logNotificationFailure('resources/updated', err, { uri: data.uri });
+        logNotificationFailure(RESOURCE_UPDATED_METHOD, err, {
+          uri: data.uri,
+        });
       });
   };
 

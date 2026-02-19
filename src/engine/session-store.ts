@@ -106,9 +106,8 @@ export class SessionStore {
   }
 
   list(): Readonly<Session>[] {
-    const sessionIds = this.getSessionIdsForIteration();
     const sessions: Session[] = [];
-    for (const sessionId of sessionIds) {
+    for (const sessionId of this.getSessionIdsForIteration()) {
       const session = this.sessions.get(sessionId);
       if (session) {
         sessions.push(this.snapshotSession(session));
@@ -312,10 +311,7 @@ export class SessionStore {
 
     const node: SessionOrderNode = { prevId: undefined, nextId: undefined };
     if (this.newestSessionId) {
-      const newest = this.sessionOrder.get(this.newestSessionId);
-      if (newest) {
-        newest.nextId = sessionId;
-      }
+      this.setNextId(this.newestSessionId, sessionId);
       node.prevId = this.newestSessionId;
     } else {
       this.oldestSessionId = sessionId;
@@ -338,29 +334,20 @@ export class SessionStore {
 
     const { prevId, nextId } = node;
     if (prevId) {
-      const previous = this.sessionOrder.get(prevId);
-      if (previous) {
-        previous.nextId = nextId;
-      }
+      this.setNextId(prevId, nextId);
     } else {
       this.oldestSessionId = nextId;
     }
 
     if (nextId) {
-      const next = this.sessionOrder.get(nextId);
-      if (next) {
-        next.prevId = prevId;
-      }
+      this.setPrevId(nextId, prevId);
     }
 
     node.prevId = this.newestSessionId;
     node.nextId = undefined;
 
     if (this.newestSessionId) {
-      const newest = this.sessionOrder.get(this.newestSessionId);
-      if (newest) {
-        newest.nextId = sessionId;
-      }
+      this.setNextId(this.newestSessionId, sessionId);
     } else {
       this.oldestSessionId = sessionId;
     }
@@ -376,24 +363,32 @@ export class SessionStore {
 
     const { prevId, nextId } = node;
     if (prevId) {
-      const previous = this.sessionOrder.get(prevId);
-      if (previous) {
-        previous.nextId = nextId;
-      }
+      this.setNextId(prevId, nextId);
     } else {
       this.oldestSessionId = nextId;
     }
 
     if (nextId) {
-      const next = this.sessionOrder.get(nextId);
-      if (next) {
-        next.prevId = prevId;
-      }
+      this.setPrevId(nextId, prevId);
     } else {
       this.newestSessionId = prevId;
     }
 
     this.sessionOrder.delete(sessionId);
+  }
+
+  private setNextId(sessionId: string, nextId: string | undefined): void {
+    const node = this.sessionOrder.get(sessionId);
+    if (node) {
+      node.nextId = nextId;
+    }
+  }
+
+  private setPrevId(sessionId: string, prevId: string | undefined): void {
+    const node = this.sessionOrder.get(sessionId);
+    if (node) {
+      node.prevId = prevId;
+    }
   }
 
   private deleteSessionInternal(id: string): MutableSession | undefined {
@@ -430,11 +425,9 @@ export class SessionStore {
   }
 
   private snapshotSession(session: MutableSession): Session {
-    const thoughts: Thought[] = [];
-    for (const thought of session.thoughts) {
-      thoughts.push(this.snapshotThought(thought));
-    }
-
+    const thoughts = session.thoughts.map((thought) =>
+      this.snapshotThought(thought)
+    );
     return {
       id: session.id,
       level: session.level,

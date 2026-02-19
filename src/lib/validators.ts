@@ -35,9 +35,9 @@ export function getTargetThoughtsError(
     return 'targetThoughts must be an integer';
   }
 
-  const bounds = getThoughtBounds(level);
-  if (isOutOfBounds(targetThoughts, bounds)) {
-    return `targetThoughts must be between ${String(bounds.minThoughts)} and ${String(bounds.maxThoughts)} for level "${level}" (received ${String(targetThoughts)})`;
+  const levelBounds = getThoughtBounds(level);
+  if (isOutOfBounds(targetThoughts, levelBounds)) {
+    return `targetThoughts must be between ${String(levelBounds.minThoughts)} and ${String(levelBounds.maxThoughts)} for level "${level}" (received ${String(targetThoughts)})`;
   }
 
   return undefined;

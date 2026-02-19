@@ -105,6 +105,10 @@ function formatThoughtHeading(thought: Readonly<Thought>): string {
   return `𖦹 Thought [${String(thoughtNumber)}]${suffix}`;
 }
 
+function renderThoughtSection(thought: Readonly<Thought>): string {
+  return `${formatThoughtHeading(thought)}\n\n${thought.content}`;
+}
+
 function selectThoughts(
   allThoughts: readonly Thought[],
   range?: { start: number; end: number }
@@ -157,8 +161,7 @@ export function formatThoughtsToMarkdown(
 
   // --- Thought narrative ---
   for (const thought of thoughts) {
-    const heading = formatThoughtHeading(thought);
-    sections.push(`${heading}\n\n${thought.content}`);
+    sections.push(renderThoughtSection(thought));
   }
 
   return sections.join(TRACE_SEPARATOR);

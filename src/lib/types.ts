@@ -35,9 +35,9 @@ export interface SessionSummary extends SessionBase {
 }
 
 export interface LevelConfig {
-  minThoughts: number;
-  maxThoughts: number;
-  tokenBudget: number;
+  readonly minThoughts: number;
+  readonly maxThoughts: number;
+  readonly tokenBudget: number;
 }
 
 export interface IconMeta {

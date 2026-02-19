@@ -11,6 +11,7 @@ import type { IconMeta } from '../lib/types.js';
 type PromptLevel = 'basic' | 'normal' | 'high';
 const COMPLETION_LIMIT = 20;
 const LEVEL_VALUES: readonly PromptLevel[] = ['basic', 'normal', 'high'];
+const LEVEL_ENUM_SCHEMA = z.enum(LEVEL_VALUES);
 const LEVEL_TITLES: Readonly<Record<PromptLevel, string>> = {
   basic: 'Basic',
   normal: 'Normal',
@@ -134,9 +135,7 @@ export function registerAllPrompts(
           .max(10000)
           .describe('The original or modified query'),
         level: completable(
-          z
-            .enum(['basic', 'normal', 'high'])
-            .describe('The reasoning level to use'),
+          LEVEL_ENUM_SCHEMA.describe('The reasoning level to use'),
           (value) => completeLevel(value)
         ),
         targetThoughts: z
@@ -189,12 +188,9 @@ export function registerAllPrompts(
           .optional()
           .describe('Follow-up query for the existing session'),
         level: completable(
-          z
-            .enum(['basic', 'normal', 'high'])
-            .optional()
-            .describe(
-              'Optional in the tool; session level is used if provided'
-            ),
+          LEVEL_ENUM_SCHEMA.optional().describe(
+            'Optional in the tool; session level is used if provided'
+          ),
           (value) => completeLevel(value ?? '')
         ),
         targetThoughts: z

@@ -83,8 +83,7 @@ function truncateByGrapheme(
  */
 export function truncateByUtf8Boundary(str: string, maxBytes: number): string {
   const safeMaxBytes = clampNonNegative(maxBytes);
-  const byteLength = utf8ByteLength(str);
-  if (byteLength <= safeMaxBytes) {
+  if (utf8ByteLength(str) <= safeMaxBytes) {
     return str;
   }
   if (safeMaxBytes === 0) {

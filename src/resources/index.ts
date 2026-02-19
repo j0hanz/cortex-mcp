@@ -142,6 +142,10 @@ const MAX_COMPLETION_RESULTS = 20;
 const completionCache = new Map<string, CompletionCacheEntry>();
 let lastCompletionCachePruneAt = 0;
 
+function toIsoTimestamp(unixMs: number): string {
+  return new Date(unixMs).toISOString();
+}
+
 function pruneCompletionCacheIfNeeded(now: number): void {
   if (now - lastCompletionCachePruneAt < COMPLETION_CACHE_TTL_MS) {
     return;
@@ -284,7 +288,7 @@ export function registerAllResources(
           description: `${session.level} session trace with ${String(session.generatedThoughts)} thought(s).`,
           mimeType: 'text/markdown',
           annotations: {
-            lastModified: new Date(session.updatedAt).toISOString(),
+            lastModified: toIsoTimestamp(session.updatedAt),
           },
         })),
       }),
@@ -308,7 +312,7 @@ export function registerAllResources(
             mimeType: 'text/markdown',
             text: formatThoughtsToMarkdown(session),
             annotations: {
-              lastModified: new Date(session.updatedAt).toISOString(),
+              lastModified: toIsoTimestamp(session.updatedAt),
             },
           },
         ],
@@ -369,7 +373,7 @@ export function registerAllResources(
               end: index,
             }),
             annotations: {
-              lastModified: new Date(session.updatedAt).toISOString(),
+              lastModified: toIsoTimestamp(session.updatedAt),
             },
           },
         ],
@@ -392,7 +396,7 @@ export function registerAllResources(
           annotations: {
             audience: ['assistant', 'user'],
             priority: 0.8,
-            lastModified: new Date(session.updatedAt).toISOString(),
+            lastModified: toIsoTimestamp(session.updatedAt),
           },
         })),
       }),

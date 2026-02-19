@@ -7,6 +7,7 @@ import { createServer } from './server.js';
 
 const FATAL_SHUTDOWN_REASON = 'fatal error';
 type ShutdownSignal = 'SIGTERM' | 'SIGINT';
+const SHUTDOWN_SIGNALS: readonly ShutdownSignal[] = ['SIGTERM', 'SIGINT'];
 
 let activeServer: ReturnType<typeof createServer> | undefined;
 let shutdownPromise: Promise<void> | undefined;
@@ -28,8 +29,9 @@ async function main(): Promise<void> {
 }
 
 function registerShutdownSignals(): void {
-  registerShutdownSignal('SIGTERM');
-  registerShutdownSignal('SIGINT');
+  for (const signal of SHUTDOWN_SIGNALS) {
+    registerShutdownSignal(signal);
+  }
 }
 
 async function shutdown(exitCode: number, reason: string): Promise<void> {

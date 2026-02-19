@@ -6,20 +6,20 @@ import type { ReasoningLevel } from '../lib/types.js';
 const ENGINE_ERROR_LOG_PREFIX = '[engine]';
 const ENGINE_ERROR_PREFIX_WITH_SPACE = `${ENGINE_ERROR_LOG_PREFIX} `;
 
+interface ThoughtBudgetExhaustedPayload {
+  sessionId: string;
+  tokensUsed: number;
+  tokenBudget: number;
+  generatedThoughts: number;
+  requestedThoughts: number;
+}
+
 interface EngineEvents {
   'thought:added': [{ sessionId: string; index: number; content: string }];
   'thought:revised': [
     { sessionId: string; index: number; content: string; revision: number },
   ];
-  'thought:budget-exhausted': [
-    {
-      sessionId: string;
-      tokensUsed: number;
-      tokenBudget: number;
-      generatedThoughts: number;
-      requestedThoughts: number;
-    },
-  ];
+  'thought:budget-exhausted': [ThoughtBudgetExhaustedPayload];
   'session:created': [{ sessionId: string; level: ReasoningLevel }];
   'session:expired': [{ sessionId: string }];
   'session:evicted': [{ sessionId: string; reason: string }];

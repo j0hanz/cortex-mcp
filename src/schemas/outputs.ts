@@ -6,6 +6,8 @@ const ErrorInfoSchema = z.strictObject({
 });
 const MISSING_RESULT_PATH: ['result'] = ['result'];
 const MISSING_ERROR_PATH: ['error'] = ['error'];
+const LEVEL_VALUES = ['basic', 'normal', 'high'] as const;
+const STATUS_VALUES = ['active', 'completed', 'cancelled'] as const;
 const ThoughtSchema = z.strictObject({
   index: z.number(),
   content: z.string(),
@@ -22,8 +24,8 @@ const ReasoningThinkSuccessSchema = z.strictObject({
   ok: z.literal(true),
   result: z.strictObject({
     sessionId: z.string(),
-    level: z.enum(['basic', 'normal', 'high']),
-    status: z.enum(['active', 'completed', 'cancelled']),
+    level: z.enum(LEVEL_VALUES),
+    status: z.enum(STATUS_VALUES),
     thoughts: z.array(ThoughtSchema),
     generatedThoughts: z.number(),
     requestedThoughts: z.number(),

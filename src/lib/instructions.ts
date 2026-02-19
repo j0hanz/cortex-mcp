@@ -25,9 +25,11 @@ export function loadInstructions(
 
   try {
     cachedInstructionsText = readFileSync(INSTRUCTIONS_URL, 'utf8');
-    return resolveInstructionsText(cachedInstructionsText, fallback);
   } catch {
     instructionsLoadFailed = true;
-    return fallback;
   }
+
+  return cachedInstructionsText
+    ? resolveInstructionsText(cachedInstructionsText, fallback)
+    : fallback;
 }

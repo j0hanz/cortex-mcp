@@ -56,8 +56,9 @@ export function createErrorResponse(
   message: string
 ): ErrorResponse {
   const structured = { ok: false as const, error: { code, message } };
+  const text = JSON.stringify(structured);
   return {
-    content: [{ type: 'text' as const, text: JSON.stringify(structured) }],
+    content: [{ type: 'text' as const, text }],
     structuredContent: structured,
     isError: true as const,
   };

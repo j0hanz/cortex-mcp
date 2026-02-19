@@ -780,6 +780,10 @@ function getTaskId(extra: ReasoningTaskExtra): string {
 
 const TOOL_NAME = 'reasoning_think';
 
+function withIconMeta(iconMeta?: IconMeta): { icons: IconMeta[] } | undefined {
+  return iconMeta ? { icons: [iconMeta] } : undefined;
+}
+
 export function registerReasoningThinkTool(
   server: McpServer,
   iconMeta?: IconMeta
@@ -805,16 +809,7 @@ export function registerReasoningThinkTool(
         idempotentHint: false,
       },
       execution: { taskSupport: 'optional' },
-      ...(iconMeta
-        ? {
-            icons: [
-              {
-                src: iconMeta.src,
-                mimeType: iconMeta.mimeType,
-              },
-            ],
-          }
-        : {}),
+      ...(withIconMeta(iconMeta) ?? {}),
     },
     {
       async createTask(rawParams, rawExtra) {
@@ -832,18 +827,27 @@ export function registerReasoningThinkTool(
           throw new Error(TASK_OVERLOAD_MESSAGE);
         }
 
-        const task = await extra.taskStore
-          .createTask({
+        let task: Task;
+        try {
+          task = await extra.taskStore.createTask({
             ttl: extra.taskRequestedTtl ?? null,
             pollInterval: 500,
-          })
-          .catch((error: unknown) => {
-            reasoningTaskLimiter.release();
-            throw error;
           });
+        } catch (error) {
+          reasoningTaskLimiter.release();
+          throw error;
+        }
 
         const controller = createCancellationController(extra.signal);
-        const runReasoningArgs: Parameters<typeof runReasoningTask>[0] = {
+        const runReasoningArgs: {
+          server: McpServer;
+          taskStore: TaskStoreLike;
+          taskId: string;
+          params: ReasoningThinkInput;
+          progressToken?: ProgressToken;
+          controller: AbortController;
+          sessionId?: string;
+        } = {
           server,
           taskStore: extra.taskStore,
           taskId: task.taskId,
