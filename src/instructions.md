@@ -99,7 +99,7 @@ These instructions are available as a resource (internal://instructions) or prom
   - `runMode` (enum: `step` | `run_to_completion`, optional): Execution mode. Defaults to `step`.
   - `thought` (string, 1–100,000 chars, **required**): Your full reasoning content for this step. The server stores this text verbatim as the thought in the session trace. Write your complete analysis, observations, and conclusions here — this is what appears in trace.md.
   - `thoughts` (array of string, optional): Additional thought inputs consumed in order when `runMode` is `run_to_completion`.
-  - `targetThoughts` (int, 1–25, optional): Override automatic step count. Must fit within the level range.
+  - `targetThoughts` (int, 1–25, optional): Override automatic step count. Must fit within the level's min/max range.
   - `sessionId` (string, 1–128 chars, optional): Continue an existing session. Level must match.
 - Output: `{ ok, result: { sessionId, level, status, thoughts[], generatedThoughts, requestedThoughts, totalThoughts, remainingThoughts, tokenBudget, tokensUsed, ttlMs, expiresAt, createdAt, updatedAt, summary } }`
 - Side effects: Creates or modifies an in-memory session. Sessions expire after 30 minutes of inactivity.
@@ -144,4 +144,5 @@ These instructions are available as a resource (internal://instructions) or prom
 - `E_INSUFFICIENT_THOUGHTS`: In `run_to_completion`, the request did not provide enough thought inputs for planned remaining steps.
 - `E_INVALID_RUN_MODE_ARGS`: Invalid `runMode` argument combination (for example, missing `targetThoughts` when starting a new run-to-completion session).
 - `E_ABORTED`: Reasoning was cancelled via abort signal or task cancellation. Retry with a new request if needed.
+- `E_SERVER_BUSY`: Too many concurrent task-mode reasoning calls (default cap: 32). Retry after a short delay, or use normal (non-task) invocation.
 - `E_REASONING`: Unexpected engine error. Check the error `message` field for details and retry.
