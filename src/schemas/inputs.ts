@@ -54,6 +54,7 @@ export const ReasoningThinkInputSchema = z
       ),
     thought: z
       .union([THOUGHT_TEXT_SCHEMA, THOUGHT_BATCH_SCHEMA])
+      .optional()
       .describe(
         'Your full reasoning content for this step. ' +
           'The server stores this text verbatim as the thought in the session trace. ' +
@@ -67,6 +68,38 @@ export const ReasoningThinkInputSchema = z
       .describe(
         '(Deprecated) Optional additional thought inputs. Use "thought" as an array instead.'
       ),
+    is_conclusion: z
+      .boolean()
+      .optional()
+      .describe(
+        'Set to true if you have arrived at the final answer and wish to end the reasoning session early.'
+      ),
+    rollback_to_step: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        'Set to a thought index (0-based) to rollback to. All thoughts after this index will be discarded.'
+      ),
+    step_summary: z
+      .string()
+      .optional()
+      .describe(
+        'A 1-sentence summary of the conclusion reached in this specific step.'
+      ),
+    observation: z
+      .string()
+      .optional()
+      .describe('What facts are known at this step?'),
+    hypothesis: z
+      .string()
+      .optional()
+      .describe('What is the proposed idea or next logical leap?'),
+    evaluation: z
+      .string()
+      .optional()
+      .describe('Critique the hypothesis. Are there flaws?'),
   })
   .superRefine((data, ctx) => {
     const runMode = data.runMode ?? DEFAULT_RUN_MODE;
@@ -112,6 +145,20 @@ export const ReasoningThinkInputSchema = z
         ctx,
         ['thoughts'],
         'thoughts is only allowed when runMode is "run_to_completion"'
+      );
+    }
+
+    const hasThought = data.thought !== undefined;
+    const hasStructured =
+      data.observation !== undefined &&
+      data.hypothesis !== undefined &&
+      data.evaluation !== undefined;
+
+    if (!hasThought && !hasStructured && data.rollback_to_step === undefined) {
+      addCustomIssue(
+        ctx,
+        ['thought'],
+        'Either "thought" or structured fields ("observation", "hypothesis", "evaluation") are required, unless rolling back.'
       );
     }
 

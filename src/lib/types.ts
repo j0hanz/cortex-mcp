@@ -24,6 +24,7 @@ export interface Thought {
   readonly index: number;
   readonly content: string;
   readonly revision: number;
+  readonly stepSummary?: string;
 }
 
 export interface Session extends SessionBase {

@@ -158,7 +158,11 @@ export class SessionStore {
     return true;
   }
 
-  addThought(sessionId: string, content: string): Thought {
+  addThought(
+    sessionId: string,
+    content: string,
+    stepSummary?: string
+  ): Thought {
     const session = this.sessions.get(sessionId);
     if (!session) {
       throw new Error(`Session not found: ${sessionId}`);
@@ -169,12 +173,38 @@ export class SessionStore {
       index: session.thoughts.length,
       content,
       revision: 0,
+      ...(stepSummary !== undefined ? { stepSummary } : {}),
     };
     session.thoughts.push(thought);
     session.tokensUsed += tokens;
     this.totalTokens += tokens;
     this.markSessionTouched(session);
     return this.snapshotThought(thought);
+  }
+
+  rollback(sessionId: string, toIndex: number): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+
+    // If toIndex is out of bounds or implies no change, return.
+    // We keep thoughts up to and including toIndex.
+    if (toIndex < 0 || toIndex >= session.thoughts.length - 1) {
+      return;
+    }
+
+    const removedThoughts = session.thoughts.slice(toIndex + 1);
+    session.thoughts = session.thoughts.slice(0, toIndex + 1);
+
+    let removedTokens = 0;
+    for (const t of removedThoughts) {
+      removedTokens += estimateTokens(t.content);
+    }
+
+    session.tokensUsed -= removedTokens;
+    this.totalTokens -= removedTokens;
+    this.markSessionTouched(session);
   }
 
   reviseThought(
@@ -421,6 +451,9 @@ export class SessionStore {
       index: thought.index,
       content: thought.content,
       revision: thought.revision,
+      ...(thought.stepSummary !== undefined
+        ? { stepSummary: thought.stepSummary }
+        : {}),
     };
   }
 

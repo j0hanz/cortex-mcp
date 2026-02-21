@@ -284,7 +284,9 @@ function resolveRunMode(params: ReasoningThinkInput): ReasoningRunMode {
 function buildThoughtInputs(params: ReasoningThinkInput): string[] {
   const primary = Array.isArray(params.thought)
     ? params.thought
-    : [params.thought];
+    : params.thought
+      ? [params.thought]
+      : [];
   return [...primary, ...(params.thoughts ?? [])];
 }
 
@@ -318,6 +320,12 @@ async function executeReasoningSteps(args: {
   runMode: ReasoningRunMode;
   thoughtInputs: string[];
   onProgress: (progress: number, total: number) => Promise<void>;
+  observation?: string;
+  hypothesis?: string;
+  evaluation?: string;
+  stepSummary?: string;
+  isConclusion?: boolean;
+  rollbackToStep?: number;
 }): Promise<Readonly<Session>> {
   const {
     taskStore,
@@ -330,31 +338,74 @@ async function executeReasoningSteps(args: {
     runMode,
     thoughtInputs,
     onProgress,
+    observation,
+    hypothesis,
+    evaluation,
+    stepSummary,
+    isConclusion,
+    rollbackToStep,
   } = args;
 
   let activeSessionId = sessionId;
   let session: Readonly<Session> | undefined;
-  const maxSteps = runMode === 'step' ? 1 : thoughtInputs.length;
+  let maxSteps = runMode === 'step' ? 1 : thoughtInputs.length;
+
+  if (
+    maxSteps === 0 &&
+    (observation ||
+      hypothesis ||
+      evaluation ||
+      isConclusion ||
+      rollbackToStep !== undefined)
+  ) {
+    maxSteps = 1;
+  }
 
   for (let index = 0; index < maxSteps; index++) {
     await ensureTaskIsActive(taskStore, taskId, controller);
 
     const inputThought = thoughtInputs[index];
-    if (inputThought === undefined) {
+    // Break if no thought and no structured input (only valid for first step if structured)
+    if (
+      inputThought === undefined &&
+      (index > 0 ||
+        (!observation &&
+          !hypothesis &&
+          !evaluation &&
+          !isConclusion &&
+          rollbackToStep === undefined))
+    ) {
       break;
     }
 
     const reasonOptions: {
       sessionId?: string;
       targetThoughts?: number;
-      thought: string;
+      thought?: string;
       abortSignal: AbortSignal;
       onProgress: (progress: number, total: number) => Promise<void>;
+      observation?: string;
+      hypothesis?: string;
+      evaluation?: string;
+      stepSummary?: string;
+      isConclusion?: boolean;
+      rollbackToStep?: number;
     } = {
-      thought: inputThought,
+      ...(inputThought !== undefined ? { thought: inputThought } : {}),
       abortSignal: controller.signal,
       onProgress,
     };
+
+    if (index === 0) {
+      if (observation !== undefined) reasonOptions.observation = observation;
+      if (hypothesis !== undefined) reasonOptions.hypothesis = hypothesis;
+      if (evaluation !== undefined) reasonOptions.evaluation = evaluation;
+      if (stepSummary !== undefined) reasonOptions.stepSummary = stepSummary;
+      if (isConclusion !== undefined) reasonOptions.isConclusion = isConclusion;
+      if (rollbackToStep !== undefined)
+        reasonOptions.rollbackToStep = rollbackToStep;
+    }
+
     if (activeSessionId !== undefined) {
       reasonOptions.sessionId = activeSessionId;
     }
@@ -423,9 +474,29 @@ function buildSummary(
   if (session.status === 'cancelled') {
     return `Session cancelled at thought ${String(session.thoughts.length)}/${String(session.totalThoughts)}. Session ${session.id}.`;
   }
+
+  const recentSummaries = session.thoughts
+    .filter((t) => t.stepSummary)
+    .slice(-3)
+    .map((t) => `Step ${t.index + 1}: ${t.stepSummary ?? ''}`)
+    .join('; ');
+  const summaryText = recentSummaries
+    ? `Summary so far: ${recentSummaries}. `
+    : '';
+
+  const progress = session.thoughts.length / session.totalThoughts;
+  let prompt = 'Synthesize your findings toward a final conclusion.';
+  if (progress < 0.3) {
+    prompt = 'Focus on gathering facts and identifying unknowns.';
+  } else if (progress < 0.7) {
+    prompt = 'Formulate and critique hypotheses based on the facts.';
+  }
+
   return (
-    `CONTINUE: Call reasoning_think with { sessionId: "${session.id}", level: "${session.level}", thought: "<your next reasoning step>" }. ` +
-    `Progress: ${String(session.thoughts.length)}/${String(session.totalThoughts)} thoughts, ${String(remainingThoughts)} remaining.`
+    `CONTINUE: ${prompt} Call reasoning_think with { sessionId: "${session.id}", level: "${session.level}", thought: "<your next reasoning step>" }. ` +
+    `${summaryText}Progress: ${String(session.thoughts.length)}/${String(
+      session.totalThoughts
+    )} thoughts, ${String(remainingThoughts)} remaining.`
   );
 }
 
@@ -596,6 +667,24 @@ function assertRunToCompletionInputCount(
   }
 }
 
+function getActionableMessage(
+  errorCode: string,
+  originalMessage: string
+): string {
+  switch (errorCode) {
+    case 'E_SESSION_LEVEL_MISMATCH':
+      return `${originalMessage} ACTION REQUIRED: Re-call reasoning_think with the correct level matching the session.`;
+    case 'E_INVALID_THOUGHT_COUNT':
+      return `${originalMessage} ACTION REQUIRED: Ensure targetThoughts is within the level's range.`;
+    case 'E_INSUFFICIENT_THOUGHTS':
+      return `${originalMessage} ACTION REQUIRED: Provide enough thoughts for run_to_completion or switch to step mode.`;
+    case 'E_INVALID_RUN_MODE_ARGS':
+      return `${originalMessage} ACTION REQUIRED: Provide targetThoughts when starting a new session in run_to_completion mode.`;
+    default:
+      return originalMessage;
+  }
+}
+
 async function handleTaskFailure(args: {
   server: McpServer;
   taskStore: TaskStoreLike;
@@ -604,8 +693,9 @@ async function handleTaskFailure(args: {
   error: unknown;
 }): Promise<void> {
   const { server, taskStore, taskId, sessionId, error } = args;
-  const message = getErrorMessage(error);
-  const errorCode = mapReasoningErrorCode(message);
+  const originalMessage = getErrorMessage(error);
+  const errorCode = mapReasoningErrorCode(originalMessage);
+  const message = getActionableMessage(errorCode, originalMessage);
   const response = createErrorResponse(errorCode, message);
 
   if (await isTaskCancelled(taskStore, taskId)) {
@@ -717,6 +807,19 @@ async function runReasoningTask(args: {
     if (targetThoughts !== undefined) {
       executeArgs.targetThoughts = targetThoughts;
     }
+    if (params.observation !== undefined)
+      executeArgs.observation = params.observation;
+    if (params.hypothesis !== undefined)
+      executeArgs.hypothesis = params.hypothesis;
+    if (params.evaluation !== undefined)
+      executeArgs.evaluation = params.evaluation;
+    if (params.step_summary !== undefined)
+      executeArgs.stepSummary = params.step_summary;
+    if (params.is_conclusion !== undefined)
+      executeArgs.isConclusion = params.is_conclusion;
+    if (params.rollback_to_step !== undefined)
+      executeArgs.rollbackToStep = params.rollback_to_step;
+
     const session = await executeReasoningSteps(executeArgs);
 
     if (await isTaskCancelled(taskStore, taskId)) {

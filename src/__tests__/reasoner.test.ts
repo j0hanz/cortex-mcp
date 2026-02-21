@@ -48,7 +48,8 @@ describe('reason', () => {
 
   it('rejects when thought is missing', async () => {
     await assert.rejects(() => reason('test', 'basic'), {
-      message: 'thought is required: provide your reasoning content',
+      message:
+        'Either thought (or observation/hypothesis/evaluation) or rollback_to_step is required',
     });
   });
 

@@ -45,7 +45,13 @@ export { sessionStore };
 interface ReasonOptions {
   sessionId?: string;
   targetThoughts?: number;
-  thought: string;
+  thought?: string;
+  observation?: string;
+  hypothesis?: string;
+  evaluation?: string;
+  stepSummary?: string;
+  isConclusion?: boolean;
+  rollbackToStep?: number;
   abortSignal?: AbortSignal;
   onProgress?: (progress: number, total: number) => void | Promise<void>;
 }
@@ -55,11 +61,31 @@ export async function reason(
   level: ReasoningLevel | undefined,
   options?: ReasonOptions
 ): Promise<Readonly<Session>> {
-  if (!options?.thought) {
-    throw new Error('thought is required: provide your reasoning content');
+  const {
+    sessionId,
+    targetThoughts,
+    thought,
+    observation,
+    hypothesis,
+    evaluation,
+    stepSummary,
+    isConclusion,
+    rollbackToStep,
+    abortSignal,
+    onProgress,
+  } = options ?? {};
+
+  const hasContent =
+    thought !== undefined ||
+    (observation !== undefined &&
+      hypothesis !== undefined &&
+      evaluation !== undefined);
+
+  if (!hasContent && rollbackToStep === undefined) {
+    throw new Error(
+      'Either thought (or observation/hypothesis/evaluation) or rollback_to_step is required'
+    );
   }
-  const { sessionId, targetThoughts, thought, abortSignal, onProgress } =
-    options;
 
   const session = resolveSession(level, sessionId, query, targetThoughts);
   const config = getLevelConfig(session.level);
@@ -71,7 +97,26 @@ export async function reason(
       withSessionLock(session.id, async () => {
         throwIfReasoningAborted(abortSignal);
 
+        if (rollbackToStep !== undefined) {
+          sessionStore.rollback(session.id, rollbackToStep);
+        }
+
         const current = getSessionOrThrow(session.id);
+
+        // If we rolled back, update current state.
+        // If purely rolling back without adding thought, check if we need to return early?
+        // But usually we rollback AND maybe add new thought, or just return state.
+
+        let content = thought;
+        if (!content && observation) {
+          content = `**Observation:** ${observation}\n\n**Hypothesis:** ${hypothesis ?? ''}\n\n**Evaluation:** ${evaluation ?? ''}`;
+        }
+
+        if (!content) {
+          // Only rollback occurred
+          return current;
+        }
+
         if (
           emitBudgetExhaustedIfNeeded({
             session: current,
@@ -84,11 +129,26 @@ export async function reason(
         }
 
         const nextIndex = current.thoughts.length;
-        if (nextIndex >= totalThoughts) {
-          return current;
+        // If we are already at or past totalThoughts, and NOT concluding, maybe we should stop?
+        // But if user forces more thoughts, we usually respect it unless hard limit?
+        // The original code checked:
+        if (nextIndex >= totalThoughts && !isConclusion) {
+          // If we are concluding, we might allow one last thought even if over?
+          // Or strict limit?
+          // Original: if (nextIndex >= totalThoughts) return current;
+          // I'll keep strict limit for now, unless extended.
+          // But if `targetThoughts` was updated (not allowed on existing), we might be stuck.
+          // Assume normal flow.
+          if (nextIndex >= totalThoughts) {
+            return current;
+          }
         }
 
-        const addedThought = sessionStore.addThought(session.id, thought);
+        const addedThought = sessionStore.addThought(
+          session.id,
+          content,
+          stepSummary
+        );
         engineEvents.emit('thought:added', {
           sessionId: session.id,
           index: addedThought.index,
@@ -103,7 +163,7 @@ export async function reason(
           requestedThoughts: totalThoughts,
         });
 
-        if (updated.thoughts.length >= totalThoughts) {
+        if (isConclusion || updated.thoughts.length >= totalThoughts) {
           sessionStore.markCompleted(session.id);
         }
 
