@@ -38,7 +38,6 @@
   ],
   "scripts": {
     "clean": "node scripts/tasks.mjs clean",
-    "validate:instructions": "node scripts/tasks.mjs validate:instructions",
     "build": "node scripts/tasks.mjs build",
     "copy:assets": "node scripts/tasks.mjs copy:assets",
     "prepare": "npm run build",
@@ -47,20 +46,19 @@
     "start": "node dist/index.js",
     "format": "prettier --write .",
     "type-check": "node scripts/tasks.mjs type-check",
-    "type-check:tests": "tsc --noEmit -p tsconfig.tests.json",
+    "type-check:src": "node node_modules/typescript/bin/tsc -p tsconfig.json --noEmit",
+    "type-check:tests": "node node_modules/typescript/bin/tsc -p tsconfig.test.json --noEmit",
     "type-check:diagnostics": "tsc --noEmit --extendedDiagnostics",
     "type-check:trace": "node -e \"require('fs').rmSync('.ts-trace',{recursive:true,force:true})\" && tsc --noEmit --generateTrace .ts-trace",
     "lint": "eslint .",
-    "lint:tests": "eslint --no-ignore src/__tests__/**/*.test.ts",
     "lint:fix": "eslint . --fix",
-    "check:docs:mcp": "node scripts/check-mcp-docs-quality.mjs",
     "test": "node scripts/tasks.mjs test",
-    "test:fast": "node --test --import tsx/esm src/__tests__/**/*.test.ts",
+    "test:fast": "node --test --import tsx/esm src/__tests__/**/*.test.ts node-tests/**/*.test.ts",
     "test:coverage": "node scripts/tasks.mjs test --coverage",
     "knip": "knip",
     "knip:fix": "knip --fix",
-    "inspector": "npm run build && npx -y @modelcontextprotocol/inspector node dist/index.js ${workspaceFolder}",
-    "prepublishOnly": "npm run lint && npm run lint:tests && npm run type-check && npm run type-check:tests && npm run build"
+    "inspector": "npm run build && npx -y @modelcontextprotocol/inspector node dist/index.js",
+    "prepublishOnly": "npm run lint && npm run type-check && npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",

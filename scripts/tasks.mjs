@@ -14,7 +14,6 @@ const CONFIG = {
   paths: {
     dist: 'dist',
     assets: 'assets',
-    instructions: 'src/instructions.md',
     executable: 'dist/index.js',
     tsBuildInfo: [
       '.tsbuildinfo',
@@ -24,16 +23,18 @@ const CONFIG = {
     get distAssets() {
       return join(this.dist, 'assets');
     },
-    get distInstructions() {
-      return join(this.dist, 'instructions.md');
-    },
   },
   commands: {
     tsc: ['node', [BIN.tsc, '-p', 'tsconfig.build.json']],
-    tscCheck: ['node', [BIN.tsc, '-p', 'tsconfig.json', '--noEmit']],
+    tscCheckSrc: ['node', [BIN.tsc, '-p', 'tsconfig.json', '--noEmit']],
+    tscCheckTests: ['node', [BIN.tsc, '-p', 'tsconfig.test.json', '--noEmit']],
   },
   test: {
-    patterns: ['src/__tests__/**/*.test.ts', 'tests/**/*.test.ts'],
+    patterns: [
+      'src/__tests__/**/*.test.ts',
+      'tests/**/*.test.ts',
+      'node-tests/**/*.test.ts',
+    ],
   },
 };
 
@@ -113,15 +114,8 @@ const BuildTasks = {
     await System.exec(cmd, args);
   },
 
-  async validate() {
-    if (!(await System.exists(CONFIG.paths.instructions))) {
-      throw new Error(`Missing ${CONFIG.paths.instructions}`);
-    }
-  },
-
   async assets() {
     await System.makeDir(CONFIG.paths.dist);
-    await System.copy(CONFIG.paths.instructions, CONFIG.paths.distInstructions);
 
     if (await System.exists(CONFIG.paths.assets)) {
       await System.copy(CONFIG.paths.assets, CONFIG.paths.distAssets, {
@@ -164,7 +158,11 @@ async function findTestPatterns() {
 const TestTasks = {
   async typeCheck() {
     await Runner.runShellTask('Type-checking src', async () => {
-      const [cmd, args] = CONFIG.commands.tscCheck;
+      const [cmd, args] = CONFIG.commands.tscCheckSrc;
+      await System.exec(cmd, args);
+    });
+    await Runner.runShellTask('Type-checking tests', async () => {
+      const [cmd, args] = CONFIG.commands.tscCheckTests;
       await System.exec(cmd, args);
     });
   },
@@ -227,7 +225,6 @@ const Pipeline = {
 
     await Runner.runTask('Cleaning dist', BuildTasks.clean);
     await Runner.runShellTask('Compiling TypeScript', BuildTasks.compile);
-    await Runner.runTask('Validating instructions', BuildTasks.validate);
     await Runner.runTask('Copying assets', BuildTasks.assets);
     await Runner.runTask('Making executable', BuildTasks.makeExecutable);
 
@@ -244,8 +241,6 @@ const CLI = {
   routes: {
     clean: () => Runner.runTask('Cleaning', BuildTasks.clean),
     'copy:assets': () => Runner.runTask('Copying assets', BuildTasks.assets),
-    'validate:instructions': () =>
-      Runner.runTask('Validating instructions', BuildTasks.validate),
     'make-executable': () =>
       Runner.runTask('Making executable', BuildTasks.makeExecutable),
     build: Pipeline.fullBuild,
