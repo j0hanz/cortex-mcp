@@ -5,9 +5,13 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import { sessionStore } from '../engine/reasoner.js';
 
-import { buildServerInstructions } from '../resources/instructions.js';
+import {
+  getPromptContracts,
+  type PromptContract,
+} from '../lib/prompt-contracts.js';
 import type { IconMeta } from '../lib/types.js';
-import { getPromptContracts, type PromptContract } from '../lib/prompt-contracts.js';
+
+import { buildServerInstructions } from '../resources/instructions.js';
 
 type PromptLevel = 'basic' | 'normal' | 'high';
 const COMPLETION_LIMIT = 20;

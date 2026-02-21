@@ -36,7 +36,8 @@ export function getPromptContracts(): PromptContract[] {
         {
           name: 'targetThoughts',
           type: z.number().int().min(1).max(25),
-          description: 'Optional exact step count within the selected level range (max 25)',
+          description:
+            'Optional exact step count within the selected level range (max 25)',
           required: false,
         },
       ],
@@ -55,7 +56,8 @@ export function getPromptContracts(): PromptContract[] {
         {
           name: 'targetThoughts',
           type: z.number().int().min(1).max(25),
-          description: 'Optional exact step count within the selected level range (max 25)',
+          description:
+            'Optional exact step count within the selected level range (max 25)',
           required: false,
         },
       ],
@@ -74,7 +76,8 @@ export function getPromptContracts(): PromptContract[] {
         {
           name: 'targetThoughts',
           type: z.number().int().min(1).max(25),
-          description: 'Optional exact step count within the selected level range (max 25)',
+          description:
+            'Optional exact step count within the selected level range (max 25)',
           required: false,
         },
       ],
@@ -82,7 +85,8 @@ export function getPromptContracts(): PromptContract[] {
     {
       name: 'reasoning.continue',
       title: 'Continue Reasoning',
-      description: 'Continue an existing reasoning session (follow-up query optional).',
+      description:
+        'Continue an existing reasoning session (follow-up query optional).',
       args: [
         {
           name: 'sessionId',
@@ -99,13 +103,15 @@ export function getPromptContracts(): PromptContract[] {
         {
           name: 'level',
           type: z.enum(['basic', 'normal', 'high']),
-          description: 'Optional in the tool; session level is used if provided',
+          description:
+            'Optional in the tool; session level is used if provided',
           required: false,
         },
         {
           name: 'targetThoughts',
           type: z.number().int().min(1).max(25),
-          description: 'Optional exact step count within the selected level range (max 25)',
+          description:
+            'Optional exact step count within the selected level range (max 25)',
           required: false,
         },
       ],

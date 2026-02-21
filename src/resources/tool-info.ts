@@ -8,12 +8,18 @@ interface ToolEntry {
   purpose: string;
 }
 
-function toEntry(contract: ReturnType<typeof getToolContracts>[number]): ToolEntry {
+function toEntry(
+  contract: ReturnType<typeof getToolContracts>[number]
+): ToolEntry {
   return {
     name: contract.name,
     model: contract.model,
-    timeout: contract.timeoutMs > 0 ? `${Math.round(contract.timeoutMs / 1_000)}s` : 'N/A',
-    maxOutputTokens: contract.maxOutputTokens > 0 ? String(contract.maxOutputTokens) : 'N/A',
+    timeout:
+      contract.timeoutMs > 0
+        ? `${Math.round(contract.timeoutMs / 1_000)}s`
+        : 'N/A',
+    maxOutputTokens:
+      contract.maxOutputTokens > 0 ? String(contract.maxOutputTokens) : 'N/A',
     purpose: contract.purpose,
   };
 }
@@ -41,7 +47,7 @@ export function getSharedConstraints(): string[] {
     'Token budget enforcement is approximate (character-based proxy, not true tokenization).',
     'stdio transport only — no HTTP endpoint available.',
     'Every thought in the trace contains LLM-authored reasoning content provided via the `thought` parameter.',
-    'targetThoughts must be an integer within the level\'s min/max range.',
+    "targetThoughts must be an integer within the level's min/max range.",
     'Session store limits are configurable via CORTEX_SESSION_TTL_MS, CORTEX_MAX_SESSIONS, and CORTEX_MAX_TOTAL_TOKENS.',
   ];
 }

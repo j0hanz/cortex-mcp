@@ -1,10 +1,18 @@
-import { getToolContracts } from '../lib/tool-contracts.js';
 import { getPromptContracts } from '../lib/prompt-contracts.js';
+import { getToolContracts } from '../lib/tool-contracts.js';
+
 import { getSharedConstraints } from './tool-info.js';
 
-function formatParam(p: { name: string; type: string; required: boolean; constraints: string }): string {
+function formatParam(p: {
+  name: string;
+  type: string;
+  required: boolean;
+  constraints: string;
+}): string {
   const req = p.required ? 'required' : 'optional';
-  const desc = p.constraints ? ` (${p.type}, ${req}; ${p.constraints})` : ` (${p.type}, ${req})`;
+  const desc = p.constraints
+    ? ` (${p.type}, ${req}; ${p.constraints})`
+    : ` (${p.type}, ${req})`;
   return `- \`${p.name}\`${desc}`;
 }
 
@@ -15,14 +23,16 @@ function formatPrompt(p: { name: string; description: string }): string {
 export function buildServerInstructions(): string {
   const toolContracts = getToolContracts();
   const promptContracts = getPromptContracts();
-  
+
   const toolSections = toolContracts.map((c) => {
     const params = c.params.map(formatParam).join('\n');
     return `### \`${c.name}\`\n- Purpose: ${c.purpose}\n- Model: \`${c.model}\`\n- Parameters:\n${params}`;
   });
 
   const promptList = promptContracts.map(formatPrompt).join('\n');
-  const sharedConstraints = getSharedConstraints().map((c) => `- ${c}`).join('\n');
+  const sharedConstraints = getSharedConstraints()
+    .map((c) => `- ${c}`)
+    .join('\n');
 
   return `# CORTEX-MCP INSTRUCTIONS
 

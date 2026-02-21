@@ -1,9 +1,13 @@
 import { getToolContracts } from '../lib/tool-contracts.js';
+
 import { getSharedConstraints } from './tool-info.js';
 
 function buildToolReference(): string {
   return getToolContracts()
-    .map((c) => `### \`${c.name}\`\n- Purpose: ${c.purpose}\n- Output: \`${c.outputShape}\``)
+    .map(
+      (c) =>
+        `### \`${c.name}\`\n- Purpose: ${c.purpose}\n- Output: \`${c.outputShape}\``
+    )
     .join('\n\n');
 }
 
@@ -52,7 +56,9 @@ export function buildWorkflowGuide(): string {
 4. Use \`is_conclusion: true\` to end early, or \`rollback_to_step\` to discard and redo from a specific step.
 
 ## Shared Constraints
-${getSharedConstraints().map((c) => `- ${c}`).join('\n')}
+${getSharedConstraints()
+  .map((c) => `- ${c}`)
+  .join('\n')}
 
 ## Tool Reference
 ${buildToolReference()}

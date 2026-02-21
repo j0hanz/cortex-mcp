@@ -6,14 +6,15 @@ import { McpError } from '@modelcontextprotocol/sdk/types.js';
 import { sessionStore } from '../engine/reasoner.js';
 
 import { formatThoughtsToMarkdown } from '../lib/formatting.js';
-import { buildServerInstructions } from './instructions.js';
-import { buildToolCatalog } from './tool-catalog.js';
-import { buildWorkflowGuide } from './workflows.js';
 import type {
   IconMeta,
   Session,
   SessionSummary as StoreSessionSummary,
 } from '../lib/types.js';
+
+import { buildServerInstructions } from './instructions.js';
+import { buildToolCatalog } from './tool-catalog.js';
+import { buildWorkflowGuide } from './workflows.js';
 
 const SESSIONS_RESOURCE_URI = 'reasoning://sessions';
 const SESSION_RESOURCE_PREFIX = `${SESSIONS_RESOURCE_URI}/`;
@@ -272,9 +273,7 @@ export function registerAllResources(
       ...(withIconMeta(iconMeta) ?? {}),
     },
     (uri) => ({
-      contents: [
-        { uri: uri.href, mimeType: 'text/markdown', text: workflows },
-      ],
+      contents: [{ uri: uri.href, mimeType: 'text/markdown', text: workflows }],
     })
   );
 

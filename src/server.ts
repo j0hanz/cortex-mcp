@@ -7,7 +7,6 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { engineEvents } from './engine/events.js';
 
 import { getErrorMessage } from './lib/errors.js';
-import { buildServerInstructions } from './resources/instructions.js';
 import type { IconMeta } from './lib/types.js';
 
 import { registerAllTools } from './tools/index.js';
@@ -15,6 +14,7 @@ import { registerAllTools } from './tools/index.js';
 import { registerAllPrompts } from './prompts/index.js';
 
 import { registerAllResources } from './resources/index.js';
+import { buildServerInstructions } from './resources/instructions.js';
 
 const ICON_MIME = 'image/svg+xml';
 const SERVER_NAME = 'cortex-mcp';
