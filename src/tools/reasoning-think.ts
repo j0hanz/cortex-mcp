@@ -6,6 +6,7 @@ import type {
   TextResourceContents,
 } from '@modelcontextprotocol/sdk/types.js';
 
+import { getLevelDescriptionString } from '../engine/config.js';
 import { reason, sessionStore } from '../engine/reasoner.js';
 
 import {
@@ -26,6 +27,7 @@ import type {
 
 type ProgressToken = string | number;
 const DEFAULT_MAX_ACTIVE_REASONING_TASKS = 32;
+// Use explicit server busy error code for better client handling
 const TASK_OVERLOAD_MESSAGE = 'Server busy: too many active reasoning tasks';
 
 interface TaskStoreLike {
@@ -271,10 +273,15 @@ function shouldEmitProgress(
   total: number,
   level: ReasoningLevel | undefined
 ): boolean {
-  if (progress <= 1 || progress >= total || level !== 'high') {
+  if (progress <= 1 || progress >= total) {
     return true;
   }
-  return progress % 2 === 0;
+  // High level: emit every 2 steps to reduce noise
+  if (level === 'high') {
+    return progress % 2 === 0;
+  }
+  // Basic/Normal: emit every step
+  return true;
 }
 
 function resolveRunMode(params: ReasoningThinkInput): ReasoningRunMode {
@@ -571,28 +578,51 @@ function createProgressHandler(args: {
   level: ReasoningLevel | undefined;
   progressToken?: ProgressToken;
   controller: AbortController;
+  startingCount: number;
+  batchTotal: number;
 }): (progress: number, total: number) => Promise<void> {
-  const { server, taskStore, taskId, level, progressToken, controller } = args;
+  const {
+    server,
+    taskStore,
+    taskId,
+    level,
+    progressToken,
+    controller,
+    startingCount,
+    batchTotal,
+  } = args;
 
   return async (progress: number, total: number): Promise<void> => {
     await ensureTaskIsActive(taskStore, taskId, controller);
 
-    if (
-      progressToken === undefined ||
-      !shouldEmitProgress(progress, total, level)
-    ) {
+    if (progressToken === undefined) {
       return;
     }
 
-    await server.server.notification({
-      method: 'notifications/progress',
-      params: {
-        progressToken,
-        progress,
-        total,
-        message: `𖦹 Thought [${String(progress)}/${String(total)}]`,
-      },
-    });
+    const currentBatchIndex = Math.max(0, progress - startingCount);
+    // Ensure we don't exceed batchTotal for the progress bar (though technically logic shouldn't)
+    const displayProgress = Math.min(currentBatchIndex, batchTotal);
+    const isTerminal = displayProgress >= batchTotal;
+
+    // We must emit if it's the terminal update for this batch,
+    // otherwise we respect the session-level skipping rules.
+    if (!isTerminal && !shouldEmitProgress(progress, total, level)) {
+      return;
+    }
+
+    try {
+      await server.server.notification({
+        method: 'notifications/progress',
+        params: {
+          progressToken,
+          progress: displayProgress,
+          total: batchTotal,
+          message: `𖦹 Thought [${String(progress)}/${String(total)}]`,
+        },
+      });
+    } catch {
+      // Ignore notification errors
+    }
   };
 }
 
@@ -780,12 +810,42 @@ async function runReasoningTask(args: {
 
     const startingCount = getStartingThoughtCount(params.sessionId);
 
+    let batchTotal = runMode === 'step' ? 1 : thoughtInputs.length;
+    if (
+      batchTotal === 0 &&
+      (params.observation !== undefined ||
+        params.hypothesis !== undefined ||
+        params.evaluation !== undefined ||
+        params.is_conclusion !== undefined ||
+        params.rollback_to_step !== undefined)
+    ) {
+      batchTotal = 1;
+    }
+
+    if (progressToken !== undefined) {
+      try {
+        await server.server.notification({
+          method: 'notifications/progress',
+          params: {
+            progressToken,
+            progress: 0,
+            total: Math.max(1, batchTotal),
+            message: 'Starting reasoning...',
+          },
+        });
+      } catch {
+        // Ignore notification errors
+      }
+    }
+
     const progressArgs: Parameters<typeof createProgressHandler>[0] = {
       server,
       taskStore,
       taskId,
       level,
       controller,
+      startingCount,
+      batchTotal: Math.max(1, batchTotal),
     };
     if (progressToken !== undefined) {
       progressArgs.progressToken = progressToken;
@@ -895,16 +955,18 @@ export function registerReasoningThinkTool(
     TOOL_NAME,
     {
       title: 'Reasoning Think',
-      description:
-        'Structured multi-step reasoning tool. Decomposes analysis into sequential thought steps stored in a persistent session trace.\n\n' +
-        'USAGE PATTERN:\n' +
-        '1. Start: { query: "...", level: "basic"|"normal"|"high", thought: "your analysis..." }\n' +
-        '2. Continue: { sessionId: "<from response>", level: "<same level>", thought: "next step..." }\n' +
-        '3. Repeat step 2 until response shows status: "completed"\n\n' +
-        'IMPORTANT: You MUST pass the returned sessionId on every continuation call, and use the same level throughout.\n' +
-        'The thought parameter stores YOUR reasoning verbatim — write thorough analysis in each step.\n\n' +
-        'Levels: basic (3–5 steps, 2K budget), normal (6–10, 8K), high (15–25, 32K).\n' +
-        'Alternative: Use runMode="run_to_completion" with thought + thoughts[] to submit all steps in one call.',
+      description: `Structured multi-step reasoning tool. Decomposes analysis into sequential thought steps stored in a persistent session trace.
+
+USAGE PATTERN:
+1. Start: { query: "...", level: "basic"|"normal"|"high", thought: "your analysis..." }
+2. Continue: { sessionId: "<from response>", level: "<same level>", thought: "next step..." }
+3. Repeat step 2 until response shows status: "completed"
+
+IMPORTANT: You MUST pass the returned sessionId on every continuation call, and use the same level throughout.
+The thought parameter stores YOUR reasoning verbatim — write thorough analysis in each step.
+
+Levels: ${getLevelDescriptionString()}.
+Alternative: Use runMode="run_to_completion" with thought + thoughts[] to submit all steps in one call.`,
       inputSchema: ReasoningThinkInputSchema,
       outputSchema: ReasoningThinkToolOutputSchema,
       annotations: {
@@ -916,6 +978,10 @@ export function registerReasoningThinkTool(
     },
     {
       async createTask(rawParams, rawExtra) {
+        // Enforce fail-fast for budget before creating tasks if possible,
+        // but session check requires sessionId which might not be present (new session).
+        // So we rely on reason() logic.
+
         const parseResult = ReasoningThinkInputSchema.safeParse(rawParams);
         if (!parseResult.success) {
           throw new Error(

@@ -22,3 +22,12 @@ export function assertTargetThoughtsInRange(
 
   throw new Error(errorMessage);
 }
+
+export function getLevelDescriptionString(): string {
+  return Object.entries(LEVEL_CONFIGS)
+    .map(([level, config]) => {
+      const budgetK = Math.round(config.tokenBudget / 1024);
+      return `${level} (${config.minThoughts}–${config.maxThoughts} steps, ${budgetK}K budget)`;
+    })
+    .join(', ');
+}

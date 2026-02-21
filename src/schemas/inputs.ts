@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { getLevelDescriptionString } from '../engine/config.js';
+
 import { getTargetThoughtsError } from '../lib/validators.js';
 
 const RUN_MODE_VALUES = ['step', 'run_to_completion'] as const;
@@ -28,7 +30,7 @@ export const ReasoningThinkInputSchema = z
       'The question or problem to reason about'
     ),
     level: LEVEL_SCHEMA.optional().describe(
-      'Reasoning depth level (required for new sessions, optional for continuing)'
+      `Reasoning depth level (required for new sessions, optional for continuing). ${getLevelDescriptionString()}.`
     ),
     targetThoughts: z
       .number()
