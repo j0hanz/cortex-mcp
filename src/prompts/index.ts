@@ -5,25 +5,17 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import { sessionStore } from '../engine/reasoner.js';
 
-import { loadInstructions } from '../lib/instructions.js';
+import { buildServerInstructions } from '../resources/instructions.js';
 import type { IconMeta } from '../lib/types.js';
+import { getPromptContracts, type PromptContract } from '../lib/prompt-contracts.js';
 
 type PromptLevel = 'basic' | 'normal' | 'high';
 const COMPLETION_LIMIT = 20;
 const LEVEL_VALUES: readonly PromptLevel[] = ['basic', 'normal', 'high'];
 const LEVEL_ENUM_SCHEMA = z.enum(LEVEL_VALUES);
-const LEVEL_TITLES: Readonly<Record<PromptLevel, string>> = {
-  basic: 'Basic',
-  normal: 'Normal',
-  high: 'High',
-};
 const REASONING_TOOL_NAME = 'reasoning_think';
 const THOUGHT_PARAMETER_GUIDANCE =
   'Provide your full reasoning in the "thought" parameter for each step.';
-
-function levelTitle(level: PromptLevel): string {
-  return LEVEL_TITLES[level];
-}
 
 function formatTargetThoughts(targetThoughts?: number): string {
   if (targetThoughts === undefined) {
@@ -77,56 +69,70 @@ function createTextPrompt(text: string): {
   };
 }
 
-function registerLevelPrompt(
-  server: McpServer,
-  level: PromptLevel,
-  iconMeta?: IconMeta
-): void {
-  server.registerPrompt(
-    `reasoning.${level}`,
-    {
-      title: `Reasoning ${levelTitle(level)}`,
-      description: `Prepare a ${level}-depth reasoning request.`,
-      ...(withIconMeta(iconMeta) ?? {}),
-      argsSchema: {
-        query: z
-          .string()
-          .min(1)
-          .max(10000)
-          .describe('The question or problem to reason about'),
-        targetThoughts: z
-          .number()
-          .int()
-          .min(1)
-          .max(25)
-          .optional()
-          .describe(
-            'Optional exact step count within the selected level range (max 25)'
-          ),
-      },
-    },
-    ({ query, targetThoughts }) => {
-      // Create user message
-      const text = `Initiate a ${level}-depth reasoning session for the query: ${JSON.stringify(query)}. Use the "${REASONING_TOOL_NAME}" tool${formatTargetThoughts(targetThoughts)}. ${THOUGHT_PARAMETER_GUIDANCE} This is stored verbatim in the session trace. Repeat calls with the returned sessionId until totalThoughts is reached.`;
-
-      return createTextPrompt(text);
-    }
-  );
-}
-
 export function registerAllPrompts(
   server: McpServer,
   iconMeta?: IconMeta
 ): void {
-  registerLevelPrompt(server, 'basic', iconMeta);
-  registerLevelPrompt(server, 'normal', iconMeta);
-  registerLevelPrompt(server, 'high', iconMeta);
+  const contracts = getPromptContracts();
+  const instructions = buildServerInstructions();
+
+  // Helper to find contract
+  const findContract = (name: string): PromptContract | undefined =>
+    contracts.find((c) => c.name === name);
+
+  // Register Level Prompts (reasoning.basic, .normal, .high)
+  for (const level of LEVEL_VALUES) {
+    const name = `reasoning.${level}`;
+    const contract = findContract(name);
+    if (!contract) {
+      throw new Error(
+        `Missing mandatory prompt contract for '${name}'. Check src/lib/prompt-contracts.ts.`
+      );
+    }
+
+    server.registerPrompt(
+      name,
+      {
+        title: contract.title,
+        description: contract.description,
+        ...(withIconMeta(iconMeta) ?? {}),
+        argsSchema: {
+          query: z
+            .string()
+            .min(1)
+            .max(10000)
+            .describe('The question or problem to reason about'),
+          targetThoughts: z
+            .number()
+            .int()
+            .min(1)
+            .max(25)
+            .optional()
+            .describe(
+              'Optional exact step count within the selected level range (max 25)'
+            ),
+        },
+      },
+      ({ query, targetThoughts }) => {
+        const text = `Initiate a ${level}-depth reasoning session for the query: ${JSON.stringify(query)}. Use the "${REASONING_TOOL_NAME}" tool${formatTargetThoughts(targetThoughts)}. ${THOUGHT_PARAMETER_GUIDANCE} This is stored verbatim in the session trace. Repeat calls with the returned sessionId until totalThoughts is reached.`;
+        return createTextPrompt(text);
+      }
+    );
+  }
+
+  // Register reasoning.retry
+  const retryContract = findContract('reasoning.retry');
+  if (!retryContract) {
+    throw new Error(
+      "Missing mandatory prompt contract 'reasoning.retry'. Check src/lib/prompt-contracts.ts."
+    );
+  }
 
   server.registerPrompt(
-    'reasoning.retry',
+    retryContract.name,
     {
-      title: 'Retry Reasoning',
-      description: 'Retry a failed reasoning task with modified parameters.',
+      title: retryContract.title,
+      description: retryContract.description,
       ...(withIconMeta(iconMeta) ?? {}),
       argsSchema: {
         query: z
@@ -153,24 +159,37 @@ export function registerAllPrompts(
     }
   );
 
-  const instructions = loadInstructions();
+  // Register get-help
+  const helpContract = findContract('get-help');
+  if (!helpContract) {
+    throw new Error(
+      "Missing mandatory prompt contract 'get-help'. Check src/lib/prompt-contracts.ts."
+    );
+  }
 
   server.registerPrompt(
-    'get-help',
+    helpContract.name,
     {
-      title: 'Get Help',
-      description: 'Return the server usage instructions.',
+      title: helpContract.title,
+      description: helpContract.description,
       ...(withIconMeta(iconMeta) ?? {}),
     },
     () => createTextPrompt(instructions)
   );
 
+  // Register reasoning.continue
+  const continueContract = findContract('reasoning.continue');
+  if (!continueContract) {
+    throw new Error(
+      "Missing mandatory prompt contract 'reasoning.continue'. Check src/lib/prompt-contracts.ts."
+    );
+  }
+
   server.registerPrompt(
-    'reasoning.continue',
+    continueContract.name,
     {
-      title: 'Continue Reasoning',
-      description:
-        'Continue an existing reasoning session with a follow-up query.',
+      title: continueContract.title,
+      description: continueContract.description,
       ...(withIconMeta(iconMeta) ?? {}),
       argsSchema: {
         sessionId: completable(

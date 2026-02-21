@@ -7,7 +7,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { engineEvents } from './engine/events.js';
 
 import { getErrorMessage } from './lib/errors.js';
-import { loadInstructions } from './lib/instructions.js';
+import { buildServerInstructions } from './resources/instructions.js';
 import type { IconMeta } from './lib/types.js';
 
 import { registerAllTools } from './tools/index.js';
@@ -191,7 +191,7 @@ function installCloseCleanup(server: McpServer, cleanup: () => void): void {
 }
 
 export function createServer(): McpServer {
-  const instructions = loadInstructions();
+  const instructions = buildServerInstructions();
   const version = loadVersion();
   const taskStore = new InMemoryTaskStore();
   const localIcon = getLocalIconData();

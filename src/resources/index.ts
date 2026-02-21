@@ -6,7 +6,9 @@ import { McpError } from '@modelcontextprotocol/sdk/types.js';
 import { sessionStore } from '../engine/reasoner.js';
 
 import { formatThoughtsToMarkdown } from '../lib/formatting.js';
-import { loadInstructions } from '../lib/instructions.js';
+import { buildServerInstructions } from './instructions.js';
+import { buildToolCatalog } from './tool-catalog.js';
+import { buildWorkflowGuide } from './workflows.js';
 import type {
   IconMeta,
   Session,
@@ -221,7 +223,9 @@ export function registerAllResources(
   server: McpServer,
   iconMeta?: IconMeta
 ): void {
-  const instructions = loadInstructions();
+  const instructions = buildServerInstructions();
+  const toolCatalog = buildToolCatalog();
+  const workflows = buildWorkflowGuide();
 
   server.registerResource(
     'server-instructions',
@@ -236,6 +240,40 @@ export function registerAllResources(
     (uri) => ({
       contents: [
         { uri: uri.href, mimeType: 'text/markdown', text: instructions },
+      ],
+    })
+  );
+
+  server.registerResource(
+    'tool-catalog',
+    'internal://tool-catalog',
+    {
+      title: 'Tool Catalog',
+      description: 'Tool reference: models, params, outputs, data flow.',
+      mimeType: 'text/markdown',
+      annotations: { audience: ['assistant'], priority: 0.7 },
+      ...(withIconMeta(iconMeta) ?? {}),
+    },
+    (uri) => ({
+      contents: [
+        { uri: uri.href, mimeType: 'text/markdown', text: toolCatalog },
+      ],
+    })
+  );
+
+  server.registerResource(
+    'workflows',
+    'internal://workflows',
+    {
+      title: 'Workflows',
+      description: 'Recommended workflows and tool sequences.',
+      mimeType: 'text/markdown',
+      annotations: { audience: ['assistant'], priority: 0.7 },
+      ...(withIconMeta(iconMeta) ?? {}),
+    },
+    (uri) => ({
+      contents: [
+        { uri: uri.href, mimeType: 'text/markdown', text: workflows },
       ],
     })
   );
