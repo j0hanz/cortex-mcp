@@ -15,10 +15,6 @@ export default defineConfig(
       '.tmp/**',
       '*.config.mjs',
       '*.config.js',
-      'src/__tests__/**',
-      'tests/**',
-      '**/*.test.ts',
-      '**/*.spec.ts',
     ],
   },
   eslint.configs.recommended,
@@ -26,6 +22,7 @@ export default defineConfig(
   depend.configs['flat/recommended'],
   {
     files: ['src/**/*.ts'],
+    ignores: ['src/__tests__/**', '**/*.test.ts'],
     extends: [
       tseslint.configs.strictTypeChecked,
       tseslint.configs.stylisticTypeChecked,
@@ -34,7 +31,7 @@ export default defineConfig(
       ecmaVersion: 2022,
       sourceType: 'module',
       parserOptions: {
-        project: ['./tsconfig.json', './tsconfig.tests.json'],
+        project: ['./tsconfig.json'],
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -201,6 +198,15 @@ export default defineConfig(
   },
   {
     files: ['src/__tests__/**/*.test.ts'],
+    extends: [tseslint.configs.recommendedTypeChecked],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      parserOptions: {
+        project: ['./tsconfig.test.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
     rules: {
       '@typescript-eslint/no-floating-promises': 'off',
       '@typescript-eslint/require-await': 'off',
@@ -210,6 +216,9 @@ export default defineConfig(
       '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/array-type': 'off',
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/naming-convention': 'off',
+      '@typescript-eslint/no-misused-promises': 'off',
     },
   },
 

@@ -51,6 +51,7 @@
     "type-check:diagnostics": "tsc --noEmit --extendedDiagnostics",
     "type-check:trace": "node -e \"require('fs').rmSync('.ts-trace',{recursive:true,force:true})\" && tsc --noEmit --generateTrace .ts-trace",
     "lint": "eslint .",
+    "lint:tests": "eslint src/__tests__",
     "lint:fix": "eslint . --fix",
     "test": "node scripts/tasks.mjs test",
     "test:fast": "node --test --import tsx/esm src/__tests__/**/*.test.ts node-tests/**/*.test.ts",
