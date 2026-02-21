@@ -86,6 +86,13 @@ These instructions are available as a resource (internal://instructions) or prom
 2. Provide one `thought` plus additional `thoughts[]` entries to cover the planned step count.
 3. The server consumes thought inputs in order until completion, token budget exhaustion, or cancellation.
 
+### WORKFLOW F: Structured Reasoning (Observation/Hypothesis/Evaluation)
+
+1. Call `reasoning_think` with `{ query: "...", level: "normal", observation: "facts...", hypothesis: "idea...", evaluation: "critique..." }`.
+2. The server formats these into a structured thought and stores it in the session trace.
+3. Continue with `sessionId` using either `thought` or structured fields for subsequent steps.
+4. Use `is_conclusion: true` to end early, or `rollback_to_step` to discard and redo from a specific step.
+
 ---
 
 ## TOOL NUANCES & GOTCHAS
@@ -97,13 +104,20 @@ These instructions are available as a resource (internal://instructions) or prom
   - `query` (string, 1–10,000 chars): The question or problem to reason about. Required when creating a new session; optional when `sessionId` is provided.
   - `level` (enum: `basic` | `normal` | `high`): Controls reasoning depth and token budget.
   - `runMode` (enum: `step` | `run_to_completion`, optional): Execution mode. Defaults to `step`.
-  - `thought` (string, 1–100,000 chars, **required**): Your full reasoning content for this step. The server stores this text verbatim as the thought in the session trace. Write your complete analysis, observations, and conclusions here — this is what appears in trace.md.
+  - `thought` (string or string[], 1–100,000 chars): Your full reasoning content for this step. The server stores this text verbatim as the thought in the session trace. Write your complete analysis, observations, and conclusions here — this is what appears in trace.md. Can be an array of strings for batch execution with `runMode: "run_to_completion"`. Required unless using structured fields (`observation`/`hypothesis`/`evaluation`) or `rollback_to_step`.
   - `thoughts` (array of string, optional): Additional thought inputs consumed in order when `runMode` is `run_to_completion`.
   - `targetThoughts` (int, 1–25, optional): Override automatic step count. Must fit within the level's min/max range.
   - `sessionId` (string, 1–128 chars, optional): Continue an existing session. Level must match.
+  - `observation` (string, optional): What facts are known at this step? Use with `hypothesis` and `evaluation` as an alternative to `thought`.
+  - `hypothesis` (string, optional): What is the proposed idea or next logical leap?
+  - `evaluation` (string, optional): Critique the hypothesis. Are there flaws?
+  - `step_summary` (string, optional): A 1-sentence summary of the conclusion reached in this step. Accumulates in the `summary` field for contextual guidance.
+  - `is_conclusion` (boolean, optional): Set to true to end the session early with a final answer.
+  - `rollback_to_step` (number, optional): Roll back to a thought index (0-based). All thoughts after this index are discarded.
 - Output: `{ ok, result: { sessionId, level, status, thoughts[], generatedThoughts, requestedThoughts, totalThoughts, remainingThoughts, tokenBudget, tokensUsed, ttlMs, expiresAt, createdAt, updatedAt, summary } }`
 - Side effects: Creates or modifies an in-memory session. Sessions expire after 30 minutes of inactivity.
 - Gotcha: When `status` is `"active"`, the `summary` field contains the exact next call you should make — follow it to continue the session.
+- Gotcha: For continuation, you only need `sessionId`, `status`, `remainingThoughts`, and `summary` from the response. The `thoughts` array contains the full session trace — avoid re-reading it on every step; use `reasoning://sessions/{sessionId}` or `file:///cortex/sessions/{sessionId}/trace.md` for full trace retrieval when needed.
 - Gotcha: `remainingThoughts` tells you how many more calls are needed. When it reaches 0, the session is complete.
 - Gotcha: `runMode="step"` appends one thought per call. `runMode="run_to_completion"` can append multiple thoughts in one call using `thought` + `thoughts[]`.
 - Gotcha: The `thought` content is stored verbatim — the trace shows exactly what you write. Write thorough, structured reasoning for useful traces.

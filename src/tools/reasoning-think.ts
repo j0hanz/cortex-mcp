@@ -610,6 +610,10 @@ function createProgressHandler(args: {
       return;
     }
 
+    const message = isTerminal
+      ? `.𖦹°‧ reasoning_think: [${String(total)}/${String(total)}] • done`
+      : `.𖦹°‧ reasoning_think: [${String(progress)}/${String(total)}]`;
+
     try {
       await server.server.notification({
         method: 'notifications/progress',
@@ -617,7 +621,7 @@ function createProgressHandler(args: {
           progressToken,
           progress: displayProgress,
           total: batchTotal,
-          message: `.𖦹°‧ reasoning_think: [${String(progress)}/${String(total)}]`,
+          message,
         },
       });
     } catch {
@@ -967,9 +971,12 @@ USAGE PATTERN:
 
 IMPORTANT: You MUST pass the returned sessionId on every continuation call, and use the same level throughout.
 The thought parameter stores YOUR reasoning verbatim — write thorough analysis in each step.
+Use step_summary to record a 1-sentence conclusion per step — these accumulate in the summary field for context.
 
 Levels: ${getLevelDescriptionString()}.
-Alternative: Use runMode="run_to_completion" with thought + thoughts[] to submit all steps in one call.`,
+Alternative: Use runMode="run_to_completion" with thought + thoughts[] to submit all steps in one call.
+Alternative input: Use observation/hypothesis/evaluation fields instead of thought for structured reasoning.
+Error recovery: If E_SESSION_NOT_FOUND, the session expired — start a new session. If E_INVALID_THOUGHT_COUNT, check level ranges.`,
       inputSchema: ReasoningThinkInputSchema,
       outputSchema: ReasoningThinkToolOutputSchema,
       annotations: {

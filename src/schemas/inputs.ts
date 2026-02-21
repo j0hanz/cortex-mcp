@@ -36,6 +36,7 @@ export const ReasoningThinkInputSchema = z
       .number()
       .int()
       .min(1)
+      .max(25)
       .optional()
       .describe(
         'Optional explicit thought count. Must fit the level range: basic 3–5, normal 6–10, high 15–25.'
