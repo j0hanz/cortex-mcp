@@ -12,6 +12,12 @@ const ThoughtSchema = z.strictObject({
   index: z.number(),
   content: z.string(),
   revision: z.number(),
+  stepSummary: z
+    .string()
+    .optional()
+    .describe(
+      'A 1-sentence summary of the conclusion reached in this step, if provided.'
+    ),
 });
 
 export const DefaultOutputSchema = z.strictObject({

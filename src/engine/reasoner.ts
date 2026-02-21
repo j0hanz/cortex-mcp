@@ -103,10 +103,6 @@ export async function reason(
 
         const current = getSessionOrThrow(session.id);
 
-        // If we rolled back, update current state.
-        // If purely rolling back without adding thought, check if we need to return early?
-        // But usually we rollback AND maybe add new thought, or just return state.
-
         let content = thought;
         if (!content && observation) {
           content = `**Observation:** ${observation}\n\n**Hypothesis:** ${hypothesis ?? ''}\n\n**Evaluation:** ${evaluation ?? ''}`;
@@ -129,19 +125,8 @@ export async function reason(
         }
 
         const nextIndex = current.thoughts.length;
-        // If we are already at or past totalThoughts, and NOT concluding, maybe we should stop?
-        // But if user forces more thoughts, we usually respect it unless hard limit?
-        // The original code checked:
         if (nextIndex >= totalThoughts && !isConclusion) {
-          // If we are concluding, we might allow one last thought even if over?
-          // Or strict limit?
-          // Original: if (nextIndex >= totalThoughts) return current;
-          // I'll keep strict limit for now, unless extended.
-          // But if `targetThoughts` was updated (not allowed on existing), we might be stuck.
-          // Assume normal flow.
-          if (nextIndex >= totalThoughts) {
-            return current;
-          }
+          return current;
         }
 
         const addedThought = sessionStore.addThought(

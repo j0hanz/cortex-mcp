@@ -111,6 +111,7 @@ These instructions are available as a resource (internal://instructions) or prom
 - Gotcha: For new sessions in `runMode="run_to_completion"`, provide `targetThoughts` and enough thought inputs to match planned steps.
 - Gotcha: Token counting is approximate (UTF-8 byte length ÷ 4), not true tokenization.
 - Gotcha: Without `targetThoughts`, the planned step count (`totalThoughts`) is determined by a heuristic based on query length and structural complexity (punctuation markers, keywords like "compare", "analyse", "trade-off").
+- Gotcha: Use `step_summary` to record a 1-sentence conclusion for each step. These summaries accumulate and appear in the `summary` field of subsequent responses (up to the 3 most recent), giving contextual next-step guidance without rereading full thought content.
 - Limits: Level ranges — basic: 3–5 thoughts (2K token budget), normal: 6–10 (8K), high: 15–25 (32K).
 
 ---

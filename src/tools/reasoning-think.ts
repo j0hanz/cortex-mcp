@@ -617,7 +617,7 @@ function createProgressHandler(args: {
           progressToken,
           progress: displayProgress,
           total: batchTotal,
-          message: `𖦹 Thought [${String(progress)}/${String(total)}]`,
+          message: `.𖦹°‧ reasoning_think: [${String(progress)}/${String(total)}]`,
         },
       });
     } catch {
@@ -830,7 +830,10 @@ async function runReasoningTask(args: {
             progressToken,
             progress: 0,
             total: Math.max(1, batchTotal),
-            message: 'Starting reasoning...',
+            message:
+              level !== undefined
+                ? `reasoning_think: starting [${level}]`
+                : 'reasoning_think: continuing session',
           },
         });
       } catch {
@@ -972,6 +975,8 @@ Alternative: Use runMode="run_to_completion" with thought + thoughts[] to submit
       annotations: {
         readOnlyHint: false,
         idempotentHint: false,
+        destructiveHint: false,
+        openWorldHint: false,
       },
       execution: { taskSupport: 'optional' },
       ...(withIconMeta(iconMeta) ?? {}),
