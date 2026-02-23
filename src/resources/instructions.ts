@@ -60,6 +60,8 @@ These instructions are available as a resource (internal://instructions) or prom
 - \`get-help\`: Returns these instructions for quick recall.
 ${promptList}
 
+> **Guided templates:** Each \`reasoning.<level>\` prompt embeds a level-specific few-shot example showing the expected \`thought\` depth and step count. Only the template for the requested level is injected — the other two are omitted to keep prompts lean.
+
 ---
 
 ## RESOURCES & RESOURCE LINKS

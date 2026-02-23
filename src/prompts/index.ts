@@ -15,6 +15,8 @@ import { REASONING_LEVELS } from '../lib/types.js';
 
 import { buildServerInstructions } from '../resources/instructions.js';
 
+import { getTemplate } from './templates.js';
+
 const COMPLETION_LIMIT = 20;
 const LEVEL_ENUM_SCHEMA = z.enum(REASONING_LEVELS);
 const REASONING_TOOL_NAME = 'reasoning_think';
@@ -90,7 +92,7 @@ function buildStartReasoningPrompt(args: {
   targetThoughts?: number;
 }): string {
   const { level, query, targetThoughts } = args;
-  return buildPromptText({
+  const base = buildPromptText({
     context: [
       `Query: ${JSON.stringify(query)}`,
       `Requested level: ${level}`,
@@ -114,6 +116,7 @@ function buildStartReasoningPrompt(args: {
       'Fields: query, level, thought, and optional targetThoughts.',
     ],
   });
+  return `${base}\n\n---\n\n${getTemplate(level)}`;
 }
 
 function buildRetryReasoningPrompt(args: {
@@ -122,7 +125,7 @@ function buildRetryReasoningPrompt(args: {
   targetThoughts?: number;
 }): string {
   const { query, level, targetThoughts } = args;
-  return buildPromptText({
+  const base = buildPromptText({
     context: [
       `Retry query: ${JSON.stringify(query)}`,
       `Retry level: ${level}`,
@@ -144,6 +147,7 @@ function buildRetryReasoningPrompt(args: {
       'Fields: query, level, thought, and optional targetThoughts.',
     ],
   });
+  return `${base}\n\n---\n\n${getTemplate(level)}`;
 }
 
 function buildContinueReasoningPrompt(args: {
