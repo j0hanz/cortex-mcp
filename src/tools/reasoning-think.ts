@@ -66,9 +66,6 @@ interface ReasoningTaskExtra {
   _meta?: { progressToken?: ProgressToken } & Record<string, unknown>;
 }
 
-// ReasoningStructuredResult is the inferred type of the success schema
-type ReasoningStructuredResult = ReasoningThinkSuccess;
-
 function buildTraceResource(session: Readonly<Session>): TextResourceContents {
   return {
     uri: `file:///cortex/sessions/${session.id}/trace.md`,
@@ -278,10 +275,6 @@ async function notifyProgress(args: {
   }
 }
 
-function resolveRunMode(params: ReasoningThinkInput): ReasoningRunMode {
-  return params.runMode ?? 'step';
-}
-
 function buildThoughtInputs(params: ReasoningThinkInput): string[] {
   const primary = Array.isArray(params.thought)
     ? params.thought
@@ -419,7 +412,7 @@ function buildStructuredResult(
   session: Readonly<Session>,
   generatedThoughts: number,
   targetThoughts: number | undefined
-): ReasoningStructuredResult {
+): ReasoningThinkSuccess {
   const ttlMs = sessionStore.getTtlMs();
   const expiresAt =
     sessionStore.getExpiresAt(session.id) ?? session.updatedAt + ttlMs;
@@ -573,9 +566,8 @@ function createProgressHandler(args: {
     batchTotal,
   } = args;
 
-  return async (progress: number, total: number): Promise<void> => {
+  return async (progress: number): Promise<void> => {
     await ensureTaskIsActive(taskStore, taskId, controller);
-    void total;
 
     if (progressToken === undefined) {
       return;
@@ -769,7 +761,7 @@ async function runReasoningTask(args: {
     sessionId,
   } = args;
   const { query, level, targetThoughts } = params;
-  const runMode = resolveRunMode(params);
+  const runMode = params.runMode ?? 'step';
   const thoughtInputs = buildThoughtInputs(params);
   const queryText = query ?? '';
 

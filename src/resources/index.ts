@@ -58,7 +58,7 @@ interface SessionResourceSummary {
   expiresAt: number;
 }
 
-function buildSessionSummaryFromSummary(
+function buildSessionSummary(
   session: Readonly<StoreSessionSummary>
 ): SessionResourceSummary {
   const ttlMs = sessionStore.getTtlMs();
@@ -74,29 +74,6 @@ function buildSessionSummaryFromSummary(
       0,
       session.totalThoughts - session.generatedThoughts
     ),
-    totalThoughts: session.totalThoughts,
-    tokenBudget: session.tokenBudget,
-    tokensUsed: session.tokensUsed,
-    createdAt: session.createdAt,
-    updatedAt: session.updatedAt,
-    expiresAt,
-  };
-}
-
-function buildSessionSummaryFromSession(
-  session: Readonly<Session>
-): SessionResourceSummary {
-  const ttlMs = sessionStore.getTtlMs();
-  const expiresAt =
-    sessionStore.getExpiresAt(session.id) ?? session.updatedAt + ttlMs;
-  const generatedThoughts = session.thoughts.length;
-
-  return {
-    id: session.id,
-    level: session.level,
-    status: session.status,
-    generatedThoughts,
-    remainingThoughts: Math.max(0, session.totalThoughts - generatedThoughts),
     totalThoughts: session.totalThoughts,
     tokenBudget: session.tokenBudget,
     tokensUsed: session.tokensUsed,
@@ -259,9 +236,7 @@ export function registerAllResources(
     },
     () => {
       const ttlMs = sessionStore.getTtlMs();
-      const sessions = sessionStore
-        .listSummaries()
-        .map((session) => buildSessionSummaryFromSummary(session));
+      const sessions = sessionStore.listSummaries().map(buildSessionSummary);
 
       return {
         contents: [
@@ -423,7 +398,8 @@ export function registerAllResources(
     (uri, variables) => {
       const sessionId = extractStringVariable(variables, 'sessionId', uri);
       const session = resolveSession(sessionId, uri);
-      const summary = buildSessionSummaryFromSession(session);
+      const generatedThoughts = session.thoughts.length;
+      const summary = buildSessionSummary({ ...session, generatedThoughts });
 
       return {
         contents: [

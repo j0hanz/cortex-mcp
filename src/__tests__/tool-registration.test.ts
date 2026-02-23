@@ -440,7 +440,7 @@ describe('server registration', () => {
         'text' in firstBlock &&
         typeof firstBlock.text === 'string'
     );
-    const parsed = JSON.parse(firstBlock.text) as {
+    const parsed = JSON.parse(firstBlock.text as string) as {
       ok: boolean;
       error: { code: string };
     };

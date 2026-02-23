@@ -238,7 +238,14 @@ export class SessionStore {
     session.tokensUsed = session.tokensUsed - oldTokens + newTokens;
     this.totalTokens += delta;
     this.markSessionTouched(session);
-    return this.snapshotThought(revised);
+    const snapshotted = this.snapshotThought(revised);
+    engineEvents.emit('thought:revised', {
+      sessionId,
+      index: snapshotted.index,
+      content: snapshotted.content,
+      revision: snapshotted.revision,
+    });
+    return snapshotted;
   }
 
   markCompleted(sessionId: string): void {
