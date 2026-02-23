@@ -183,6 +183,42 @@ describe('SessionStore', () => {
       assert.equal(updated.tokensUsed, 1);
     });
 
+    it('preserves stepSummary on revision', () => {
+      const store = new SessionStore();
+      const session = store.create('basic');
+
+      store.addThought(session.id, 'Original', 'first summary');
+      const revised = store.reviseThought(session.id, 0, 'Revised');
+
+      assert.equal(revised.stepSummary, 'first summary');
+      const updated = store.get(session.id)!;
+      assert.equal(updated.thoughts[0]?.stepSummary, 'first summary');
+    });
+
+    it('handles legacy thoughts without tokenCount on revision', () => {
+      const store = new SessionStore(30_000, 100, 500_000);
+      const session = store.create('basic');
+      store.addThought(session.id, 'Hello');
+
+      const internalStore = store as unknown as {
+        sessions: Map<
+          string,
+          { thoughts: Array<{ tokenCount?: number }>; tokensUsed: number }
+        >;
+      };
+      const mutableSession = internalStore.sessions.get(session.id);
+      assert.ok(mutableSession);
+      const thought = mutableSession.thoughts[0];
+      assert.ok(thought);
+      delete thought.tokenCount;
+
+      store.reviseThought(session.id, 0, 'Hi');
+
+      const updated = store.get(session.id)!;
+      assert.equal(updated.tokensUsed, 1);
+      assert.equal(store.getTotalTokensUsed(), 1);
+    });
+
     it('throws for non-existent thought index', () => {
       const store = new SessionStore();
       const session = store.create('basic');
@@ -459,6 +495,44 @@ describe('SessionStore', () => {
 
       store.reviseThought(session.id, 0, 'Hi'); // ~1 token
       assert.equal(store.getTotalTokensUsed(), 1);
+    });
+
+    it('adjusts totalTokens on rollback', () => {
+      const store = new SessionStore(30_000, 100, 500_000);
+      const session = store.create('basic');
+      store.addThought(session.id, 'Hello'); // ~2 tokens
+      store.addThought(session.id, 'World'); // ~2 tokens
+      assert.equal(store.getTotalTokensUsed(), 4);
+
+      store.rollback(session.id, 0);
+
+      assert.equal(store.getTotalTokensUsed(), 2);
+      const updated = store.get(session.id)!;
+      assert.equal(updated.tokensUsed, 2);
+      assert.equal(updated.thoughts.length, 1);
+    });
+
+    it('handles legacy thoughts without tokenCount on rollback', () => {
+      const store = new SessionStore(30_000, 100, 500_000);
+      const session = store.create('basic');
+      store.addThought(session.id, 'Hello'); // ~2 tokens
+      store.addThought(session.id, 'World'); // ~2 tokens
+
+      const internalStore = store as unknown as {
+        sessions: Map<string, { thoughts: Array<{ tokenCount?: number }> }>;
+      };
+      const mutableSession = internalStore.sessions.get(session.id);
+      assert.ok(mutableSession);
+      const lastThought = mutableSession.thoughts[1];
+      assert.ok(lastThought);
+      delete lastThought.tokenCount;
+
+      store.rollback(session.id, 0);
+
+      assert.equal(store.getTotalTokensUsed(), 2);
+      const updated = store.get(session.id)!;
+      assert.equal(updated.tokensUsed, 2);
+      assert.equal(updated.thoughts.length, 1);
     });
 
     it('does not evict the session being written to', () => {

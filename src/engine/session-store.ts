@@ -28,7 +28,9 @@ type Mutable<T> = {
   -readonly [K in keyof T]: T[K];
 };
 
-type MutableThought = Mutable<Thought>;
+type MutableThought = Mutable<Thought> & {
+  tokenCount?: number;
+};
 type MutableSession = Omit<Mutable<Session>, 'thoughts'> & {
   thoughts: MutableThought[];
 };
@@ -36,6 +38,10 @@ type MutableSession = Omit<Mutable<Session>, 'thoughts'> & {
 function estimateTokens(text: string): number {
   const byteLength = Buffer.byteLength(text, 'utf8');
   return Math.max(1, Math.ceil(byteLength / TOKEN_ESTIMATE_DIVISOR));
+}
+
+function getThoughtTokenCount(thought: Pick<MutableThought, 'content' | 'tokenCount'>): number {
+  return thought.tokenCount ?? estimateTokens(thought.content);
 }
 
 function resolveSweepInterval(ttlMs: number): number {
@@ -106,14 +112,7 @@ export class SessionStore {
   }
 
   list(): Readonly<Session>[] {
-    const sessions: Session[] = [];
-    for (const sessionId of this.getSessionIdsForIteration()) {
-      const session = this.sessions.get(sessionId);
-      if (session) {
-        sessions.push(this.snapshotSession(session));
-      }
-    }
-    return sessions;
+    return this.collectSessions(this.snapshotSession.bind(this));
   }
 
   listSessionIds(): readonly string[] {
@@ -122,14 +121,7 @@ export class SessionStore {
   }
 
   listSummaries(): readonly SessionSummary[] {
-    const summaries: SessionSummary[] = [];
-    for (const sessionId of this.getSessionIdsForIteration()) {
-      const session = this.sessions.get(sessionId);
-      if (session) {
-        summaries.push(this.snapshotSessionSummary(session));
-      }
-    }
-    return summaries;
+    return this.collectSessions(this.snapshotSessionSummary.bind(this));
   }
 
   getTtlMs(): number {
@@ -173,6 +165,7 @@ export class SessionStore {
       index: session.thoughts.length,
       content,
       revision: 0,
+      tokenCount: tokens,
       ...(stepSummary !== undefined ? { stepSummary } : {}),
     };
     session.thoughts.push(thought);
@@ -199,7 +192,7 @@ export class SessionStore {
 
     let removedTokens = 0;
     for (const t of removedThoughts) {
-      removedTokens += estimateTokens(t.content);
+      removedTokens += getThoughtTokenCount(t);
     }
 
     session.tokensUsed -= removedTokens;
@@ -222,7 +215,7 @@ export class SessionStore {
         `Thought index ${String(thoughtIndex)} not found in session ${sessionId}`
       );
     }
-    const oldTokens = estimateTokens(existing.content);
+    const oldTokens = getThoughtTokenCount(existing);
     const newTokens = estimateTokens(content);
     const delta = newTokens - oldTokens;
     if (delta > 0) {
@@ -232,6 +225,10 @@ export class SessionStore {
       index: thoughtIndex,
       content,
       revision: existing.revision + 1,
+      tokenCount: newTokens,
+      ...(existing.stepSummary !== undefined
+        ? { stepSummary: existing.stepSummary }
+        : {}),
     };
     session.thoughts[thoughtIndex] = revised;
     session.tokensUsed = session.tokensUsed - oldTokens + newTokens;
@@ -444,6 +441,19 @@ export class SessionStore {
   private getSessionIdsForIteration(): readonly string[] {
     this.sortedSessionIdsCache ??= this.buildSortedSessionIdsCache();
     return this.sortedSessionIdsCache;
+  }
+
+  private collectSessions<T>(
+    mapSession: (session: MutableSession) => T
+  ): T[] {
+    const collected: T[] = [];
+    for (const sessionId of this.getSessionIdsForIteration()) {
+      const session = this.sessions.get(sessionId);
+      if (session) {
+        collected.push(mapSession(session));
+      }
+    }
+    return collected;
   }
 
   private snapshotThought(thought: MutableThought): Thought {
