@@ -36,7 +36,17 @@ const sessionStore = new SessionStore(
   parsePositiveIntEnv('CORTEX_MAX_SESSIONS', DEFAULT_MAX_SESSIONS),
   parsePositiveIntEnv('CORTEX_MAX_TOTAL_TOKENS', DEFAULT_MAX_TOTAL_TOKENS)
 );
-const sentenceSegmenter = createSegmenter('sentence');
+
+let _sentenceSegmenter: Intl.Segmenter | undefined;
+let _sentenceSegmenterInitialized = false;
+
+function getSentenceSegmenter(): Intl.Segmenter | undefined {
+  if (!_sentenceSegmenterInitialized) {
+    _sentenceSegmenter = createSegmenter('sentence');
+    _sentenceSegmenterInitialized = true;
+  }
+  return _sentenceSegmenter;
+}
 
 const sessionLocks = new Map<string, Promise<void>>();
 
@@ -247,9 +257,6 @@ function assertExistingSessionConstraints(
   level: ReasoningLevel | undefined,
   targetThoughts?: number
 ): void {
-  if (level !== undefined && existing.level !== level) {
-    // Warning: ignoring provided level in favor of session level
-  }
   if (
     targetThoughts !== undefined &&
     targetThoughts !== existing.totalThoughts
@@ -324,12 +331,13 @@ function resolveThoughtCount(
 }
 
 function countSentences(queryText: string): number {
-  if (!sentenceSegmenter) {
+  const segmenter = getSentenceSegmenter();
+  if (!segmenter) {
     return 0;
   }
 
   let count = 0;
-  for (const sentence of sentenceSegmenter.segment(queryText)) {
+  for (const sentence of segmenter.segment(queryText)) {
     if (NON_WHITESPACE.test(sentence.segment)) {
       count++;
     }

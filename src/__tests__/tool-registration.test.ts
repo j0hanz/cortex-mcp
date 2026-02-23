@@ -331,7 +331,6 @@ describe('server registration', () => {
         id: string;
         generatedThoughts: number;
         remainingThoughts: number;
-        plannedThoughts: number;
         totalThoughts: number;
       }[];
     };
@@ -341,7 +340,6 @@ describe('server registration', () => {
     assert.ok(entry);
     assert.equal(entry?.generatedThoughts, 3);
     assert.equal(entry?.remainingThoughts, 0);
-    assert.equal(entry?.plannedThoughts, 3);
     assert.equal(entry?.totalThoughts, 3);
 
     await client.close();

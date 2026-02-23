@@ -33,6 +33,8 @@ type MutableThought = Mutable<Thought> & {
 };
 type MutableSession = Omit<Mutable<Session>, 'thoughts'> & {
   thoughts: MutableThought[];
+  _cachedSnapshot?: Session | undefined;
+  _cachedSummary?: SessionSummary | undefined;
 };
 
 function estimateTokens(text: string): number {
@@ -40,7 +42,9 @@ function estimateTokens(text: string): number {
   return Math.max(1, Math.ceil(byteLength / TOKEN_ESTIMATE_DIVISOR));
 }
 
-function getThoughtTokenCount(thought: Pick<MutableThought, 'content' | 'tokenCount'>): number {
+function getThoughtTokenCount(
+  thought: Pick<MutableThought, 'content' | 'tokenCount'>
+): number {
   return thought.tokenCount ?? estimateTokens(thought.content);
 }
 
@@ -433,6 +437,8 @@ export class SessionStore {
 
   private markSessionTouched(session: MutableSession): void {
     session.updatedAt = Date.now();
+    session._cachedSnapshot = undefined;
+    session._cachedSummary = undefined;
     this.touchOrder(session.id);
     this.sortedSessionIdsCache = null;
     this.emitSessionResourcesUpdated(session.id);
@@ -443,9 +449,7 @@ export class SessionStore {
     return this.sortedSessionIdsCache;
   }
 
-  private collectSessions<T>(
-    mapSession: (session: MutableSession) => T
-  ): T[] {
+  private collectSessions<T>(mapSession: (session: MutableSession) => T): T[] {
     const collected: T[] = [];
     for (const sessionId of this.getSessionIdsForIteration()) {
       const session = this.sessions.get(sessionId);
@@ -457,7 +461,7 @@ export class SessionStore {
   }
 
   private snapshotThought(thought: MutableThought): Thought {
-    return {
+    const t = {
       index: thought.index,
       content: thought.content,
       revision: thought.revision,
@@ -465,13 +469,18 @@ export class SessionStore {
         ? { stepSummary: thought.stepSummary }
         : {}),
     };
+    Object.freeze(t);
+    return t;
   }
 
   private snapshotSession(session: MutableSession): Session {
+    if (session._cachedSnapshot) {
+      return session._cachedSnapshot;
+    }
     const thoughts = session.thoughts.map((thought) =>
       this.snapshotThought(thought)
     );
-    return {
+    const snapshot: Session = {
       id: session.id,
       level: session.level,
       status: session.status,
@@ -482,10 +491,17 @@ export class SessionStore {
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
     };
+    Object.freeze(snapshot);
+    Object.freeze(snapshot.thoughts);
+    session._cachedSnapshot = snapshot;
+    return snapshot;
   }
 
   private snapshotSessionSummary(session: MutableSession): SessionSummary {
-    return {
+    if (session._cachedSummary) {
+      return session._cachedSummary;
+    }
+    const summary: SessionSummary = {
       id: session.id,
       level: session.level,
       status: session.status,
@@ -496,6 +512,9 @@ export class SessionStore {
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
     };
+    Object.freeze(summary);
+    session._cachedSummary = summary;
+    return summary;
   }
 
   private emitSessionsListChanged(): void {

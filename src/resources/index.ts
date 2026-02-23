@@ -49,7 +49,6 @@ interface SessionResourceSummary {
   status: 'active' | 'completed' | 'cancelled';
   generatedThoughts: number;
   remainingThoughts: number;
-  plannedThoughts: number;
   totalThoughts: number;
   tokenBudget: number;
   tokensUsed: number;
@@ -74,7 +73,6 @@ function buildSessionSummaryFromSummary(
       0,
       session.totalThoughts - session.generatedThoughts
     ),
-    plannedThoughts: session.totalThoughts,
     totalThoughts: session.totalThoughts,
     tokenBudget: session.tokenBudget,
     tokensUsed: session.tokensUsed,
@@ -123,7 +121,7 @@ function parseThoughtName(
 }
 
 function serializeJson(data: unknown): string {
-  return JSON.stringify(data, null, 2);
+  return JSON.stringify(data);
 }
 
 function withIconMeta(iconMeta?: IconMeta): { icons: IconMeta[] } | undefined {
@@ -451,6 +449,7 @@ export function registerAllResources(
       description:
         'Detailed view of a single reasoning session, including all thoughts and metadata.',
       mimeType: 'application/json',
+      annotations: { audience: ['assistant', 'user'], priority: 0.8 },
       ...(withIconMeta(iconMeta) ?? {}),
     },
     (uri, variables) => {
@@ -469,6 +468,9 @@ export function registerAllResources(
                 index: thought.index,
                 content: thought.content,
                 revision: thought.revision,
+                ...(thought.stepSummary !== undefined
+                  ? { stepSummary: thought.stepSummary }
+                  : {}),
               })),
             }),
           },

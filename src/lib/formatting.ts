@@ -38,6 +38,9 @@ export function extractPinnedSections(
 
   for (const thought of thoughts) {
     const { content } = thought;
+    if (!content.includes(PIN_START)) {
+      continue;
+    }
     let searchFrom = 0;
 
     while (searchFrom < content.length) {

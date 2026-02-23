@@ -500,7 +500,7 @@ function buildSummary(
   }
 
   return (
-    `CONTINUE: ${prompt} Call reasoning_think with { sessionId: "${session.id}", level: "${session.level}", thought: "<your next reasoning step>" }. ` +
+    `CONTINUE: ${prompt} Call reasoning_think with { sessionId: "${session.id}", thought: "<your next reasoning step>" }. ` +
     `${summaryText}Progress: ${String(session.thoughts.length)}/${String(
       session.totalThoughts
     )} thoughts, ${String(remainingThoughts)} remaining.`
@@ -611,8 +611,8 @@ function createProgressHandler(args: {
     }
 
     const message = isTerminal
-      ? `.𖦹°‧ reasoning_think: [${String(total)}/${String(total)}] • done`
-      : `.𖦹°‧ reasoning_think: [${String(progress)}/${String(total)}]`;
+      ? `reasoning_think: [${String(total)}/${String(total)}] done`
+      : `reasoning_think: [${String(progress)}/${String(total)}]`;
 
     try {
       await server.server.notification({
@@ -966,17 +966,16 @@ export function registerReasoningThinkTool(
 
 USAGE PATTERN:
 1. Start: { query: "...", level: "basic"|"normal"|"high", thought: "your analysis..." }
-2. Continue: { sessionId: "<from response>", level: "<same level>", thought: "next step..." }
-3. Repeat step 2 until response shows status: "completed"
+2. Continue: { sessionId: "<from response>", thought: "next step..." } — level is optional; session level is used
+3. Repeat until status: "completed" — the summary field contains the exact next call to make
 
-IMPORTANT: You MUST pass the returned sessionId on every continuation call, and use the same level throughout.
+IMPORTANT: Pass the returned sessionId on every continuation call.
 The thought parameter stores YOUR reasoning verbatim — write thorough analysis in each step.
-Use step_summary to record a 1-sentence conclusion per step — these accumulate in the summary field for context.
+Use step_summary for a 1-sentence conclusion per step — these accumulate in the summary field for navigation.
 
 Levels: ${getLevelDescriptionString()}.
-Alternative: Use runMode="run_to_completion" with thought + thoughts[] to submit all steps in one call.
-Alternative input: Use observation/hypothesis/evaluation fields instead of thought for structured reasoning.
-Error recovery: If E_SESSION_NOT_FOUND, the session expired — start a new session. If E_INVALID_THOUGHT_COUNT, check level ranges.`,
+Alternatives: runMode="run_to_completion" (batch), or observation/hypothesis/evaluation fields (structured).
+Errors: E_SESSION_NOT_FOUND (expired — start new), E_INVALID_THOUGHT_COUNT (check level ranges).`,
       inputSchema: ReasoningThinkInputSchema,
       outputSchema: ReasoningThinkToolOutputSchema,
       annotations: {

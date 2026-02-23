@@ -14,7 +14,6 @@ import { registerAllTools } from './tools/index.js';
 import { registerAllPrompts } from './prompts/index.js';
 
 import { registerAllResources } from './resources/index.js';
-import { buildServerInstructions } from './resources/instructions.js';
 
 const ICON_MIME = 'image/svg+xml';
 const SERVER_NAME = 'cortex-mcp';
@@ -191,7 +190,6 @@ function installCloseCleanup(server: McpServer, cleanup: () => void): void {
 }
 
 export function createServer(): McpServer {
-  const instructions = buildServerInstructions();
   const version = loadVersion();
   const taskStore = new InMemoryTaskStore();
   const localIcon = getLocalIconData();
@@ -227,7 +225,8 @@ export function createServer(): McpServer {
         },
       },
       taskStore,
-      ...(instructions ? { instructions } : {}),
+      instructions:
+        'Multi-level reasoning MCP server. Use reasoning_think to decompose queries into sequential thought steps at basic (3–5), normal (6–10), or high (15–25) depth. Full usage guide: read internal://instructions or invoke get-help.',
     }
   );
 
