@@ -255,6 +255,29 @@ function shouldEmitProgress(
   return true;
 }
 
+async function notifyProgress(args: {
+  server: McpServer;
+  progressToken: ProgressToken;
+  progress: number;
+  total: number;
+  message: string;
+}): Promise<void> {
+  const { server, progressToken, progress, total, message } = args;
+  try {
+    await server.server.notification({
+      method: 'notifications/progress',
+      params: {
+        progressToken,
+        progress,
+        total,
+        message,
+      },
+    });
+  } catch {
+    // Ignore notification errors
+  }
+}
+
 function resolveRunMode(params: ReasoningThinkInput): ReasoningRunMode {
   return params.runMode ?? 'step';
 }
@@ -552,6 +575,7 @@ function createProgressHandler(args: {
 
   return async (progress: number, total: number): Promise<void> => {
     await ensureTaskIsActive(taskStore, taskId, controller);
+    void total;
 
     if (progressToken === undefined) {
       return;
@@ -564,27 +588,26 @@ function createProgressHandler(args: {
 
     // We must emit if it's the terminal update for this batch,
     // otherwise we respect the session-level skipping rules.
-    if (!isTerminal && !shouldEmitProgress(progress, total, level)) {
+    if (
+      !isTerminal &&
+      !shouldEmitProgress(displayProgress, batchTotal, level)
+    ) {
       return;
     }
 
     const message = isTerminal
-      ? `reasoning_think: [${String(total)}/${String(total)}] done`
-      : `reasoning_think: [${String(progress)}/${String(total)}]`;
+      ? `reasoning_think: thoughts [${String(batchTotal)}/${String(batchTotal)}] • done`
+      : `reasoning_think: thoughts [${String(displayProgress)}/${String(
+          batchTotal
+        )}]`;
 
-    try {
-      await server.server.notification({
-        method: 'notifications/progress',
-        params: {
-          progressToken,
-          progress: displayProgress,
-          total: batchTotal,
-          message,
-        },
-      });
-    } catch {
-      // Ignore notification errors
-    }
+    await notifyProgress({
+      server,
+      progressToken,
+      progress: displayProgress,
+      total: batchTotal,
+      message,
+    });
   };
 }
 
@@ -784,23 +807,18 @@ async function runReasoningTask(args: {
       batchTotal = 1;
     }
 
+    const normalizedBatchTotal = Math.max(1, batchTotal);
     if (progressToken !== undefined) {
-      try {
-        await server.server.notification({
-          method: 'notifications/progress',
-          params: {
-            progressToken,
-            progress: 0,
-            total: Math.max(1, batchTotal),
-            message:
-              level !== undefined
-                ? `reasoning_think: starting [${level}]`
-                : 'reasoning_think: continuing session',
-          },
-        });
-      } catch {
-        // Ignore notification errors
-      }
+      await notifyProgress({
+        server,
+        progressToken,
+        progress: 0,
+        total: normalizedBatchTotal,
+        message:
+          level !== undefined
+            ? `reasoning_think: starting [${level}]`
+            : 'reasoning_think: continuing session',
+      });
     }
 
     const progressArgs: Parameters<typeof createProgressHandler>[0] = {
@@ -810,7 +828,7 @@ async function runReasoningTask(args: {
       level,
       controller,
       startingCount,
-      batchTotal: Math.max(1, batchTotal),
+      batchTotal: normalizedBatchTotal,
     };
     if (progressToken !== undefined) {
       progressArgs.progressToken = progressToken;

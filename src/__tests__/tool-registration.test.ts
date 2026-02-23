@@ -431,8 +431,16 @@ describe('server registration', () => {
     });
 
     assert.equal(result.isError, true);
-    const block = result.content[0] as { type: string; text: string };
-    const parsed = JSON.parse(block.text) as {
+    const rawContent = (result as { content?: unknown }).content;
+    assert.ok(Array.isArray(rawContent));
+    const firstBlock = rawContent[0];
+    assert.ok(
+      typeof firstBlock === 'object' &&
+        firstBlock !== null &&
+        'text' in firstBlock &&
+        typeof firstBlock.text === 'string'
+    );
+    const parsed = JSON.parse(firstBlock.text) as {
       ok: boolean;
       error: { code: string };
     };

@@ -19,14 +19,7 @@ const COMPLETION_LIMIT = 20;
 const LEVEL_ENUM_SCHEMA = z.enum(REASONING_LEVELS);
 const REASONING_TOOL_NAME = 'reasoning_think';
 const THOUGHT_PARAMETER_GUIDANCE =
-  'Provide your full reasoning in the "thought" parameter for each step.';
-
-function formatTargetThoughts(targetThoughts?: number): string {
-  if (targetThoughts === undefined) {
-    return '';
-  }
-  return `, targetThoughts=${String(targetThoughts)}`;
-}
+  'Provide full reasoning in "thought" for every step.';
 
 function completeSessionId(value: string): string[] {
   const results: string[] = [];
@@ -69,26 +62,151 @@ function createTextPrompt(text: string): {
   };
 }
 
+function buildPromptText(args: {
+  context: string[];
+  task: string[];
+  constraints: string[];
+  output: string[];
+}): string {
+  const { context, task, constraints, output } = args;
+  return [
+    '# Context',
+    ...context,
+    '',
+    '# Task',
+    ...task,
+    '',
+    '# Constraints',
+    ...constraints.map((line) => `- ${line}`),
+    '',
+    '# Output',
+    ...output,
+  ].join('\n');
+}
+
+function buildStartReasoningPrompt(args: {
+  level: ReasoningLevel;
+  query: string;
+  targetThoughts?: number;
+}): string {
+  const { level, query, targetThoughts } = args;
+  return buildPromptText({
+    context: [
+      `Query: ${JSON.stringify(query)}`,
+      `Requested level: ${level}`,
+      `Target thoughts: ${
+        targetThoughts === undefined
+          ? 'use level default'
+          : String(targetThoughts)
+      }`,
+    ],
+    task: [
+      `Start a new reasoning session using "${REASONING_TOOL_NAME}".`,
+      'Create the first step with a complete, concrete reasoning thought.',
+    ],
+    constraints: [
+      THOUGHT_PARAMETER_GUIDANCE,
+      'Preserve sessionId from the response for continuation calls.',
+      'Continue until status is completed or remainingThoughts is 0.',
+    ],
+    output: [
+      'Return the first tool call payload only.',
+      'Fields: query, level, thought, and optional targetThoughts.',
+    ],
+  });
+}
+
+function buildRetryReasoningPrompt(args: {
+  query: string;
+  level: ReasoningLevel;
+  targetThoughts?: number;
+}): string {
+  const { query, level, targetThoughts } = args;
+  return buildPromptText({
+    context: [
+      `Retry query: ${JSON.stringify(query)}`,
+      `Retry level: ${level}`,
+      `Target thoughts: ${
+        targetThoughts === undefined
+          ? 'unchanged / default'
+          : String(targetThoughts)
+      }`,
+    ],
+    task: [
+      `Retry by calling "${REASONING_TOOL_NAME}" with an improved first thought.`,
+    ],
+    constraints: [
+      THOUGHT_PARAMETER_GUIDANCE,
+      'Use a direct and specific thought with no filler language.',
+    ],
+    output: [
+      'Return one tool call payload only.',
+      'Fields: query, level, thought, and optional targetThoughts.',
+    ],
+  });
+}
+
+function buildContinueReasoningPrompt(args: {
+  sessionId: string;
+  query?: string;
+  level?: ReasoningLevel;
+  targetThoughts?: number;
+}): string {
+  const { sessionId, query, level, targetThoughts } = args;
+  return buildPromptText({
+    context: [
+      `Session: ${JSON.stringify(sessionId)}`,
+      query === undefined
+        ? 'Follow-up query: none provided'
+        : `Follow-up query: ${JSON.stringify(query)}`,
+      level === undefined
+        ? 'Level: keep session level'
+        : `Level override: ${level}`,
+      `Target thoughts: ${
+        targetThoughts === undefined
+          ? 'unchanged / default'
+          : String(targetThoughts)
+      }`,
+    ],
+    task: [
+      `Continue the existing session using "${REASONING_TOOL_NAME}".`,
+      'Generate the next reasoning step only.',
+    ],
+    constraints: [
+      THOUGHT_PARAMETER_GUIDANCE,
+      'Keep the same sessionId in the call payload.',
+      'Prefer concise, concrete reasoning over meta commentary.',
+    ],
+    output: [
+      'Return one continuation tool call payload only.',
+      'Fields: sessionId, thought, and optional query/level/targetThoughts.',
+    ],
+  });
+}
+
 export function registerAllPrompts(
   server: McpServer,
   iconMeta?: IconMeta
 ): void {
   const contracts = getPromptContracts();
   const instructions = buildServerInstructions();
-
-  // Helper to find contract
-  const findContract = (name: string): PromptContract | undefined =>
-    contracts.find((c) => c.name === name);
-
-  // Register Level Prompts (reasoning.basic, .normal, .high)
-  for (const level of REASONING_LEVELS) {
-    const name = `reasoning.${level}`;
-    const contract = findContract(name);
+  const contractByName = new Map<string, PromptContract>(
+    contracts.map((contract) => [contract.name, contract])
+  );
+  const getRequiredContract = (name: string): PromptContract => {
+    const contract = contractByName.get(name);
     if (!contract) {
       throw new Error(
         `Missing mandatory prompt contract for '${name}'. Check src/lib/prompt-contracts.ts.`
       );
     }
+    return contract;
+  };
+
+  // Register Level Prompts (reasoning.basic, .normal, .high)
+  for (const level of REASONING_LEVELS) {
+    const name = `reasoning.${level}`;
+    const contract = getRequiredContract(name);
 
     server.registerPrompt(
       name,
@@ -114,19 +232,18 @@ export function registerAllPrompts(
         },
       },
       ({ query, targetThoughts }) => {
-        const text = `Initiate a ${level}-depth reasoning session for the query: ${JSON.stringify(query)}. Use the "${REASONING_TOOL_NAME}" tool${formatTargetThoughts(targetThoughts)}. ${THOUGHT_PARAMETER_GUIDANCE} This is stored verbatim in the session trace. Repeat calls with the returned sessionId until totalThoughts is reached.`;
+        const text = buildStartReasoningPrompt({
+          level,
+          query,
+          ...(targetThoughts !== undefined ? { targetThoughts } : {}),
+        });
         return createTextPrompt(text);
       }
     );
   }
 
   // Register reasoning.retry
-  const retryContract = findContract('reasoning.retry');
-  if (!retryContract) {
-    throw new Error(
-      "Missing mandatory prompt contract 'reasoning.retry'. Check src/lib/prompt-contracts.ts."
-    );
-  }
+  const retryContract = getRequiredContract('reasoning.retry');
 
   server.registerPrompt(
     retryContract.name,
@@ -154,18 +271,17 @@ export function registerAllPrompts(
       },
     },
     ({ query, level, targetThoughts }) => {
-      const text = `Retry the reasoning session for query: ${JSON.stringify(query)}. Use the "${REASONING_TOOL_NAME}" tool with level="${level}"${formatTargetThoughts(targetThoughts)}. ${THOUGHT_PARAMETER_GUIDANCE}`;
+      const text = buildRetryReasoningPrompt({
+        query,
+        level,
+        ...(targetThoughts !== undefined ? { targetThoughts } : {}),
+      });
       return createTextPrompt(text);
     }
   );
 
   // Register get-help
-  const helpContract = findContract('get-help');
-  if (!helpContract) {
-    throw new Error(
-      "Missing mandatory prompt contract 'get-help'. Check src/lib/prompt-contracts.ts."
-    );
-  }
+  const helpContract = getRequiredContract('get-help');
 
   server.registerPrompt(
     helpContract.name,
@@ -178,12 +294,7 @@ export function registerAllPrompts(
   );
 
   // Register reasoning.continue
-  const continueContract = findContract('reasoning.continue');
-  if (!continueContract) {
-    throw new Error(
-      "Missing mandatory prompt contract 'reasoning.continue'. Check src/lib/prompt-contracts.ts."
-    );
-  }
+  const continueContract = getRequiredContract('reasoning.continue');
 
   server.registerPrompt(
     continueContract.name,
@@ -224,10 +335,12 @@ export function registerAllPrompts(
       },
     },
     ({ sessionId, query, level, targetThoughts }) => {
-      const followUpText =
-        query === undefined ? '' : ` with follow-up: ${JSON.stringify(query)}`;
-      const levelText = level === undefined ? '' : ` with level="${level}"`;
-      const text = `Continue reasoning session ${JSON.stringify(sessionId)}${followUpText}. Use "${REASONING_TOOL_NAME}"${levelText}${formatTargetThoughts(targetThoughts)}. ${THOUGHT_PARAMETER_GUIDANCE}`;
+      const text = buildContinueReasoningPrompt({
+        sessionId,
+        ...(query !== undefined ? { query } : {}),
+        ...(level !== undefined ? { level } : {}),
+        ...(targetThoughts !== undefined ? { targetThoughts } : {}),
+      });
       return createTextPrompt(text);
     }
   );

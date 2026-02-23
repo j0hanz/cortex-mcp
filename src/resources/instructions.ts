@@ -24,12 +24,19 @@ export function buildServerInstructions(): string {
   const toolContracts = getToolContracts();
   const promptContracts = getPromptContracts();
 
-  const toolSections = toolContracts.map((c) => {
-    const params = c.params.map(formatParam).join('\n');
-    return `### \`${c.name}\`\n- Purpose: ${c.purpose}\n- Model: \`${c.model}\`\n- Parameters:\n${params}`;
-  });
+  const toolSections = [...toolContracts]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((c) => {
+      const params = c.params.map(formatParam).join('\n');
+      return `### \`${c.name}\`\n- Purpose: ${c.purpose}\n- Model: \`${c.model}\`\n- Parameters:\n${params}`;
+    });
 
-  const promptList = promptContracts.map(formatPrompt).join('\n');
+  const promptList = promptContracts
+    .filter((p) => p.name !== 'get-help')
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(formatPrompt)
+    .join('\n');
+
   const sharedConstraints = getSharedConstraints()
     .map((c) => `- ${c}`)
     .join('\n');

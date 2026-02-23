@@ -3,7 +3,8 @@ import { getToolContracts } from '../lib/tool-contracts.js';
 import { getSharedConstraints } from './tool-info.js';
 
 function buildToolReference(): string {
-  return getToolContracts()
+  return [...getToolContracts()]
+    .sort((a, b) => a.name.localeCompare(b.name))
     .map(
       (c) =>
         `### \`${c.name}\`\n- Purpose: ${c.purpose}\n- Output: \`${c.outputShape}\``
