@@ -1,12 +1,15 @@
-import { Buffer } from 'node:buffer';
-
-import { createSegmenter } from '../lib/text.js';
-import type { LevelConfig, ReasoningLevel, Session } from '../lib/types.js';
+import {
+  InvalidRunModeArgsError,
+  ReasoningAbortedError,
+  SessionNotFoundError,
+} from '../lib/errors.js';
+import type { ReasoningLevel, Session } from '../lib/types.js';
 import { parsePositiveIntEnv } from '../lib/validators.js';
 
-import { assertTargetThoughtsInRange, getLevelConfig } from './config.js';
+import { getLevelConfig } from './config.js';
 import { runWithContext } from './context.js';
 import { engineEvents } from './events.js';
+import { resolveThoughtCount } from './heuristics.js';
 import {
   DEFAULT_MAX_SESSIONS,
   DEFAULT_MAX_TOTAL_TOKENS,
@@ -14,26 +17,11 @@ import {
   SessionStore,
 } from './session-store.js';
 
-const NON_WHITESPACE = /\S/u;
-const COMPLEXITY_KEYWORDS =
-  /\b(compare|analy[sz]e|trade[- ]?off|design|plan|critique|evaluate|review|architecture)\b/i;
-
 const sessionStore = new SessionStore(
   parsePositiveIntEnv('CORTEX_SESSION_TTL_MS', DEFAULT_SESSION_TTL_MS),
   parsePositiveIntEnv('CORTEX_MAX_SESSIONS', DEFAULT_MAX_SESSIONS),
   parsePositiveIntEnv('CORTEX_MAX_TOTAL_TOKENS', DEFAULT_MAX_TOTAL_TOKENS)
 );
-
-let _sentenceSegmenter: Intl.Segmenter | undefined;
-let _sentenceSegmenterInitialized = false;
-
-function getSentenceSegmenter(): Intl.Segmenter | undefined {
-  if (!_sentenceSegmenterInitialized) {
-    _sentenceSegmenter = createSegmenter('sentence');
-    _sentenceSegmenterInitialized = true;
-  }
-  return _sentenceSegmenter;
-}
 
 const sessionLocks = new Map<string, Promise<void>>();
 
@@ -79,7 +67,7 @@ export async function reason(
       evaluation !== undefined);
 
   if (!hasContent && rollbackToStep === undefined) {
-    throw new Error(
+    throw new InvalidRunModeArgsError(
       'Either thought (or observation/hypothesis/evaluation) or rollback_to_step is required'
     );
   }
@@ -187,7 +175,7 @@ async function withSessionLock<T>(
 function getSessionOrThrow(sessionId: string): Readonly<Session> {
   const session = sessionStore.get(sessionId);
   if (!session) {
-    throw new Error(`Session not found: ${sessionId}`);
+    throw new SessionNotFoundError(sessionId);
   }
   return session;
 }
@@ -220,7 +208,7 @@ function assertExistingSessionConstraints(
     targetThoughts !== undefined &&
     targetThoughts !== existing.totalThoughts
   ) {
-    throw new Error(
+    throw new InvalidRunModeArgsError(
       `Cannot change targetThoughts on an existing session (current: ${String(
         existing.totalThoughts
       )}). Omit targetThoughts or pass ${String(existing.totalThoughts)}.`
@@ -237,14 +225,14 @@ function resolveSession(
   if (sessionId) {
     const existing = sessionStore.get(sessionId);
     if (!existing) {
-      throw new Error(`Session not found: ${sessionId}`);
+      throw new SessionNotFoundError(sessionId);
     }
     assertExistingSessionConstraints(existing, targetThoughts);
     return existing;
   }
 
   if (level === undefined) {
-    throw new Error('level is required for new sessions');
+    throw new InvalidRunModeArgsError('level is required for new sessions');
   }
 
   const config = getLevelConfig(level);
@@ -262,72 +250,6 @@ function resolveSession(
   return session;
 }
 
-function resolveThoughtCount(
-  level: ReasoningLevel,
-  query: string,
-  config: Pick<LevelConfig, 'minThoughts' | 'maxThoughts'>,
-  targetThoughts?: number
-): number {
-  if (targetThoughts !== undefined) {
-    assertTargetThoughtsInRange(level, targetThoughts);
-    return targetThoughts;
-  }
-
-  if (config.minThoughts === config.maxThoughts) {
-    return config.minThoughts;
-  }
-
-  const queryText = query.trim();
-  const span = config.maxThoughts - config.minThoughts;
-
-  const queryByteLength = Buffer.byteLength(queryText, 'utf8');
-  const lengthScore = Math.min(1, queryByteLength / 400);
-  const structureScore = Math.min(0.4, getStructureDensityScore(queryText));
-  const keywordScore = COMPLEXITY_KEYWORDS.test(queryText) ? 0.25 : 0;
-  const score = Math.min(1, lengthScore + structureScore + keywordScore);
-
-  return config.minThoughts + Math.round(span * score);
-}
-
-function countSentences(queryText: string): number {
-  const segmenter = getSentenceSegmenter();
-  if (!segmenter) {
-    return 0;
-  }
-
-  let count = 0;
-  for (const sentence of segmenter.segment(queryText)) {
-    if (NON_WHITESPACE.test(sentence.segment)) {
-      count++;
-    }
-  }
-  return count;
-}
-
-function getStructureDensityScore(queryText: string): number {
-  const sentenceCount = countSentences(queryText);
-  if (sentenceCount > 1) {
-    return (sentenceCount - 1) * 0.08;
-  }
-
-  let markerMatches = 0;
-  for (let index = 0; index < queryText.length; index++) {
-    switch (queryText.charCodeAt(index)) {
-      case 63: // ?
-      case 58: // :
-      case 59: // ;
-      case 44: // ,
-      case 10: // \n
-        markerMatches += 1;
-        break;
-      default:
-        break;
-    }
-  }
-
-  return markerMatches * 0.05;
-}
-
 function throwIfReasoningAborted(signal?: AbortSignal): void {
   if (!signal) {
     return;
@@ -335,6 +257,6 @@ function throwIfReasoningAborted(signal?: AbortSignal): void {
   try {
     signal.throwIfAborted();
   } catch {
-    throw new Error('Reasoning aborted');
+    throw new ReasoningAbortedError();
   }
 }

@@ -19,10 +19,16 @@ import {
 } from '../schemas/outputs.js';
 
 import {
+  InsufficientThoughtsError,
+  InvalidRunModeArgsError,
+  ReasoningError,
+  ServerBusyError,
+  SessionNotFoundError,
   createErrorResponse,
   getErrorMessage,
   isObjectRecord,
 } from '../lib/errors.js';
+import { createTaskLimiter } from '../lib/concurrency.js';
 import { formatThoughtsToMarkdown } from '../lib/formatting.js';
 import { createToolResponse, withIconMeta } from '../lib/tool-response.js';
 import type {
@@ -35,8 +41,6 @@ import { parsePositiveIntEnv } from '../lib/validators.js';
 
 type ProgressToken = string | number;
 const DEFAULT_MAX_ACTIVE_REASONING_TASKS = 32;
-// Use explicit server busy error code for better client handling
-const TASK_OVERLOAD_MESSAGE = 'Server busy: too many active reasoning tasks';
 
 interface TaskStoreLike {
   createTask(options: {
@@ -71,27 +75,6 @@ function buildTraceResource(session: Readonly<Session>): TextResourceContents {
     uri: `file:///cortex/sessions/${session.id}/trace.md`,
     mimeType: 'text/markdown',
     text: formatThoughtsToMarkdown(session),
-  };
-}
-
-function createTaskLimiter(maxActiveTasks: number): {
-  tryAcquire: () => boolean;
-  release: () => void;
-} {
-  let activeTasks = 0;
-  return {
-    tryAcquire(): boolean {
-      if (activeTasks >= maxActiveTasks) {
-        return false;
-      }
-      activeTasks += 1;
-      return true;
-    },
-    release(): void {
-      if (activeTasks > 0) {
-        activeTasks -= 1;
-      }
-    },
   };
 }
 
@@ -211,29 +194,11 @@ function assertCallToolResult(value: unknown): asserts value is CallToolResult {
   }
 }
 
-function mapReasoningErrorCode(message: string): string {
-  switch (true) {
-    case message === 'Reasoning aborted':
-    case message === 'Reasoning task cancelled':
-      return 'E_ABORTED';
-    case message.startsWith('targetThoughts must be'):
-    case message.startsWith('Cannot change targetThoughts'):
-      return 'E_INVALID_THOUGHT_COUNT';
-    case message.startsWith('Session not found:'):
-      return 'E_SESSION_NOT_FOUND';
-    case message.startsWith('Session level mismatch:'):
-      return 'E_SESSION_LEVEL_MISMATCH';
-    case message.startsWith('run_to_completion requires at least'):
-      return 'E_INSUFFICIENT_THOUGHTS';
-    case message.startsWith(
-      'targetThoughts is required for run_to_completion when sessionId is not provided'
-    ):
-      return 'E_INVALID_RUN_MODE_ARGS';
-    case message === TASK_OVERLOAD_MESSAGE:
-      return 'E_SERVER_BUSY';
-    default:
-      return 'E_REASONING';
+function getReasoningErrorCode(error: unknown): string {
+  if (error instanceof ReasoningError) {
+    return error.code;
   }
+  return 'E_REASONING';
 }
 
 function shouldEmitProgress(
@@ -647,17 +612,17 @@ function assertRunToCompletionInputCount(
   thoughtInputs: string[]
 ): void {
   const { sessionId, targetThoughts } = params;
-  if (sessionId === undefined && targetThoughts === undefined) {
-    throw new Error(
+  if (!sessionId && !targetThoughts) {
+    throw new InvalidRunModeArgsError(
       'targetThoughts is required for run_to_completion when sessionId is not provided'
     );
   }
 
   let requiredInputs = targetThoughts ?? 0;
-  if (sessionId !== undefined) {
+  if (sessionId) {
     const existing = sessionStore.get(sessionId);
     if (!existing) {
-      throw new Error(`Session not found: ${sessionId}`);
+      throw new SessionNotFoundError(sessionId);
     }
     requiredInputs = Math.max(
       0,
@@ -666,7 +631,7 @@ function assertRunToCompletionInputCount(
   }
 
   if (thoughtInputs.length < requiredInputs) {
-    throw new Error(
+    throw new InsufficientThoughtsError(
       `run_to_completion requires at least ${String(
         requiredInputs
       )} thought inputs; received ${String(thoughtInputs.length)}`
@@ -701,7 +666,7 @@ async function handleTaskFailure(args: {
 }): Promise<void> {
   const { server, taskStore, taskId, sessionId, error } = args;
   const originalMessage = getErrorMessage(error);
-  const errorCode = mapReasoningErrorCode(originalMessage);
+  const errorCode = getReasoningErrorCode(error);
   const message = getActionableMessage(errorCode, originalMessage);
   const response = createErrorResponse(errorCode, message);
 
@@ -968,7 +933,7 @@ Errors: E_SESSION_NOT_FOUND (expired — start new), E_INVALID_THOUGHT_COUNT (ch
         const progressToken = extra._meta?.progressToken;
 
         if (!reasoningTaskLimiter.tryAcquire()) {
-          throw new Error(TASK_OVERLOAD_MESSAGE);
+          throw new ServerBusyError();
         }
 
         let task: Task;

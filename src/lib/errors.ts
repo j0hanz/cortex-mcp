@@ -12,6 +12,65 @@ interface ErrorResponse {
   isError: true;
 }
 
+export class ReasoningError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string
+  ) {
+    super(message);
+    this.name = 'ReasoningError';
+  }
+}
+
+export class SessionNotFoundError extends ReasoningError {
+  constructor(sessionId: string) {
+    super('E_SESSION_NOT_FOUND', `Session not found: ${sessionId}`);
+    this.name = 'SessionNotFoundError';
+  }
+}
+
+export class InvalidThoughtCountError extends ReasoningError {
+  constructor(message: string) {
+    super('E_INVALID_THOUGHT_COUNT', message);
+    this.name = 'InvalidThoughtCountError';
+  }
+}
+
+export class SessionLevelMismatchError extends ReasoningError {
+  constructor(message: string) {
+    super('E_SESSION_LEVEL_MISMATCH', message);
+    this.name = 'SessionLevelMismatchError';
+  }
+}
+
+export class InsufficientThoughtsError extends ReasoningError {
+  constructor(message: string) {
+    super('E_INSUFFICIENT_THOUGHTS', message);
+    this.name = 'InsufficientThoughtsError';
+  }
+}
+
+export class InvalidRunModeArgsError extends ReasoningError {
+  constructor(message: string) {
+    super('E_INVALID_RUN_MODE_ARGS', message);
+    this.name = 'InvalidRunModeArgsError';
+  }
+}
+
+export class ReasoningAbortedError extends ReasoningError {
+  constructor(message: string = 'Reasoning aborted') {
+    super('E_ABORTED', message);
+    this.name = 'ReasoningAbortedError';
+  }
+}
+
+export class ServerBusyError extends ReasoningError {
+  constructor(message: string = 'Server busy: too many active reasoning tasks') {
+    super('E_SERVER_BUSY', message);
+    this.name = 'ServerBusyError';
+  }
+}
+
 export function isObjectRecord(
   value: unknown
 ): value is Record<string, unknown> {

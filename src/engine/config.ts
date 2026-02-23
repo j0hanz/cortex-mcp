@@ -1,3 +1,4 @@
+import { InvalidThoughtCountError } from '../lib/errors.js';
 import {
   LEVEL_BOUNDS,
   type LevelConfig,
@@ -24,7 +25,7 @@ export function assertTargetThoughtsInRange(
     return;
   }
 
-  throw new Error(errorMessage);
+  throw new InvalidThoughtCountError(errorMessage);
 }
 
 export function getLevelDescriptionString(): string {
