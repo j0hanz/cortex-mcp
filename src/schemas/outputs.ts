@@ -20,12 +20,6 @@ const ThoughtSchema = z.strictObject({
     ),
 });
 
-export const DefaultOutputSchema = z.strictObject({
-  ok: z.boolean(),
-  result: z.unknown().optional(),
-  error: ErrorInfoSchema.optional(),
-});
-
 const ReasoningThinkSuccessSchema = z.strictObject({
   ok: z.literal(true),
   result: z.strictObject({
@@ -67,11 +61,6 @@ const ReasoningThinkErrorSchema = z.strictObject({
   ok: z.literal(false),
   error: ErrorInfoSchema,
 });
-
-export const ReasoningThinkResultSchema = z.discriminatedUnion('ok', [
-  ReasoningThinkSuccessSchema,
-  ReasoningThinkErrorSchema,
-]);
 
 function getMissingFieldIssue(data: {
   ok: boolean;
@@ -118,3 +107,15 @@ export const ReasoningThinkToolOutputSchema = z
   });
 
 export type ReasoningThinkSuccess = z.infer<typeof ReasoningThinkSuccessSchema>;
+
+/** Generic ok/error envelope — useful for contract tests and external validators. */
+export const DefaultOutputSchema = z.union([
+  z.strictObject({ ok: z.literal(true), result: z.unknown() }),
+  z.strictObject({ ok: z.literal(false), error: ErrorInfoSchema }),
+]);
+
+/** Full discriminated union for the reasoning_think tool result. */
+export const ReasoningThinkResultSchema = z.union([
+  ReasoningThinkSuccessSchema,
+  ReasoningThinkErrorSchema,
+]);

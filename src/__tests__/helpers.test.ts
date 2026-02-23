@@ -57,9 +57,6 @@ describe('createErrorResponse', () => {
     const response = createErrorResponse('E_TEST', 'Test error');
 
     assert.equal(response.isError, true);
-    assert.equal(response.structuredContent.ok, false);
-    assert.equal(response.structuredContent.error.code, 'E_TEST');
-    assert.equal(response.structuredContent.error.message, 'Test error');
     assert.equal(response.content.length, 1);
     assert.equal(response.content[0]!.type, 'text');
 
@@ -69,5 +66,6 @@ describe('createErrorResponse', () => {
     };
     assert.equal(parsed.ok, false);
     assert.equal(parsed.error.code, 'E_TEST');
+    assert.equal(parsed.error.message, 'Test error');
   });
 });

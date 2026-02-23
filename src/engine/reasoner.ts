@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 
 import { createSegmenter } from '../lib/text.js';
 import type { LevelConfig, ReasoningLevel, Session } from '../lib/types.js';
+import { parsePositiveIntEnv } from '../lib/validators.js';
 
 import { assertTargetThoughtsInRange, getLevelConfig } from './config.js';
 import { runWithContext } from './context.js';
@@ -16,22 +17,6 @@ import {
 const NON_WHITESPACE = /\S/u;
 const COMPLEXITY_KEYWORDS =
   /\b(compare|analy[sz]e|trade[- ]?off|design|plan|critique|evaluate|review|architecture)\b/i;
-
-function parsePositiveIntEnv(
-  name: string,
-  fallback: number,
-  minimum = 1
-): number {
-  const raw = process.env[name];
-  if (raw === undefined) {
-    return fallback;
-  }
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isInteger(parsed) || parsed < minimum) {
-    return fallback;
-  }
-  return parsed;
-}
 
 const sessionStore = new SessionStore(
   parsePositiveIntEnv('CORTEX_SESSION_TTL_MS', DEFAULT_SESSION_TTL_MS),
@@ -153,7 +138,7 @@ export async function reason(
         });
 
         const updated = getSessionOrThrow(session.id);
-        emitBudgetExhaustedIfNeeded({
+        void emitBudgetExhaustedIfNeeded({
           session: updated,
           tokenBudget: config.tokenBudget,
           generatedThoughts: addedThought.index + 1,
@@ -180,7 +165,7 @@ async function withSessionLock<T>(
 ): Promise<T> {
   const previous = sessionLocks.get(sessionId) ?? Promise.resolve();
 
-  let release: (() => void) | undefined;
+  let release!: () => void;
   const next = new Promise<void>((resolve) => {
     release = resolve;
   });
@@ -192,7 +177,7 @@ async function withSessionLock<T>(
   try {
     return await fn();
   } finally {
-    release?.();
+    release();
     if (sessionLocks.get(sessionId) === currentTail) {
       sessionLocks.delete(sessionId);
     }

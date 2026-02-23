@@ -83,15 +83,27 @@ function buildSessionSummaryFromSummary(
   };
 }
 
-function buildSessionSummary(sessionId: string): SessionResourceSummary {
-  const session = sessionStore.getSummary(sessionId);
-  if (!session) {
-    throw new McpError(
-      -32002,
-      `Resource not found: ${SESSION_RESOURCE_PREFIX}${sessionId}`
-    );
-  }
-  return buildSessionSummaryFromSummary(session);
+function buildSessionSummaryFromSession(
+  session: Readonly<Session>
+): SessionResourceSummary {
+  const ttlMs = sessionStore.getTtlMs();
+  const expiresAt =
+    sessionStore.getExpiresAt(session.id) ?? session.updatedAt + ttlMs;
+  const generatedThoughts = session.thoughts.length;
+
+  return {
+    id: session.id,
+    level: session.level,
+    status: session.status,
+    generatedThoughts,
+    remainingThoughts: Math.max(0, session.totalThoughts - generatedThoughts),
+    totalThoughts: session.totalThoughts,
+    tokenBudget: session.tokenBudget,
+    tokensUsed: session.tokensUsed,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+    expiresAt,
+  };
 }
 
 const THOUGHT_NAME_PATTERN = /^Thought-(\d+)(?:-Revised)?$/;
@@ -129,52 +141,9 @@ function shortSessionId(sessionId: string): string {
   return sessionId.slice(0, 8);
 }
 
-interface CompletionCacheEntry {
-  results: string[];
-  timestamp: number;
-}
-
-const COMPLETION_CACHE_TTL_MS = 1000;
-const COMPLETION_CACHE_MAX_ENTRIES = 512;
 const MAX_COMPLETION_RESULTS = 20;
-const completionCache = new Map<string, CompletionCacheEntry>();
-let lastCompletionCachePruneAt = 0;
-
-function toIsoTimestamp(unixMs: number): string {
-  return new Date(unixMs).toISOString();
-}
-
-function pruneCompletionCacheIfNeeded(now: number): void {
-  if (now - lastCompletionCachePruneAt < COMPLETION_CACHE_TTL_MS) {
-    return;
-  }
-  lastCompletionCachePruneAt = now;
-
-  for (const [cacheKey, entry] of completionCache.entries()) {
-    if (now - entry.timestamp >= COMPLETION_CACHE_TTL_MS) {
-      completionCache.delete(cacheKey);
-    }
-  }
-
-  while (completionCache.size > COMPLETION_CACHE_MAX_ENTRIES) {
-    const oldestKey = completionCache.keys().next().value;
-    if (typeof oldestKey !== 'string') {
-      break;
-    }
-    completionCache.delete(oldestKey);
-  }
-}
 
 function completeSessionIds(value: string): string[] {
-  const now = Date.now();
-  pruneCompletionCacheIfNeeded(now);
-  const cacheKey = `sessionId:${value}`;
-  const cached = completionCache.get(cacheKey);
-
-  if (cached && now - cached.timestamp < COMPLETION_CACHE_TTL_MS) {
-    return cached.results;
-  }
-
   const results: string[] = [];
   for (const sessionId of sessionStore.listSessionIds()) {
     if (!sessionId.startsWith(value)) {
@@ -185,9 +154,11 @@ function completeSessionIds(value: string): string[] {
       break;
     }
   }
-
-  completionCache.set(cacheKey, { results, timestamp: now });
   return results;
+}
+
+function toIsoTimestamp(unixMs: number): string {
+  return new Date(unixMs).toISOString();
 }
 
 function completeThoughtNames(value: string, sessionId: string): string[] {
@@ -452,7 +423,7 @@ export function registerAllResources(
     (uri, variables) => {
       const sessionId = extractStringVariable(variables, 'sessionId', uri);
       const session = resolveSession(sessionId, uri);
-      const summary = buildSessionSummary(sessionId);
+      const summary = buildSessionSummaryFromSession(session);
 
       return {
         contents: [

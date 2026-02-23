@@ -1,6 +1,16 @@
 export type ReasoningLevel = 'basic' | 'normal' | 'high';
 export const REASONING_LEVELS = ['basic', 'normal', 'high'] as const;
 
+/** Shared level bounds — single source of truth for min/maxThoughts per level. */
+export const LEVEL_BOUNDS = {
+  basic: { minThoughts: 3, maxThoughts: 5 },
+  normal: { minThoughts: 6, maxThoughts: 10 },
+  high: { minThoughts: 15, maxThoughts: 25 },
+} as const satisfies Record<
+  ReasoningLevel,
+  { minThoughts: number; maxThoughts: number }
+>;
+
 export type ReasoningRunMode = 'step' | 'run_to_completion';
 
 export type SessionStatus = 'active' | 'completed' | 'cancelled';

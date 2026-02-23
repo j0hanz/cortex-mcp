@@ -9,7 +9,6 @@ const UNKNOWN_ERROR_MESSAGE = 'Unknown error';
 interface ErrorResponse {
   [key: string]: unknown;
   content: { type: 'text'; text: string }[];
-  structuredContent: { ok: false; error: { code: string; message: string } };
   isError: true;
 }
 
@@ -57,11 +56,9 @@ export function createErrorResponse(
   code: string,
   message: string
 ): ErrorResponse {
-  const structured = { ok: false as const, error: { code, message } };
-  const text = JSON.stringify(structured);
+  const text = JSON.stringify({ ok: false, error: { code, message } });
   return {
     content: [{ type: 'text' as const, text }],
-    structuredContent: structured,
     isError: true as const,
   };
 }

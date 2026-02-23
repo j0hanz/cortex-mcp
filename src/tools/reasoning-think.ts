@@ -13,7 +13,10 @@ import {
   type ReasoningThinkInput,
   ReasoningThinkInputSchema,
 } from '../schemas/inputs.js';
-import { ReasoningThinkToolOutputSchema } from '../schemas/outputs.js';
+import {
+  type ReasoningThinkSuccess,
+  ReasoningThinkToolOutputSchema,
+} from '../schemas/outputs.js';
 
 import {
   createErrorResponse,
@@ -28,6 +31,7 @@ import type {
   ReasoningRunMode,
   Session,
 } from '../lib/types.js';
+import { parsePositiveIntEnv } from '../lib/validators.js';
 
 type ProgressToken = string | number;
 const DEFAULT_MAX_ACTIVE_REASONING_TASKS = 32;
@@ -62,32 +66,8 @@ interface ReasoningTaskExtra {
   _meta?: { progressToken?: ProgressToken } & Record<string, unknown>;
 }
 
-interface ReasoningStructuredResult {
-  [key: string]: unknown;
-  ok: true;
-  result: {
-    sessionId: string;
-    level: ReasoningLevel;
-    status: 'active' | 'completed' | 'cancelled';
-    thoughts: readonly {
-      index: number;
-      content: string;
-      revision: number;
-      stepSummary?: string;
-    }[];
-    generatedThoughts: number;
-    requestedThoughts: number;
-    totalThoughts: number;
-    remainingThoughts: number;
-    tokenBudget: number;
-    tokensUsed: number;
-    ttlMs: number;
-    expiresAt: number;
-    createdAt: number;
-    updatedAt: number;
-    summary: string;
-  };
-}
+// ReasoningStructuredResult is the inferred type of the success schema
+type ReasoningStructuredResult = ReasoningThinkSuccess;
 
 function buildTraceResource(session: Readonly<Session>): TextResourceContents {
   return {
@@ -95,20 +75,6 @@ function buildTraceResource(session: Readonly<Session>): TextResourceContents {
     mimeType: 'text/markdown',
     text: formatThoughtsToMarkdown(session),
   };
-}
-
-function parsePositiveInt(
-  rawValue: string | undefined,
-  fallbackValue: number
-): number {
-  if (rawValue === undefined) {
-    return fallbackValue;
-  }
-  const parsed = Number.parseInt(rawValue, 10);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return fallbackValue;
-  }
-  return parsed;
 }
 
 function createTaskLimiter(maxActiveTasks: number): {
@@ -133,8 +99,8 @@ function createTaskLimiter(maxActiveTasks: number): {
 }
 
 const reasoningTaskLimiter = createTaskLimiter(
-  parsePositiveInt(
-    process.env.CORTEX_MAX_ACTIVE_REASONING_TASKS,
+  parsePositiveIntEnv(
+    'CORTEX_MAX_ACTIVE_REASONING_TASKS',
     DEFAULT_MAX_ACTIVE_REASONING_TASKS
   )
 );
@@ -373,6 +339,21 @@ async function executeReasoningSteps(args: {
     maxSteps = 1;
   }
 
+  // Build first-step-only extras once, outside the loop.
+  const firstStepExtras = {
+    ...(observation !== undefined ? { observation } : {}),
+    ...(hypothesis !== undefined ? { hypothesis } : {}),
+    ...(evaluation !== undefined ? { evaluation } : {}),
+    ...(stepSummary !== undefined ? { stepSummary } : {}),
+    ...(isConclusion !== undefined ? { isConclusion } : {}),
+    ...(rollbackToStep !== undefined ? { rollbackToStep } : {}),
+  };
+  const baseOptions = {
+    ...(targetThoughts !== undefined ? { targetThoughts } : {}),
+    abortSignal: controller.signal,
+    onProgress,
+  };
+
   for (let index = 0; index < maxSteps; index++) {
     await ensureTaskIsActive(taskStore, taskId, controller);
 
@@ -390,40 +371,12 @@ async function executeReasoningSteps(args: {
       break;
     }
 
-    const reasonOptions: {
-      sessionId?: string;
-      targetThoughts?: number;
-      thought?: string;
-      abortSignal: AbortSignal;
-      onProgress: (progress: number, total: number) => Promise<void>;
-      observation?: string;
-      hypothesis?: string;
-      evaluation?: string;
-      stepSummary?: string;
-      isConclusion?: boolean;
-      rollbackToStep?: number;
-    } = {
+    const reasonOptions = {
+      ...baseOptions,
       ...(inputThought !== undefined ? { thought: inputThought } : {}),
-      abortSignal: controller.signal,
-      onProgress,
+      ...(activeSessionId !== undefined ? { sessionId: activeSessionId } : {}),
+      ...(index === 0 ? firstStepExtras : {}),
     };
-
-    if (index === 0) {
-      if (observation !== undefined) reasonOptions.observation = observation;
-      if (hypothesis !== undefined) reasonOptions.hypothesis = hypothesis;
-      if (evaluation !== undefined) reasonOptions.evaluation = evaluation;
-      if (stepSummary !== undefined) reasonOptions.stepSummary = stepSummary;
-      if (isConclusion !== undefined) reasonOptions.isConclusion = isConclusion;
-      if (rollbackToStep !== undefined)
-        reasonOptions.rollbackToStep = rollbackToStep;
-    }
-
-    if (activeSessionId !== undefined) {
-      reasonOptions.sessionId = activeSessionId;
-    }
-    if (targetThoughts !== undefined) {
-      reasonOptions.targetThoughts = targetThoughts;
-    }
 
     session = await reason(queryText, level, reasonOptions);
 
@@ -460,7 +413,7 @@ function buildStructuredResult(
       sessionId: session.id,
       level: session.level,
       status: session.status,
-      thoughts: session.thoughts,
+      thoughts: [...session.thoughts],
       generatedThoughts,
       requestedThoughts,
       totalThoughts: session.totalThoughts,

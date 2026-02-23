@@ -18,14 +18,14 @@ export function buildWorkflowGuide(): string {
 
 1. Call \`reasoning_think\` with \`{ query: "...", level: "basic", thought: "Your detailed reasoning for step 1..." }\`.
 2. Read the response — note the \`sessionId\` and \`remainingThoughts\` fields.
-3. **You MUST continue**: Call again with \`{ sessionId: "<from response>", level: "<same level>", thought: "Your next reasoning step..." }\`.
+3. **You MUST continue**: Call again with \`{ sessionId: "<from response>", thought: "Your next reasoning step..." }\`.
 4. Repeat step 3 until the response shows \`status: "completed"\` or \`remainingThoughts: 0\`.
    NOTE: The \`summary\` field contains the exact continuation call you should make next.
 
 ### WORKFLOW B: Multi-Turn Reasoning (Session Continuation)
 
 1. Call \`reasoning_think\` with \`{ query: "initial question", level: "normal", thought: "Your first reasoning step..." }\` — note the returned \`sessionId\`.
-2. Call \`reasoning_think\` with \`{ sessionId: "<id>", level: "normal", thought: "Your next reasoning step..." }\` (optional: add \`query\` for follow-up context).
+2. Call \`reasoning_think\` with \`{ sessionId: "<id>", thought: "Your next reasoning step..." }\` (optional: add \`query\` for follow-up context).
 3. Repeat until \`status: "completed"\` or \`remainingThoughts: 0\`, then read \`reasoning://sessions/{sessionId}\` for the full chain.
    NOTE: The \`level\` parameter is optional when continuing; if provided and mismatched, the session level is used.
 

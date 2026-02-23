@@ -1,21 +1,8 @@
-import type { ReasoningLevel } from './types.js';
-
-interface ThoughtBounds {
-  minThoughts: number;
-  maxThoughts: number;
-}
-
-/** Level-specific thought count boundaries for validation. */
-const THOUGHT_BOUNDS: Readonly<Record<ReasoningLevel, ThoughtBounds>> =
-  Object.freeze({
-    basic: Object.freeze({ minThoughts: 3, maxThoughts: 5 }),
-    normal: Object.freeze({ minThoughts: 6, maxThoughts: 10 }),
-    high: Object.freeze({ minThoughts: 15, maxThoughts: 25 }),
-  });
+import { LEVEL_BOUNDS, type ReasoningLevel } from './types.js';
 
 function isOutOfBounds(
   value: number,
-  bounds: Readonly<ThoughtBounds>
+  bounds: Readonly<{ minThoughts: number; maxThoughts: number }>
 ): boolean {
   return value < bounds.minThoughts || value > bounds.maxThoughts;
 }
@@ -24,7 +11,7 @@ export function getThoughtBounds(level: ReasoningLevel): {
   minThoughts: number;
   maxThoughts: number;
 } {
-  return THOUGHT_BOUNDS[level];
+  return LEVEL_BOUNDS[level];
 }
 
 export function getTargetThoughtsError(
@@ -41,4 +28,24 @@ export function getTargetThoughtsError(
   }
 
   return undefined;
+}
+
+/**
+ * Parse a positive integer from an environment variable, returning `fallback`
+ * if the variable is absent or invalid. Values below `minimum` also fall back.
+ */
+export function parsePositiveIntEnv(
+  name: string,
+  fallback: number,
+  minimum = 1
+): number {
+  const raw = process.env[name];
+  if (raw === undefined) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isInteger(parsed) || parsed < minimum) {
+    return fallback;
+  }
+  return parsed;
 }

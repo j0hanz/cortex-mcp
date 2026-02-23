@@ -430,12 +430,14 @@ describe('server registration', () => {
       },
     });
 
-    const structured = result.structuredContent as {
-      ok?: boolean;
-      error?: { code?: string };
+    assert.equal(result.isError, true);
+    const block = result.content[0] as { type: string; text: string };
+    const parsed = JSON.parse(block.text) as {
+      ok: boolean;
+      error: { code: string };
     };
-    assert.equal(structured.ok, false);
-    assert.equal(structured.error?.code, 'E_INSUFFICIENT_THOUGHTS');
+    assert.equal(parsed.ok, false);
+    assert.equal(parsed.error.code, 'E_INSUFFICIENT_THOUGHTS');
 
     await client.close();
     await server.close();
