@@ -65,7 +65,9 @@ export class ReasoningAbortedError extends ReasoningError {
 }
 
 export class ServerBusyError extends ReasoningError {
-  constructor(message: string = 'Server busy: too many active reasoning tasks') {
+  constructor(
+    message: string = 'Server busy: too many active reasoning tasks'
+  ) {
     super('E_SERVER_BUSY', message);
     this.name = 'ServerBusyError';
   }

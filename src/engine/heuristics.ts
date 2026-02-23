@@ -1,6 +1,8 @@
 import { Buffer } from 'node:buffer';
+
 import { createSegmenter } from '../lib/text.js';
 import type { LevelConfig, ReasoningLevel } from '../lib/types.js';
+
 import { assertTargetThoughtsInRange } from './config.js';
 
 const NON_WHITESPACE = /\S/u;
