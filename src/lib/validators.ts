@@ -49,3 +49,21 @@ export function parsePositiveIntEnv(
   }
   return parsed;
 }
+
+export function collectPrefixMatches(
+  candidates: readonly string[],
+  value: string,
+  limit: number
+): string[] {
+  const results: string[] = [];
+  for (const candidate of candidates) {
+    if (!candidate.startsWith(value)) {
+      continue;
+    }
+    results.push(candidate);
+    if (results.length >= limit) {
+      break;
+    }
+  }
+  return results;
+}

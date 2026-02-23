@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { getTargetThoughtsError, getThoughtBounds } from '../lib/validators.js';
+import {
+  collectPrefixMatches,
+  getTargetThoughtsError,
+  getThoughtBounds,
+} from '../lib/validators.js';
 
 describe('getThoughtBounds', () => {
   it('returns correct bounds for basic level', () => {
@@ -59,5 +63,29 @@ describe('getTargetThoughtsError', () => {
     const error = getTargetThoughtsError('basic', 3.5);
     assert.ok(error);
     assert.ok(error.includes('integer'));
+  });
+});
+
+describe('collectPrefixMatches', () => {
+  it('returns prefix matches in source order up to limit', () => {
+    const matches = collectPrefixMatches(
+      ['abc-1', 'abc-2', 'xyz-1', 'abc-3'],
+      'abc',
+      2
+    );
+
+    assert.deepEqual(matches, ['abc-1', 'abc-2']);
+  });
+
+  it('returns all matching values when under limit', () => {
+    const matches = collectPrefixMatches(['id-a', 'id-b', 'x-a'], 'id', 10);
+
+    assert.deepEqual(matches, ['id-a', 'id-b']);
+  });
+
+  it('returns empty list when no values match', () => {
+    const matches = collectPrefixMatches(['id-a', 'id-b'], 'zzz', 5);
+
+    assert.deepEqual(matches, []);
   });
 });

@@ -12,6 +12,7 @@ import {
 import { withIconMeta } from '../lib/tool-response.js';
 import type { IconMeta, ReasoningLevel } from '../lib/types.js';
 import { REASONING_LEVELS } from '../lib/types.js';
+import { collectPrefixMatches } from '../lib/validators.js';
 
 import { buildServerInstructions } from '../resources/instructions.js';
 
@@ -24,17 +25,11 @@ const THOUGHT_PARAMETER_GUIDANCE =
   'Provide full reasoning in "thought" for every step.';
 
 function completeSessionId(value: string): string[] {
-  const results: string[] = [];
-  for (const sessionId of sessionStore.listSessionIds()) {
-    if (!sessionId.startsWith(value)) {
-      continue;
-    }
-    results.push(sessionId);
-    if (results.length >= COMPLETION_LIMIT) {
-      break;
-    }
-  }
-  return results;
+  return collectPrefixMatches(
+    sessionStore.listSessionIds(),
+    value,
+    COMPLETION_LIMIT
+  );
 }
 
 function completeLevel(value: string): ReasoningLevel[] {

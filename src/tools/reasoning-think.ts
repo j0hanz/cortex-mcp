@@ -25,6 +25,7 @@ import {
   InsufficientThoughtsError,
   InvalidRunModeArgsError,
   isObjectRecord,
+  ReasoningAbortedError,
   ReasoningError,
   ServerBusyError,
   SessionNotFoundError,
@@ -418,10 +419,10 @@ function buildSummary(
   remainingThoughts: number
 ): string {
   if (session.status === 'completed') {
-    return `Reasoning complete. ${String(session.thoughts.length)} thoughts produced at level "${session.level}". Session ${session.id}.`;
+    return `Reasoning complete — ${String(session.thoughts.length)} thoughts at [${session.level}] level. Session ${session.id}.`;
   }
   if (session.status === 'cancelled') {
-    return `Session cancelled at thought ${String(session.thoughts.length)}/${String(session.totalThoughts)}. Session ${session.id}.`;
+    return `Reasoning cancelled at thought ${String(session.thoughts.length)}/${String(session.totalThoughts)}. Session ${session.id}.`;
   }
 
   const recentSummaries = session.thoughts
@@ -509,7 +510,7 @@ async function ensureTaskIsActive(
 ): Promise<void> {
   if (await isTaskCancelled(taskStore, taskId)) {
     controller.abort();
-    throw new Error('Reasoning task cancelled');
+    throw new ReasoningAbortedError('Reasoning task cancelled');
   }
 }
 
@@ -557,9 +558,9 @@ function createProgressHandler(args: {
 
     const message = formatProgressMessage({
       toolName: TOOL_NAME,
-      context: 'session',
+      context: 'Thought',
       metadata: `[${String(displayProgress)}/${String(batchTotal)}]`,
-      ...(isTerminal ? { outcome: 'done' } : {}),
+      ...(isTerminal ? { outcome: 'complete' } : {}),
     });
 
     await notifyProgress({
@@ -648,14 +649,12 @@ function getActionableMessage(
   originalMessage: string
 ): string {
   switch (errorCode) {
-    case 'E_SESSION_LEVEL_MISMATCH':
-      return `${originalMessage} ACTION REQUIRED: Re-call reasoning_think with the correct level matching the session.`;
     case 'E_INVALID_THOUGHT_COUNT':
-      return `${originalMessage} ACTION REQUIRED: Ensure targetThoughts is within the level's range.`;
+      return `${originalMessage} Fix: set targetThoughts within the level range (basic 3–5, normal 6–10, high 15–25).`;
     case 'E_INSUFFICIENT_THOUGHTS':
-      return `${originalMessage} ACTION REQUIRED: Provide enough thoughts for run_to_completion or switch to step mode.`;
+      return `${originalMessage} Fix: provide enough thought inputs for the remaining steps, or use runMode: "step".`;
     case 'E_INVALID_RUN_MODE_ARGS':
-      return `${originalMessage} ACTION REQUIRED: Provide targetThoughts when starting a new session in run_to_completion mode.`;
+      return `${originalMessage} Fix: set targetThoughts when starting a new session with runMode: "run_to_completion".`;
     default:
       return originalMessage;
   }
@@ -675,6 +674,9 @@ async function handleTaskFailure(args: {
   const response = createErrorResponse(errorCode, message);
 
   if (await isTaskCancelled(taskStore, taskId)) {
+    if (sessionId) {
+      sessionStore.markCancelled(sessionId);
+    }
     await emitLog(
       server,
       'notice',
@@ -733,6 +735,7 @@ async function runReasoningTask(args: {
   const runMode = params.runMode ?? 'step';
   const thoughtInputs = buildThoughtInputs(params);
   const queryText = query ?? '';
+  let resolvedSessionId = params.sessionId ?? sessionId;
 
   await emitLog(
     server,
@@ -746,7 +749,7 @@ async function runReasoningTask(args: {
       targetThoughts: targetThoughts ?? null,
       thoughtInputs: thoughtInputs.length,
     },
-    sessionId
+    resolvedSessionId
   );
 
   try {
@@ -772,8 +775,8 @@ async function runReasoningTask(args: {
     if (progressToken !== undefined) {
       const message = formatProgressMessage({
         toolName: TOOL_NAME,
-        context: 'session',
-        metadata: level ? `starting [${level}]` : 'continuing',
+        context: 'reasoning',
+        metadata: level ? `starting [${level}]` : 'continuing session',
       });
 
       await notifyProgress({
@@ -828,13 +831,15 @@ async function runReasoningTask(args: {
       executeArgs.rollbackToStep = params.rollback_to_step;
 
     const session = await executeReasoningSteps(executeArgs);
+    resolvedSessionId = session.id;
 
     if (await isTaskCancelled(taskStore, taskId)) {
+      sessionStore.markCancelled(resolvedSessionId);
       await emitLog(
         server,
         'notice',
         { event: 'task_cancelled_before_result', taskId },
-        sessionId
+        resolvedSessionId
       );
       return;
     }
@@ -874,8 +879,8 @@ async function runReasoningTask(args: {
       taskId,
       error,
     };
-    if (sessionId !== undefined) {
-      failureArgs.sessionId = sessionId;
+    if (resolvedSessionId !== undefined) {
+      failureArgs.sessionId = resolvedSessionId;
     }
     await handleTaskFailure(failureArgs);
   }

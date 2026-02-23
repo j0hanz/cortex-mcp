@@ -12,6 +12,7 @@ import type {
   Session,
   SessionSummary as StoreSessionSummary,
 } from '../lib/types.js';
+import { collectPrefixMatches } from '../lib/validators.js';
 
 import { buildServerInstructions } from './instructions.js';
 import { buildToolCatalog } from './tool-catalog.js';
@@ -121,17 +122,11 @@ function shortSessionId(sessionId: string): string {
 const MAX_COMPLETION_RESULTS = 20;
 
 function completeSessionIds(value: string): string[] {
-  const results: string[] = [];
-  for (const sessionId of sessionStore.listSessionIds()) {
-    if (!sessionId.startsWith(value)) {
-      continue;
-    }
-    results.push(sessionId);
-    if (results.length >= MAX_COMPLETION_RESULTS) {
-      break;
-    }
-  }
-  return results;
+  return collectPrefixMatches(
+    sessionStore.listSessionIds(),
+    value,
+    MAX_COMPLETION_RESULTS
+  );
 }
 
 function toIsoTimestamp(unixMs: number): string {

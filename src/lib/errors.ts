@@ -24,7 +24,7 @@ export class ReasoningError extends Error {
 
 export class SessionNotFoundError extends ReasoningError {
   constructor(sessionId: string) {
-    super('E_SESSION_NOT_FOUND', `Session not found: ${sessionId}`);
+    super('E_SESSION_NOT_FOUND', `Session not found or expired: ${sessionId}`);
     this.name = 'SessionNotFoundError';
   }
 }
@@ -33,13 +33,6 @@ export class InvalidThoughtCountError extends ReasoningError {
   constructor(message: string) {
     super('E_INVALID_THOUGHT_COUNT', message);
     this.name = 'InvalidThoughtCountError';
-  }
-}
-
-export class SessionLevelMismatchError extends ReasoningError {
-  constructor(message: string) {
-    super('E_SESSION_LEVEL_MISMATCH', message);
-    this.name = 'SessionLevelMismatchError';
   }
 }
 
@@ -65,7 +58,9 @@ export class ReasoningAbortedError extends ReasoningError {
 }
 
 export class ServerBusyError extends ReasoningError {
-  constructor(message = 'Server busy: too many active reasoning tasks') {
+  constructor(
+    message = 'Server busy — too many concurrent reasoning tasks. Retry shortly.'
+  ) {
     super('E_SERVER_BUSY', message);
     this.name = 'ServerBusyError';
   }
