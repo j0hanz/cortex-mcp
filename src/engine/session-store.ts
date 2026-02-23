@@ -12,9 +12,9 @@ import type {
 import { getLevelConfig } from './config.js';
 import { engineEvents } from './events.js';
 
-const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes
-const DEFAULT_MAX_SESSIONS = 100;
-const DEFAULT_MAX_TOTAL_TOKENS = 500_000;
+export const DEFAULT_SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
+export const DEFAULT_MAX_SESSIONS = 100;
+export const DEFAULT_MAX_TOTAL_TOKENS = 500_000;
 const TOKEN_ESTIMATE_DIVISOR = 4;
 const MIN_SWEEP_INTERVAL_MS = 10;
 const MAX_SWEEP_INTERVAL_MS = 60_000;
@@ -68,7 +68,7 @@ export class SessionStore {
   private totalTokens = 0;
 
   constructor(
-    ttlMs: number = DEFAULT_TTL_MS,
+    ttlMs: number = DEFAULT_SESSION_TTL_MS,
     maxSessions: number = DEFAULT_MAX_SESSIONS,
     maxTotalTokens: number = DEFAULT_MAX_TOTAL_TOKENS
   ) {

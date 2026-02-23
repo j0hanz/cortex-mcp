@@ -9,14 +9,14 @@ import {
   getPromptContracts,
   type PromptContract,
 } from '../lib/prompt-contracts.js';
-import type { IconMeta } from '../lib/types.js';
+import { withIconMeta } from '../lib/tool-response.js';
+import type { IconMeta, ReasoningLevel } from '../lib/types.js';
+import { REASONING_LEVELS } from '../lib/types.js';
 
 import { buildServerInstructions } from '../resources/instructions.js';
 
-type PromptLevel = 'basic' | 'normal' | 'high';
 const COMPLETION_LIMIT = 20;
-const LEVEL_VALUES: readonly PromptLevel[] = ['basic', 'normal', 'high'];
-const LEVEL_ENUM_SCHEMA = z.enum(LEVEL_VALUES);
+const LEVEL_ENUM_SCHEMA = z.enum(REASONING_LEVELS);
 const REASONING_TOOL_NAME = 'reasoning_think';
 const THOUGHT_PARAMETER_GUIDANCE =
   'Provide your full reasoning in the "thought" parameter for each step.';
@@ -42,19 +42,15 @@ function completeSessionId(value: string): string[] {
   return results;
 }
 
-function completeLevel(value: string): PromptLevel[] {
+function completeLevel(value: string): ReasoningLevel[] {
   const normalized = value.toLowerCase();
-  const results: PromptLevel[] = [];
-  for (const level of LEVEL_VALUES) {
+  const results: ReasoningLevel[] = [];
+  for (const level of REASONING_LEVELS) {
     if (level.startsWith(normalized)) {
       results.push(level);
     }
   }
   return results;
-}
-
-function withIconMeta(iconMeta?: IconMeta): { icons: IconMeta[] } | undefined {
-  return iconMeta ? { icons: [iconMeta] } : undefined;
 }
 
 function createTextPrompt(text: string): {
@@ -85,7 +81,7 @@ export function registerAllPrompts(
     contracts.find((c) => c.name === name);
 
   // Register Level Prompts (reasoning.basic, .normal, .high)
-  for (const level of LEVEL_VALUES) {
+  for (const level of REASONING_LEVELS) {
     const name = `reasoning.${level}`;
     const contract = findContract(name);
     if (!contract) {

@@ -1,7 +1,10 @@
 export type ReasoningLevel = 'basic' | 'normal' | 'high';
+export const REASONING_LEVELS = ['basic', 'normal', 'high'] as const;
+
 export type ReasoningRunMode = 'step' | 'run_to_completion';
 
 export type SessionStatus = 'active' | 'completed' | 'cancelled';
+export const SESSION_STATUSES = ['active', 'completed', 'cancelled'] as const;
 
 interface Timestamped {
   readonly createdAt: number;

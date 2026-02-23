@@ -15,9 +15,13 @@ import {
 } from '../schemas/inputs.js';
 import { ReasoningThinkToolOutputSchema } from '../schemas/outputs.js';
 
-import { createErrorResponse, getErrorMessage } from '../lib/errors.js';
+import {
+  createErrorResponse,
+  getErrorMessage,
+  isObjectRecord,
+} from '../lib/errors.js';
 import { formatThoughtsToMarkdown } from '../lib/formatting.js';
-import { createToolResponse } from '../lib/tool-response.js';
+import { createToolResponse, withIconMeta } from '../lib/tool-response.js';
 import type {
   IconMeta,
   ReasoningLevel,
@@ -65,7 +69,12 @@ interface ReasoningStructuredResult {
     sessionId: string;
     level: ReasoningLevel;
     status: 'active' | 'completed' | 'cancelled';
-    thoughts: readonly { index: number; content: string; revision: number }[];
+    thoughts: readonly {
+      index: number;
+      content: string;
+      revision: number;
+      stepSummary?: string;
+    }[];
     generatedThoughts: number;
     requestedThoughts: number;
     totalThoughts: number;
@@ -129,10 +138,6 @@ const reasoningTaskLimiter = createTaskLimiter(
     DEFAULT_MAX_ACTIVE_REASONING_TASKS
   )
 );
-
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function isTaskStoreLike(value: unknown): value is TaskStoreLike {
   if (!isObjectRecord(value)) {
@@ -949,10 +954,6 @@ function getTaskId(extra: ReasoningTaskExtra): string {
 }
 
 const TOOL_NAME = 'reasoning_think';
-
-function withIconMeta(iconMeta?: IconMeta): { icons: IconMeta[] } | undefined {
-  return iconMeta ? { icons: [iconMeta] } : undefined;
-}
 
 export function registerReasoningThinkTool(
   server: McpServer,

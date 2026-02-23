@@ -13,7 +13,9 @@ interface ErrorResponse {
   isError: true;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isObjectRecord(
+  value: unknown
+): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
@@ -27,7 +29,7 @@ function stringifyUnknown(value: unknown): string {
 }
 
 function getMessageFromErrorLike(value: unknown): string | undefined {
-  if (!isRecord(value)) {
+  if (!isObjectRecord(value)) {
     return undefined;
   }
 

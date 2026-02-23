@@ -5,6 +5,7 @@ import { InMemoryTaskStore } from '@modelcontextprotocol/sdk/experimental/tasks'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import { engineEvents } from './engine/events.js';
+import type { ThoughtBudgetExhaustedPayload } from './engine/events.js';
 
 import { getErrorMessage } from './lib/errors.js';
 import type { IconMeta } from './lib/types.js';
@@ -29,14 +30,6 @@ const ICON_URL_CANDIDATES = [
 ];
 let cachedLocalIconData: string | null | undefined;
 let cachedVersion: string | undefined;
-
-interface BudgetExhaustedEvent {
-  sessionId: string;
-  tokensUsed: number;
-  tokenBudget: number;
-  generatedThoughts: number;
-  requestedThoughts: number;
-}
 
 function getLocalIconData(): string | undefined {
   if (cachedLocalIconData !== undefined) {
@@ -136,7 +129,7 @@ function attachEngineEventHandlers(server: McpServer): () => void {
       });
   };
 
-  const onBudgetExhausted = (data: BudgetExhaustedEvent): void => {
+  const onBudgetExhausted = (data: ThoughtBudgetExhaustedPayload): void => {
     void server
       .sendLoggingMessage({
         level: 'notice',

@@ -6,11 +6,13 @@ import type { LevelConfig, ReasoningLevel, Session } from '../lib/types.js';
 import { assertTargetThoughtsInRange, getLevelConfig } from './config.js';
 import { runWithContext } from './context.js';
 import { engineEvents } from './events.js';
-import { SessionStore } from './session-store.js';
+import {
+  DEFAULT_MAX_SESSIONS,
+  DEFAULT_MAX_TOTAL_TOKENS,
+  DEFAULT_SESSION_TTL_MS,
+  SessionStore,
+} from './session-store.js';
 
-const DEFAULT_SESSION_TTL_MS = 30 * 60 * 1000;
-const DEFAULT_MAX_SESSIONS = 100;
-const DEFAULT_MAX_TOTAL_TOKENS = 500_000;
 const NON_WHITESPACE = /\S/u;
 const COMPLEXITY_KEYWORDS =
   /\b(compare|analy[sz]e|trade[- ]?off|design|plan|critique|evaluate|review|architecture)\b/i;
@@ -205,56 +207,28 @@ function getSessionOrThrow(sessionId: string): Readonly<Session> {
   return session;
 }
 
-function emitBudgetExhausted(data: {
-  sessionId: string;
-  tokensUsed: number;
-  tokenBudget: number;
-  generatedThoughts: number;
-  requestedThoughts: number;
-}): void {
-  engineEvents.emit('thought:budget-exhausted', data);
-}
-
-function createBudgetExhaustedPayload(args: {
-  session: Readonly<Session>;
-  tokenBudget: number;
-  generatedThoughts: number;
-  requestedThoughts: number;
-}): {
-  sessionId: string;
-  tokensUsed: number;
-  tokenBudget: number;
-  generatedThoughts: number;
-  requestedThoughts: number;
-} {
-  const { session, tokenBudget, generatedThoughts, requestedThoughts } = args;
-  return {
-    sessionId: session.id,
-    tokensUsed: session.tokensUsed,
-    tokenBudget,
-    generatedThoughts,
-    requestedThoughts,
-  };
-}
-
 function emitBudgetExhaustedIfNeeded(args: {
   session: Readonly<Session>;
   tokenBudget: number;
   generatedThoughts: number;
   requestedThoughts: number;
 }): boolean {
-  const { session, tokenBudget } = args;
+  const { session, tokenBudget, generatedThoughts, requestedThoughts } = args;
   if (session.tokensUsed < tokenBudget) {
     return false;
   }
-
-  emitBudgetExhausted(createBudgetExhaustedPayload(args));
+  engineEvents.emit('thought:budget-exhausted', {
+    sessionId: session.id,
+    tokensUsed: session.tokensUsed,
+    tokenBudget,
+    generatedThoughts,
+    requestedThoughts,
+  });
   return true;
 }
 
 function assertExistingSessionConstraints(
   existing: Readonly<Session>,
-  level: ReasoningLevel | undefined,
   targetThoughts?: number
 ): void {
   if (
@@ -280,7 +254,7 @@ function resolveSession(
     if (!existing) {
       throw new Error(`Session not found: ${sessionId}`);
     }
-    assertExistingSessionConstraints(existing, level, targetThoughts);
+    assertExistingSessionConstraints(existing, targetThoughts);
     return existing;
   }
 

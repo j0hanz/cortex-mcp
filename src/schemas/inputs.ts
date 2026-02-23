@@ -2,13 +2,13 @@ import { z } from 'zod';
 
 import { getLevelDescriptionString } from '../engine/config.js';
 
+import { REASONING_LEVELS } from '../lib/types.js';
 import { getTargetThoughtsError } from '../lib/validators.js';
 
 const RUN_MODE_VALUES = ['step', 'run_to_completion'] as const;
 const DEFAULT_RUN_MODE = 'step';
-const LEVEL_VALUES = ['basic', 'normal', 'high'] as const;
+const LEVEL_SCHEMA = z.enum(REASONING_LEVELS);
 const QUERY_TEXT_SCHEMA = z.string().min(1).max(10000);
-const LEVEL_SCHEMA = z.enum(LEVEL_VALUES);
 const THOUGHT_TEXT_SCHEMA = z.string().min(1).max(100000);
 const THOUGHT_BATCH_SCHEMA = z.array(THOUGHT_TEXT_SCHEMA).min(1).max(25);
 

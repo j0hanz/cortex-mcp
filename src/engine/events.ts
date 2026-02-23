@@ -3,10 +3,9 @@ import { EventEmitter } from 'node:events';
 import { getErrorMessage } from '../lib/errors.js';
 import type { ReasoningLevel } from '../lib/types.js';
 
-const ENGINE_ERROR_LOG_PREFIX = '[engine]';
-const ENGINE_ERROR_PREFIX_WITH_SPACE = `${ENGINE_ERROR_LOG_PREFIX} `;
+const ENGINE_ERROR_PREFIX = '[engine] ';
 
-interface ThoughtBudgetExhaustedPayload {
+export interface ThoughtBudgetExhaustedPayload {
   sessionId: string;
   tokensUsed: number;
   tokenBudget: number;
@@ -49,9 +48,7 @@ export const engineEvents = new EventEmitter({
 }) as TypedEmitter<EngineEvents>;
 
 function logEngineError(err: unknown): void {
-  process.stderr.write(
-    `${ENGINE_ERROR_PREFIX_WITH_SPACE}${getErrorMessage(err)}\n`
-  );
+  process.stderr.write(`${ENGINE_ERROR_PREFIX}${getErrorMessage(err)}\n`);
 }
 
 engineEvents.on('error', logEngineError);

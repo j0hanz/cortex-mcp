@@ -3,6 +3,14 @@ import type {
   TextResourceContents,
 } from '@modelcontextprotocol/sdk/types.js';
 
+import type { IconMeta } from './types.js';
+
+export function withIconMeta(
+  iconMeta?: IconMeta
+): { icons: IconMeta[] } | undefined {
+  return iconMeta ? { icons: [iconMeta] } : undefined;
+}
+
 function createStructuredTextBlock(structured: object): ContentBlock {
   return { type: 'text', text: JSON.stringify(structured) };
 }

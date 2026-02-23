@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
+import { REASONING_LEVELS, SESSION_STATUSES } from '../lib/types.js';
+
 const ErrorInfoSchema = z.strictObject({
   code: z.string(),
   message: z.string(),
 });
 const MISSING_RESULT_PATH: ['result'] = ['result'];
 const MISSING_ERROR_PATH: ['error'] = ['error'];
-const LEVEL_VALUES = ['basic', 'normal', 'high'] as const;
-const STATUS_VALUES = ['active', 'completed', 'cancelled'] as const;
 const ThoughtSchema = z.strictObject({
   index: z.number(),
   content: z.string(),
@@ -30,8 +30,8 @@ const ReasoningThinkSuccessSchema = z.strictObject({
   ok: z.literal(true),
   result: z.strictObject({
     sessionId: z.string(),
-    level: z.enum(LEVEL_VALUES),
-    status: z.enum(STATUS_VALUES),
+    level: z.enum(REASONING_LEVELS),
+    status: z.enum(SESSION_STATUSES),
     thoughts: z.array(ThoughtSchema),
     generatedThoughts: z.number(),
     requestedThoughts: z.number(),

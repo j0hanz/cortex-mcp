@@ -6,6 +6,7 @@ import { McpError } from '@modelcontextprotocol/sdk/types.js';
 import { sessionStore } from '../engine/reasoner.js';
 
 import { formatThoughtsToMarkdown } from '../lib/formatting.js';
+import { withIconMeta } from '../lib/tool-response.js';
 import type {
   IconMeta,
   Session,
@@ -122,10 +123,6 @@ function parseThoughtName(
 
 function serializeJson(data: unknown): string {
   return JSON.stringify(data);
-}
-
-function withIconMeta(iconMeta?: IconMeta): { icons: IconMeta[] } | undefined {
-  return iconMeta ? { icons: [iconMeta] } : undefined;
 }
 
 function shortSessionId(sessionId: string): string {
