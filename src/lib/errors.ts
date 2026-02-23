@@ -14,7 +14,7 @@ interface ErrorResponse {
 
 export class ReasoningError extends Error {
   constructor(
-    public readonly code: string,
+    readonly code: string,
     message: string
   ) {
     super(message);
@@ -58,16 +58,14 @@ export class InvalidRunModeArgsError extends ReasoningError {
 }
 
 export class ReasoningAbortedError extends ReasoningError {
-  constructor(message: string = 'Reasoning aborted') {
+  constructor(message = 'Reasoning aborted') {
     super('E_ABORTED', message);
     this.name = 'ReasoningAbortedError';
   }
 }
 
 export class ServerBusyError extends ReasoningError {
-  constructor(
-    message: string = 'Server busy: too many active reasoning tasks'
-  ) {
+  constructor(message = 'Server busy: too many active reasoning tasks') {
     super('E_SERVER_BUSY', message);
     this.name = 'ServerBusyError';
   }

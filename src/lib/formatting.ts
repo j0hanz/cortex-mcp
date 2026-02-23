@@ -169,3 +169,25 @@ export function formatThoughtsToMarkdown(
 
   return sections.join(TRACE_SEPARATOR);
 }
+
+/**
+ * Format a standardized progress message string.
+ *
+ * Rules:
+ * - Start/Mid: <tool>: <context> [metadata]
+ * - End: <tool>: <context> [metadata] • <outcome>
+ */
+export function formatProgressMessage(args: {
+  toolName: string;
+  context: string;
+  metadata?: string;
+  outcome?: string;
+}): string {
+  const { toolName, context, metadata, outcome } = args;
+  const metaPart = metadata ? ` ${metadata}` : '';
+
+  if (outcome) {
+    return `${toolName}: ${context}${metaPart} • ${outcome}`;
+  }
+  return `${toolName}: ${context}${metaPart}`;
+}

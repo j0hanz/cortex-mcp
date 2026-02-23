@@ -29,7 +29,10 @@ import {
   ServerBusyError,
   SessionNotFoundError,
 } from '../lib/errors.js';
-import { formatThoughtsToMarkdown } from '../lib/formatting.js';
+import {
+  formatProgressMessage,
+  formatThoughtsToMarkdown,
+} from '../lib/formatting.js';
 import { createToolResponse, withIconMeta } from '../lib/tool-response.js';
 import type {
   IconMeta,
@@ -552,11 +555,12 @@ function createProgressHandler(args: {
       return;
     }
 
-    const message = isTerminal
-      ? `reasoning_think: thoughts [${String(batchTotal)}/${String(batchTotal)}] • done`
-      : `reasoning_think: thoughts [${String(displayProgress)}/${String(
-          batchTotal
-        )}]`;
+    const message = formatProgressMessage({
+      toolName: TOOL_NAME,
+      context: 'session',
+      metadata: `[${String(displayProgress)}/${String(batchTotal)}]`,
+      ...(isTerminal ? { outcome: 'done' } : {}),
+    });
 
     await notifyProgress({
       server,
@@ -766,15 +770,18 @@ async function runReasoningTask(args: {
 
     const normalizedBatchTotal = Math.max(1, batchTotal);
     if (progressToken !== undefined) {
+      const message = formatProgressMessage({
+        toolName: TOOL_NAME,
+        context: 'session',
+        metadata: level ? `starting [${level}]` : 'continuing',
+      });
+
       await notifyProgress({
         server,
         progressToken,
         progress: 0,
         total: normalizedBatchTotal,
-        message:
-          level !== undefined
-            ? `reasoning_think: starting [${level}]`
-            : 'reasoning_think: continuing session',
+        message,
       });
     }
 
