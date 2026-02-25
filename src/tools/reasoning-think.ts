@@ -307,7 +307,11 @@ async function executeReasoningSteps(args: {
   targetThoughts?: number;
   runMode: ReasoningRunMode;
   thoughtInputs: string[];
-  onProgress: (progress: number, total: number) => Promise<void>;
+  onProgress: (
+    progress: number,
+    total: number,
+    summary?: string
+  ) => Promise<void>;
   observation?: string;
   hypothesis?: string;
   evaluation?: string;
@@ -554,7 +558,7 @@ function createProgressHandler(args: {
   controller: AbortController;
   startingCount: number;
   batchTotal: number;
-}): (progress: number, total: number) => Promise<void> {
+}): (progress: number, total: number, summary?: string) => Promise<void> {
   const {
     server,
     taskStore,
@@ -566,7 +570,11 @@ function createProgressHandler(args: {
     batchTotal,
   } = args;
 
-  return async (progress: number): Promise<void> => {
+  return async (
+    progress: number,
+    _total: number,
+    summary?: string
+  ): Promise<void> => {
     await ensureTaskIsActive(taskStore, taskId, controller);
 
     if (progressToken === undefined) {
@@ -580,17 +588,21 @@ function createProgressHandler(args: {
 
     // We must emit if it's the terminal update for this batch,
     // otherwise we respect the session-level skipping rules.
+    // If a summary is provided, we force an emit to show the meaningful update.
     if (
       !isTerminal &&
+      !summary &&
       !shouldEmitProgress(displayProgress, batchTotal, level)
     ) {
       return;
     }
 
     const message = formatProgressMessage({
-      toolName: TOOL_NAME,
+      toolName: `꩜ ${TOOL_NAME}`,
       context: 'Thought',
-      metadata: `[${String(displayProgress)}/${String(batchTotal)}]`,
+      metadata: `[${String(displayProgress)}/${String(batchTotal)}]${
+        summary ? ` ${summary}` : ''
+      }`,
       ...(isTerminal ? { outcome: 'complete' } : {}),
     });
 
@@ -805,9 +817,9 @@ async function runReasoningTask(args: {
     const normalizedBatchTotal = Math.max(1, batchTotal);
     if (progressToken !== undefined) {
       const message = formatProgressMessage({
-        toolName: TOOL_NAME,
-        context: 'reasoning',
-        metadata: level ? `starting [${level}]` : 'continuing session',
+        toolName: `꩜ ${TOOL_NAME}`,
+        context: level ? 'starting' : 'continuing',
+        metadata: level ? `[${level}]` : 'session',
       });
 
       await notifyProgress({

@@ -38,7 +38,11 @@ interface ReasonOptions {
   isConclusion?: boolean;
   rollbackToStep?: number;
   abortSignal?: AbortSignal;
-  onProgress?: (progress: number, total: number) => void | Promise<void>;
+  onProgress?: (
+    progress: number,
+    total: number,
+    stepSummary?: string
+  ) => void | Promise<void>;
 }
 
 export async function reason(
@@ -138,7 +142,7 @@ export async function reason(
         }
 
         if (onProgress) {
-          await onProgress(addedThought.index + 1, totalThoughts);
+          await onProgress(addedThought.index + 1, totalThoughts, stepSummary);
           throwIfReasoningAborted(abortSignal);
         }
 
