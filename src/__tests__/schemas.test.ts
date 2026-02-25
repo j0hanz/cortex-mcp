@@ -166,8 +166,7 @@ describe('ReasoningThinkInputSchema', () => {
       level: 'basic',
       runMode: 'run_to_completion',
       targetThoughts: 3,
-      thought: 'Step 1',
-      thoughts: ['Step 2', 'Step 3'],
+      thought: ['Step 1', 'Step 2', 'Step 3'],
     });
     assert.equal(result.success, true);
   });
@@ -178,7 +177,6 @@ describe('ReasoningThinkInputSchema', () => {
       level: 'basic',
       runMode: 'run_to_completion',
       thought: 'Step 1',
-      thoughts: ['Step 2'],
     });
     assert.equal(result.success, false);
   });
@@ -204,21 +202,10 @@ describe('ReasoningThinkInputSchema', () => {
       sessionId: 'abc-123',
       runMode: 'run_to_completion',
       thought: 'Step 1',
-      thoughts: ['Step 2'],
     });
     assert.equal(result.success, true);
   });
 
-  it('rejects thoughts when runMode is step', () => {
-    const result = ReasoningThinkInputSchema.safeParse({
-      query: 'test',
-      level: 'basic',
-      runMode: 'step',
-      thought: 'Step 1',
-      thoughts: ['Step 2'],
-    });
-    assert.equal(result.success, false);
-  });
   it('accepts array thought for run_to_completion', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'test',
@@ -238,18 +225,6 @@ describe('ReasoningThinkInputSchema', () => {
       thought: ['Step 1'],
     });
     assert.equal(result.success, false);
-  });
-
-  it('accepts string thought with legacy thoughts array', () => {
-    const result = ReasoningThinkInputSchema.safeParse({
-      query: 'test',
-      level: 'basic',
-      runMode: 'run_to_completion',
-      targetThoughts: 3,
-      thought: 'Step 1',
-      thoughts: ['Step 2', 'Step 3'],
-    });
-    assert.equal(result.success, true);
   });
 });
 

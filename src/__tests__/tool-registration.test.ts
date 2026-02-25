@@ -333,8 +333,7 @@ describe('server registration', () => {
         level: 'basic',
         runMode: 'run_to_completion',
         targetThoughts: 3,
-        thought: 'Step 1',
-        thoughts: ['Step 2', 'Step 3'],
+        thought: ['Step 1', 'Step 2', 'Step 3'],
       },
     });
 

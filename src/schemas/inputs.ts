@@ -64,13 +64,6 @@ export const ReasoningThinkInputSchema = z
           'Write your complete analysis, observations, and conclusions here — this is what appears in trace.md. ' +
           'Can be a single string or an array of strings (for batch execution).'
       ),
-    thoughts: z
-      .array(THOUGHT_TEXT_SCHEMA)
-      .max(25)
-      .optional()
-      .describe(
-        '(Deprecated) Optional additional thought inputs. Use "thought" as an array instead.'
-      ),
     is_conclusion: z
       .boolean()
       .optional()
@@ -140,14 +133,6 @@ export const ReasoningThinkInputSchema = z
         ctx,
         ['thought'],
         'thought must be a string when runMode is "step"'
-      );
-    }
-
-    if (runMode === 'step' && data.thoughts !== undefined) {
-      addCustomIssue(
-        ctx,
-        ['thoughts'],
-        'thoughts is only allowed when runMode is "run_to_completion"'
       );
     }
 

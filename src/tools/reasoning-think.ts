@@ -275,7 +275,7 @@ function buildThoughtInputs(params: ReasoningThinkInput): string[] {
     : params.thought
       ? [params.thought]
       : [];
-  return [...primary, ...(params.thoughts ?? [])];
+  return primary;
 }
 
 function getStartingThoughtCount(sessionId?: string): number {

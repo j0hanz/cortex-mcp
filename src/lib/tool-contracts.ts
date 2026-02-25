@@ -47,12 +47,6 @@ const TOOL_CONTRACTS: readonly ToolContract[] = [
         constraints: '1-100,000 chars',
       },
       {
-        name: 'thoughts',
-        type: 'string[]',
-        required: false,
-        constraints: 'optional',
-      },
-      {
         name: 'targetThoughts',
         type: 'number',
         required: false,

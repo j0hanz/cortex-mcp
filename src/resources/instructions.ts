@@ -87,7 +87,7 @@ ${promptList}
   - Poll \`tasks/get\` and fetch results via \`tasks/result\`.
   - Use \`tasks/cancel\` to abort a running task.
   - For \`high\` level, progress is emitted every 2 steps to reduce noise; \`basic\` and \`normal\` emit after every step.
-  - Use \`runMode: "run_to_completion"\` with \`thought\` + \`thoughts[]\` to execute multiple reasoning steps in one request.
+  - Use \`runMode: "run_to_completion"\` with \`thought\` as an array of strings to execute multiple reasoning steps in one request.
 
 ---
 

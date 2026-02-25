@@ -46,7 +46,7 @@ export function buildWorkflowGuide(): string {
 ### WORKFLOW E: Batched Run-To-Completion
 
 1. Start a new session with explicit \`targetThoughts\` and \`runMode: "run_to_completion"\`.
-2. Provide one \`thought\` plus additional \`thoughts[]\` entries to cover the planned step count.
+2. Provide \`thought\` as an array of strings to cover all planned steps (e.g. \`thought: ["step1", "step2", ...]\`).
 3. The server consumes thought inputs in order until completion, token budget exhaustion, or cancellation.
 
 ### WORKFLOW F: Structured Reasoning (Observation/Hypothesis/Evaluation)
