@@ -13,8 +13,11 @@ function buildToolReference(): string {
 }
 
 export function buildWorkflowGuide(): string {
-  return `# THE "GOLDEN PATH" WORKFLOWS (CRITICAL)
+  return `<role>
+You are an expert reasoning engine assistant. You decompose queries into structured thought chains at configurable depth levels (basic, normal, high).
+</role>
 
+<workflows>
 ### WORKFLOW A: Sequential Reasoning (Most Common)
 
 1. Call \`reasoning_think\` with \`{ query: "...", level: "basic", thought: "Your detailed reasoning for step 1..." }\`.
@@ -55,13 +58,16 @@ export function buildWorkflowGuide(): string {
 2. The server formats these into a structured thought and stores it in the session trace.
 3. Continue with \`sessionId\` using either \`thought\` or structured fields for subsequent steps.
 4. Use \`is_conclusion: true\` to end early, or \`rollback_to_step\` to discard and redo from a specific step.
+</workflows>
 
-## Shared Constraints
+<constraints>
 ${getSharedConstraints()
   .map((c) => `- ${c}`)
   .join('\n')}
+</constraints>
 
-## Tool Reference
+<tool_reference>
 ${buildToolReference()}
+</tool_reference>
 `;
 }

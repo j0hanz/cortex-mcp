@@ -67,17 +67,21 @@ function buildPromptText(args: {
 }): string {
   const { context, task, constraints, output } = args;
   return [
-    '# Context',
+    '<context>',
     ...context,
+    '</context>',
     '',
-    '# Task',
+    '<task>',
     ...task,
+    '</task>',
     '',
-    '# Constraints',
+    '<constraints>',
     ...constraints.map((line) => `- ${line}`),
+    '</constraints>',
     '',
-    '# Output',
+    '<output_format>',
     ...output,
+    '</output_format>',
   ].join('\n');
 }
 
@@ -111,7 +115,7 @@ function buildStartReasoningPrompt(args: {
       'Fields: query, level, thought, and optional targetThoughts.',
     ],
   });
-  return `${base}\n\n---\n\n${getTemplate(level)}`;
+  return `${base}\n\n${getTemplate(level)}`;
 }
 
 function buildRetryReasoningPrompt(args: {
@@ -142,7 +146,7 @@ function buildRetryReasoningPrompt(args: {
       'Fields: query, level, thought, and optional targetThoughts.',
     ],
   });
-  return `${base}\n\n---\n\n${getTemplate(level)}`;
+  return `${base}\n\n${getTemplate(level)}`;
 }
 
 function buildContinueReasoningPrompt(args: {

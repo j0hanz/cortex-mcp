@@ -36,7 +36,7 @@ export function buildCoreContextPack(): string {
       ? `| \`${e.name}\` | ${e.model} | ${e.timeout} | ${e.maxOutputTokens} | ${e.purpose} |`
       : '';
   });
-  return `# Core Context Pack\n\n| Tool | Model | Timeout | Max Output Tokens | Purpose |\n|------|-------|---------|-------------------|---------|\n${rows.join('\n')}`;
+  return `<core_context_pack>\n| Tool | Model | Timeout | Max Output Tokens | Purpose |\n|------|-------|---------|-------------------|---------|\n${rows.join('\n')}\n</core_context_pack>`;
 }
 
 export function getSharedConstraints(): string[] {

@@ -27,7 +27,7 @@ describe('getTemplate', () => {
   it('returns basic template containing level marker', () => {
     const tmpl = getTemplate('basic');
     assert.ok(
-      tmpl.includes('Guided Example (basic'),
+      tmpl.includes('<step index="1" total="3">'),
       'basic template missing level marker'
     );
   });
@@ -35,7 +35,7 @@ describe('getTemplate', () => {
   it('returns normal template containing level marker', () => {
     const tmpl = getTemplate('normal');
     assert.ok(
-      tmpl.includes('Guided Example (normal'),
+      tmpl.includes('<step index="1" total="7">'),
       'normal template missing level marker'
     );
   });
@@ -43,7 +43,7 @@ describe('getTemplate', () => {
   it('returns high template containing level marker', () => {
     const tmpl = getTemplate('high');
     assert.ok(
-      tmpl.includes('Guided Example (high'),
+      tmpl.includes('<step index="1" total="15">'),
       'high template missing level marker'
     );
   });
@@ -60,7 +60,7 @@ describe('getTemplate', () => {
   it('all templates contain a System Directive', () => {
     for (const level of ['basic', 'normal', 'high'] as const) {
       assert.ok(
-        getTemplate(level).includes('System Directive'),
+        getTemplate(level).includes('<instructions>'),
         `${level} template missing System Directive`
       );
     }
@@ -84,15 +84,15 @@ describe('prompt template injection', () => {
     assert.equal(result.messages.length, 1);
     const text = getPromptText(result.messages[0]);
     assert.ok(
-      text.includes('Guided Example (basic'),
+      text.includes('<step index="1" total="3">'),
       'reasoning.basic prompt missing basic template'
     );
     assert.ok(
-      !text.includes('Guided Example (normal'),
+      !text.includes('<step index="1" total="7">'),
       'reasoning.basic prompt must not include normal template'
     );
     assert.ok(
-      !text.includes('Guided Example (high'),
+      !text.includes('<step index="1" total="15">'),
       'reasoning.basic prompt must not include high template'
     );
 
@@ -116,11 +116,11 @@ describe('prompt template injection', () => {
     assert.equal(result.messages.length, 1);
     const text = getPromptText(result.messages[0]);
     assert.ok(
-      text.includes('Guided Example (normal'),
+      text.includes('<step index="1" total="7">'),
       'reasoning.normal prompt missing normal template'
     );
     assert.ok(
-      !text.includes('Guided Example (basic'),
+      !text.includes('<step index="1" total="3">'),
       'reasoning.normal prompt must not include basic template'
     );
 
@@ -144,11 +144,11 @@ describe('prompt template injection', () => {
     assert.equal(result.messages.length, 1);
     const text = getPromptText(result.messages[0]);
     assert.ok(
-      text.includes('Guided Example (high'),
+      text.includes('<step index="1" total="15">'),
       'reasoning.high prompt missing high template'
     );
     assert.ok(
-      !text.includes('Guided Example (basic'),
+      !text.includes('<step index="1" total="3">'),
       'reasoning.high prompt must not include basic template'
     );
 
@@ -172,7 +172,7 @@ describe('prompt template injection', () => {
     assert.equal(result.messages.length, 1);
     const text = getPromptText(result.messages[0]);
     assert.ok(
-      text.includes('Guided Example (normal'),
+      text.includes('<step index="1" total="7">'),
       'reasoning.retry prompt missing normal template'
     );
 
@@ -196,7 +196,7 @@ describe('prompt template injection', () => {
     assert.equal(result.messages.length, 1);
     const text = getPromptText(result.messages[0]);
     assert.ok(
-      !text.includes('Guided Example'),
+      !text.includes('<example>'),
       'reasoning.continue prompt must not include any template'
     );
 

@@ -15,9 +15,7 @@ const ThoughtSchema = z.strictObject({
   stepSummary: z
     .string()
     .optional()
-    .describe(
-      'A 1-sentence summary of the conclusion reached in this step, if provided.'
-    ),
+    .describe('1-sentence summary of the conclusion reached.'),
 });
 
 const ReasoningThinkSuccessSchema = z.strictObject({
@@ -30,30 +28,18 @@ const ReasoningThinkSuccessSchema = z.strictObject({
     generatedThoughts: z.number(),
     requestedThoughts: z.number(),
     totalThoughts: z.number(),
-    tokenBudget: z
-      .number()
-      .describe(
-        'Approximate token budget (UTF-8 bytes ÷ 4, not true tokenization)'
-      ),
-    tokensUsed: z
-      .number()
-      .describe(
-        'Approximate tokens used (UTF-8 bytes ÷ 4, not true tokenization)'
-      ),
+    tokenBudget: z.number().describe('Approximate token budget.'),
+    tokensUsed: z.number().describe('Approximate tokens used.'),
     ttlMs: z.number(),
     expiresAt: z.number(),
     createdAt: z.number(),
     updatedAt: z.number(),
     remainingThoughts: z
       .number()
-      .describe(
-        'Number of thoughts remaining before the session reaches totalThoughts'
-      ),
+      .describe('Thoughts remaining before reaching totalThoughts.'),
     summary: z
       .string()
-      .describe(
-        'Actionable next-step instruction when active, or completion status when done'
-      ),
+      .describe('Actionable next-step instruction or completion status.'),
   }),
 });
 
