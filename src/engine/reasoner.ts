@@ -80,74 +80,72 @@ export async function reason(
   const config = getLevelConfig(session.level);
   const { totalThoughts } = session;
 
-  return runWithContext(
-    { sessionId: session.id, ...(abortSignal ? { abortSignal } : {}) },
-    () =>
-      withSessionLock(session.id, async () => {
-        throwIfReasoningAborted(abortSignal);
+  return runWithContext({ sessionId: session.id }, () =>
+    withSessionLock(session.id, async () => {
+      throwIfReasoningAborted(abortSignal);
 
-        if (rollbackToStep !== undefined) {
-          sessionStore.rollback(session.id, rollbackToStep);
-        }
+      if (rollbackToStep !== undefined) {
+        sessionStore.rollback(session.id, rollbackToStep);
+      }
 
-        const current = getSessionOrThrow(session.id);
+      const current = getSessionOrThrow(session.id);
 
-        let content = thought;
-        if (!content && observation) {
-          content = `**Observation:** ${observation}\n\n**Hypothesis:** ${hypothesis ?? ''}\n\n**Evaluation:** ${evaluation ?? ''}`;
-        }
+      let content = thought;
+      if (!content && observation) {
+        content = `**Observation:** ${observation}\n\n**Hypothesis:** ${hypothesis ?? ''}\n\n**Evaluation:** ${evaluation ?? ''}`;
+      }
 
-        if (!content) {
-          // Only rollback occurred
-          return current;
-        }
+      if (!content) {
+        // Only rollback occurred
+        return current;
+      }
 
-        if (
-          emitBudgetExhaustedIfNeeded({
-            session: current,
-            tokenBudget: config.tokenBudget,
-            generatedThoughts: 0,
-            requestedThoughts: totalThoughts,
-          })
-        ) {
-          return current;
-        }
-
-        const nextIndex = current.thoughts.length;
-        if (nextIndex >= totalThoughts && !isConclusion) {
-          return current;
-        }
-
-        const addedThought = sessionStore.addThought(
-          session.id,
-          content,
-          stepSummary
-        );
-        engineEvents.emit('thought:added', {
-          sessionId: session.id,
-          index: addedThought.index,
-          content: addedThought.content,
-        });
-
-        const updated = getSessionOrThrow(session.id);
-        void emitBudgetExhaustedIfNeeded({
-          session: updated,
+      if (
+        emitBudgetExhaustedIfNeeded({
+          session: current,
           tokenBudget: config.tokenBudget,
-          generatedThoughts: addedThought.index + 1,
+          generatedThoughts: 0,
           requestedThoughts: totalThoughts,
-        });
+        })
+      ) {
+        return current;
+      }
 
-        if (isConclusion || updated.thoughts.length >= totalThoughts) {
-          sessionStore.markCompleted(session.id);
-        }
+      const nextIndex = current.thoughts.length;
+      if (nextIndex >= totalThoughts && !isConclusion) {
+        return current;
+      }
 
-        if (onProgress) {
-          await onProgress(addedThought.index + 1, totalThoughts, stepSummary);
-          throwIfReasoningAborted(abortSignal);
-        }
+      const addedThought = sessionStore.addThought(
+        session.id,
+        content,
+        stepSummary
+      );
+      engineEvents.emit('thought:added', {
+        sessionId: session.id,
+        index: addedThought.index,
+        content: addedThought.content,
+      });
 
-        return getSessionOrThrow(session.id);
-      })
+      const updated = getSessionOrThrow(session.id);
+      emitBudgetExhaustedIfNeeded({
+        session: updated,
+        tokenBudget: config.tokenBudget,
+        generatedThoughts: addedThought.index + 1,
+        requestedThoughts: totalThoughts,
+      });
+
+      if (isConclusion || updated.thoughts.length >= totalThoughts) {
+        sessionStore.markCompleted(session.id);
+      }
+
+      if (onProgress) {
+        await onProgress(addedThought.index + 1, totalThoughts, stepSummary);
+        throwIfReasoningAborted(abortSignal);
+      }
+
+      return getSessionOrThrow(session.id);
+    })
   );
 }
 
@@ -246,7 +244,7 @@ function resolveSession(
     config,
     targetThoughts
   );
-  const session = sessionStore.create(level, totalThoughts);
+  const session = sessionStore.create(level, totalThoughts, query);
   engineEvents.emit('session:created', {
     sessionId: session.id,
     level,

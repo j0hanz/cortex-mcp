@@ -20,6 +20,8 @@ interface EngineEvents {
   ];
   'thought:budget-exhausted': [ThoughtBudgetExhaustedPayload];
   'session:created': [{ sessionId: string; level: ReasoningLevel }];
+  'session:completed': [{ sessionId: string }];
+  'session:cancelled': [{ sessionId: string }];
   'session:expired': [{ sessionId: string }];
   'session:evicted': [{ sessionId: string; reason: string }];
   'session:deleted': [{ sessionId: string }];

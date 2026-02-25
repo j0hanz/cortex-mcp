@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { randomUUID } from 'node:crypto';
 
+import { SessionNotFoundError } from '../lib/errors.js';
 import type {
   LevelConfig,
   ReasoningLevel,
@@ -15,7 +16,7 @@ import { engineEvents } from './events.js';
 export const DEFAULT_SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
 export const DEFAULT_MAX_SESSIONS = 100;
 export const DEFAULT_MAX_TOTAL_TOKENS = 500_000;
-const TOKEN_ESTIMATE_DIVISOR = 4;
+const TOKEN_ESTIMATE_DIVISOR = 3.5;
 const MIN_SWEEP_INTERVAL_MS = 10;
 const MAX_SWEEP_INTERVAL_MS = 60_000;
 
@@ -99,7 +100,11 @@ export class SessionStore {
     this.cleanupInterval = undefined;
   }
 
-  create(level: ReasoningLevel, totalThoughts?: number): Readonly<Session> {
+  create(
+    level: ReasoningLevel,
+    totalThoughts?: number,
+    query?: string
+  ): Readonly<Session> {
     this.evictIfAtCapacity();
     const config: LevelConfig = getLevelConfig(level);
     const now = Date.now();
@@ -113,12 +118,13 @@ export class SessionStore {
       tokensUsed: 0,
       createdAt: now,
       updatedAt: now,
+      ...(query !== undefined ? { query } : {}),
     };
     this.sessions.set(session.id, session);
     this.addToOrder(session.id);
     this.sortedSessionIdsCache = null;
-    this.emitSessionsListChanged();
-    this.emitSessionsResourceUpdated();
+    this.emitListChanged();
+    this.emitListResourceUpdated();
     return this.snapshotSession(session);
   }
 
@@ -167,7 +173,7 @@ export class SessionStore {
       return false;
     }
     engineEvents.emit('session:deleted', { sessionId: id });
-    this.emitSessionsCollectionUpdated();
+    this.emitCollectionUpdated();
     return true;
   }
 
@@ -178,7 +184,7 @@ export class SessionStore {
   ): Thought {
     const session = this.sessions.get(sessionId);
     if (!session) {
-      throw new Error(`Session not found: ${sessionId}`);
+      throw new SessionNotFoundError(sessionId);
     }
     const tokens = estimateTokens(content);
     this.evictForTokenHeadroom(tokens, sessionId);
@@ -199,7 +205,7 @@ export class SessionStore {
   rollback(sessionId: string, toIndex: number): void {
     const session = this.sessions.get(sessionId);
     if (!session) {
-      throw new Error(`Session not found: ${sessionId}`);
+      throw new SessionNotFoundError(sessionId);
     }
 
     // If toIndex is out of bounds or implies no change, return.
@@ -224,11 +230,12 @@ export class SessionStore {
   reviseThought(
     sessionId: string,
     thoughtIndex: number,
-    content: string
+    content: string,
+    stepSummary?: string
   ): Thought {
     const session = this.sessions.get(sessionId);
     if (!session) {
-      throw new Error(`Session not found: ${sessionId}`);
+      throw new SessionNotFoundError(sessionId);
     }
     const existing = session.thoughts[thoughtIndex];
     if (!existing) {
@@ -242,13 +249,14 @@ export class SessionStore {
     if (delta > 0) {
       this.evictForTokenHeadroom(delta, sessionId);
     }
+    const effectiveStepSummary = stepSummary ?? existing.stepSummary;
     const revised: MutableThought = {
       index: thoughtIndex,
       content,
       revision: existing.revision + 1,
       tokenCount: newTokens,
-      ...(existing.stepSummary !== undefined
-        ? { stepSummary: existing.stepSummary }
+      ...(effectiveStepSummary !== undefined
+        ? { stepSummary: effectiveStepSummary }
         : {}),
     };
     session.thoughts[thoughtIndex] = revised;
@@ -281,6 +289,11 @@ export class SessionStore {
     if (session?.status === 'active') {
       session.status = status;
       this.markSessionTouched(session);
+      if (status === 'completed') {
+        engineEvents.emit('session:completed', { sessionId });
+      } else {
+        engineEvents.emit('session:cancelled', { sessionId });
+      }
     }
   }
 
@@ -342,7 +355,7 @@ export class SessionStore {
     }
 
     if (changed) {
-      this.emitSessionsCollectionUpdated();
+      this.emitCollectionUpdated();
     }
   }
 
@@ -465,7 +478,7 @@ export class SessionStore {
     session._cachedSummary = undefined;
     this.touchOrder(session.id);
     this.sortedSessionIdsCache = null;
-    this.emitSessionResourcesUpdated(session.id);
+    this.emitSessionResourceUpdated(session.id);
   }
 
   private getSessionIdsForIteration(): readonly string[] {
@@ -514,6 +527,7 @@ export class SessionStore {
       tokensUsed: session.tokensUsed,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
+      ...(session.query !== undefined ? { query: session.query } : {}),
     };
     Object.freeze(snapshot);
     Object.freeze(snapshot.thoughts);
@@ -541,17 +555,17 @@ export class SessionStore {
     return summary;
   }
 
-  private emitSessionsListChanged(): void {
+  private emitListChanged(): void {
     engineEvents.emit('resources:changed', { uri: 'reasoning://sessions' });
   }
 
-  private emitSessionsResourceUpdated(): void {
+  private emitListResourceUpdated(): void {
     engineEvents.emit('resource:updated', { uri: 'reasoning://sessions' });
   }
 
-  private emitSessionsCollectionUpdated(): void {
-    this.emitSessionsListChanged();
-    this.emitSessionsResourceUpdated();
+  private emitCollectionUpdated(): void {
+    this.emitListChanged();
+    this.emitListResourceUpdated();
   }
 
   private emitSessionEvicted(sessionId: string, reason: string): void {
@@ -559,13 +573,13 @@ export class SessionStore {
       sessionId,
       reason,
     });
-    this.emitSessionsCollectionUpdated();
+    this.emitCollectionUpdated();
   }
 
-  private emitSessionResourcesUpdated(sessionId: string): void {
+  private emitSessionResourceUpdated(sessionId: string): void {
     engineEvents.emit('resource:updated', {
       uri: `reasoning://sessions/${sessionId}`,
     });
-    this.emitSessionsResourceUpdated();
+    this.emitListResourceUpdated();
   }
 }

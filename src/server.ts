@@ -153,9 +153,23 @@ function attachEngineEventHandlers(server: McpServer): () => void {
       });
   };
 
+  const onSessionLifecycle = (data: { sessionId: string }): void => {
+    void server.server.sendResourceListChanged().catch((err: unknown) => {
+      logNotificationFailure(RESOURCE_LIST_CHANGED_METHOD, err, {
+        sessionId: data.sessionId,
+      });
+    });
+  };
+
   engineEvents.on('resources:changed', onResourcesChanged);
   engineEvents.on('resource:updated', onResourceUpdated);
   engineEvents.on('thought:budget-exhausted', onBudgetExhausted);
+  engineEvents.on('session:created', onSessionLifecycle);
+  engineEvents.on('session:completed', onSessionLifecycle);
+  engineEvents.on('session:cancelled', onSessionLifecycle);
+  engineEvents.on('session:expired', onSessionLifecycle);
+  engineEvents.on('session:evicted', onSessionLifecycle);
+  engineEvents.on('session:deleted', onSessionLifecycle);
 
   let detached = false;
   return (): void => {
@@ -166,6 +180,12 @@ function attachEngineEventHandlers(server: McpServer): () => void {
     engineEvents.off('resources:changed', onResourcesChanged);
     engineEvents.off('resource:updated', onResourceUpdated);
     engineEvents.off('thought:budget-exhausted', onBudgetExhausted);
+    engineEvents.off('session:created', onSessionLifecycle);
+    engineEvents.off('session:completed', onSessionLifecycle);
+    engineEvents.off('session:cancelled', onSessionLifecycle);
+    engineEvents.off('session:expired', onSessionLifecycle);
+    engineEvents.off('session:evicted', onSessionLifecycle);
+    engineEvents.off('session:deleted', onSessionLifecycle);
   };
 }
 

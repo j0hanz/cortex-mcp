@@ -96,7 +96,7 @@ const TOOL_CONTRACTS: readonly ToolContract[] = [
       },
     ],
     outputShape:
-      '{ok, result: {sessionId, level, status, thoughts[], generatedThoughts, requestedThoughts, totalThoughts, remainingThoughts, tokenBudget, tokensUsed, ttlMs, expiresAt, createdAt, updatedAt, summary}}',
+      '{ok, result: {sessionId, query?, level, status, thoughts[], generatedThoughts, requestedThoughts, totalThoughts, remainingThoughts, tokenBudget, tokensUsed, ttlMs, expiresAt, createdAt, updatedAt, summary}}',
   },
 ];
 

@@ -41,6 +41,18 @@ describe('SessionStore', () => {
       const high = store.create('high');
       assert.equal(high.tokenBudget, 32768);
     });
+
+    it('stores query when provided', () => {
+      const store = new SessionStore();
+      const session = store.create('basic', undefined, 'Why is the sky blue?');
+      assert.equal(session.query, 'Why is the sky blue?');
+    });
+
+    it('omits query when not provided', () => {
+      const store = new SessionStore();
+      const session = store.create('basic');
+      assert.equal(session.query, undefined);
+    });
   });
 
   describe('get', () => {
@@ -130,7 +142,7 @@ describe('SessionStore', () => {
 
       store.addThought(session.id, '😀😀');
       const updated = store.get(session.id)!;
-      assert.equal(updated.tokensUsed, 2);
+      assert.equal(updated.tokensUsed, 3);
     });
 
     it('throws for non-existent session', () => {

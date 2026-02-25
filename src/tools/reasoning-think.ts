@@ -101,7 +101,7 @@ function buildTraceResource(session: Readonly<Session>): TextResourceContents {
     : session;
 
   return {
-    uri: `file:///cortex/sessions/${session.id}/trace.md`,
+    uri: `reasoning://sessions/${session.id}/trace.md`,
     mimeType: 'text/markdown',
     text: formatThoughtsToMarkdown(sessionView),
   };
@@ -178,7 +178,7 @@ function isReasoningTaskExtra(value: unknown): value is ReasoningTaskExtra {
   return true;
 }
 
-function parseReasoningTaskExtra(rawExtra: unknown): ReasoningTaskExtra {
+function assertReasoningTaskExtra(rawExtra: unknown): ReasoningTaskExtra {
   if (!isReasoningTaskExtra(rawExtra)) {
     throw new Error('Invalid task context in request handler.');
   }
@@ -425,6 +425,7 @@ function buildStructuredResult(
     ok: true,
     result: {
       sessionId: session.id,
+      ...(session.query !== undefined ? { query: session.query } : {}),
       level: session.level,
       status: session.status,
       thoughts: [...session.thoughts],
@@ -448,7 +449,7 @@ function buildSummary(
   remainingThoughts: number
 ): string {
   if (session.status === 'completed') {
-    return `Reasoning complete — ${String(session.thoughts.length)} thoughts at [${session.level}] level. Session ${session.id}.`;
+    return `Reasoning complete — ${String(session.thoughts.length)} thought${session.thoughts.length === 1 ? '' : 's'} at [${session.level}] level. Session ${session.id}.`;
   }
   if (session.status === 'cancelled') {
     return `Reasoning cancelled at thought ${String(session.thoughts.length)}/${String(session.totalThoughts)}. Session ${session.id}.`;
@@ -929,7 +930,7 @@ async function runReasoningTask(args: {
 
 function getTaskId(extra: ReasoningTaskExtra): string {
   if (typeof extra.taskId !== 'string' || extra.taskId.length === 0) {
-    throw new Error('Task ID missing in request context.');
+    throw new InvalidRunModeArgsError('Task ID missing in request context.');
   }
   return extra.taskId;
 }
@@ -983,7 +984,7 @@ Protocol validation: malformed task metadata/arguments fail at request level bef
           );
         }
         const params = parseResult.data;
-        const extra = parseReasoningTaskExtra(rawExtra);
+        const extra = assertReasoningTaskExtra(rawExtra);
         const progressToken = extra._meta?.progressToken;
 
         if (!reasoningTaskLimiter.tryAcquire()) {
@@ -1033,12 +1034,12 @@ Protocol validation: malformed task metadata/arguments fail at request level bef
       },
 
       getTask(_params, rawExtra) {
-        const extra = parseReasoningTaskExtra(rawExtra);
+        const extra = assertReasoningTaskExtra(rawExtra);
         return extra.taskStore.getTask(getTaskId(extra));
       },
 
       async getTaskResult(_params, rawExtra) {
-        const extra = parseReasoningTaskExtra(rawExtra);
+        const extra = assertReasoningTaskExtra(rawExtra);
         const result = await extra.taskStore.getTaskResult(getTaskId(extra));
         assertCallToolResult(result);
         return result;

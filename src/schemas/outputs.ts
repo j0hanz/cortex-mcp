@@ -22,6 +22,10 @@ const ReasoningThinkSuccessSchema = z.strictObject({
   ok: z.literal(true),
   result: z.strictObject({
     sessionId: z.string(),
+    query: z
+      .string()
+      .optional()
+      .describe('Original query text for this session.'),
     level: z.enum(REASONING_LEVELS),
     status: z.enum(SESSION_STATUSES),
     thoughts: z.array(ThoughtSchema),

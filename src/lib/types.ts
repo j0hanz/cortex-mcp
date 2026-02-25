@@ -42,6 +42,7 @@ export interface Thought {
 
 export interface Session extends SessionBase {
   readonly thoughts: readonly Thought[];
+  readonly query?: string;
 }
 
 export interface SessionSummary extends SessionBase {
