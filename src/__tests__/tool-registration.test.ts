@@ -198,12 +198,10 @@ describe('server registration', () => {
     const templates = await client.listResourceTemplates();
     const templateUris = templates.resourceTemplates.map((t) => t.uriTemplate);
     assert.ok(templateUris.includes('reasoning://sessions/{sessionId}'));
-    assert.ok(
-      templateUris.includes('file:///cortex/sessions/{sessionId}/trace.md')
-    );
+    assert.ok(templateUris.includes('reasoning://sessions/{sessionId}/trace'));
     assert.ok(
       templateUris.includes(
-        'file:///cortex/sessions/{sessionId}/{thoughtName}.md'
+        'reasoning://sessions/{sessionId}/thoughts/{thoughtName}'
       )
     );
 
@@ -254,7 +252,7 @@ describe('server registration', () => {
     assert.equal(sessionDetail.contents.length, 1);
 
     const trace = await client.readResource({
-      uri: `file:///cortex/sessions/${sessionId}/trace.md`,
+      uri: `reasoning://sessions/${sessionId}/trace`,
     });
     assert.equal(trace.contents.length, 1);
     const traceContent = trace.contents[0];
@@ -272,7 +270,7 @@ describe('server registration', () => {
 
     // Test individual thought resource
     const thought1 = await client.readResource({
-      uri: `file:///cortex/sessions/${sessionId}/Thought-1.md`,
+      uri: `reasoning://sessions/${sessionId}/thoughts/Thought-1`,
     });
     assert.equal(thought1.contents.length, 1);
     const thought1Content = thought1.contents[0];
@@ -300,7 +298,7 @@ describe('server registration', () => {
     assert.equal(count, 1);
 
     if (count >= 1) {
-      const lastThoughtUri = `file:///cortex/sessions/${sessionId}/Thought-${count}.md`;
+      const lastThoughtUri = `reasoning://sessions/${sessionId}/thoughts/Thought-${count}`;
       const thoughtLast = await client.readResource({ uri: lastThoughtUri });
       assert.equal(thoughtLast.contents.length, 1);
       const thoughtLastContent = thoughtLast.contents[0];
@@ -413,7 +411,7 @@ describe('server registration', () => {
       }
 
       const trace = await client.readResource({
-        uri: `file:///cortex/sessions/${sessionId}/trace.md`,
+        uri: `reasoning://sessions/${sessionId}/trace`,
       });
       const traceContent = trace.contents[0];
       assert.ok(traceContent);
@@ -485,7 +483,7 @@ describe('server registration', () => {
     const traceCompletion = await client.complete({
       ref: {
         type: 'ref/resource',
-        uri: 'file:///cortex/sessions/{sessionId}/trace.md',
+        uri: 'reasoning://sessions/{sessionId}/trace',
       },
       argument: { name: 'sessionId', value: prefix },
     });
@@ -494,7 +492,7 @@ describe('server registration', () => {
     const thoughtCompletion = await client.complete({
       ref: {
         type: 'ref/resource',
-        uri: 'file:///cortex/sessions/{sessionId}/{thoughtName}.md',
+        uri: 'reasoning://sessions/{sessionId}/thoughts/{thoughtName}',
       },
       argument: { name: 'thoughtName', value: 'Thought-' },
       context: { arguments: { sessionId } },

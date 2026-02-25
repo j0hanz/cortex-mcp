@@ -116,13 +116,13 @@ Perform multi-step reasoning on a query with a selected depth level.
 
 ### Resources
 
-| URI Pattern                                            | Description                            | MIME Type          |
-| :----------------------------------------------------- | :------------------------------------- | :----------------- |
-| `internal://instructions`                              | Usage instructions for the MCP server. | `text/markdown`    |
-| `reasoning://sessions`                                 | List of active reasoning sessions.     | `application/json` |
-| `reasoning://sessions/{sessionId}`                     | Detailed view of a reasoning session.  | `application/json` |
-| `file:///cortex/sessions/{sessionId}/trace.md`         | Markdown trace of a reasoning session. | `text/markdown`    |
-| `file:///cortex/sessions/{sessionId}/{thoughtName}.md` | Markdown content of a single thought.  | `text/markdown`    |
+| URI Pattern                                               | Description                            | MIME Type          |
+| :-------------------------------------------------------- | :------------------------------------- | :----------------- |
+| `internal://instructions`                                 | Usage instructions for the MCP server. | `text/markdown`    |
+| `reasoning://sessions`                                    | List of active reasoning sessions.     | `application/json` |
+| `reasoning://sessions/{sessionId}`                        | Detailed view of a reasoning session.  | `application/json` |
+| `reasoning://sessions/{sessionId}/trace`                  | Markdown trace of a reasoning session. | `text/markdown`    |
+| `reasoning://sessions/{sessionId}/thoughts/{thoughtName}` | Markdown content of a single thought.  | `text/markdown`    |
 
 ### Prompts
 

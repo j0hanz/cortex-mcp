@@ -62,8 +62,8 @@ ${promptList}
 - \`internal://instructions\`: This document.
 - \`reasoning://sessions\`: List active sessions (JSON).
 - \`reasoning://sessions/{sessionId}\`: Inspect session thoughts/metadata (JSON).
-- \`file:///cortex/sessions/{sessionId}/trace.md\`: Full Markdown trace.
-- \`file:///cortex/sessions/{sessionId}/{thoughtName}.md\`: Single thought Markdown.
+- \`reasoning://sessions/{sessionId}/trace\`: Full Markdown trace.
+- \`reasoning://sessions/{sessionId}/thoughts/{thoughtName}\`: Single thought Markdown.
 - Subscriptions (\`resources/subscribe\`):
   - \`reasoning://sessions/{sessionId}\`: Updates on thought additions/revisions.
   - \`reasoning://sessions\`: Aggregate session updates.

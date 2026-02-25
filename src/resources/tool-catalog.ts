@@ -13,7 +13,7 @@ const CATALOG_GUIDE = `<optional_parameters>
 \`\`\`
 reasoning_think -> result.sessionId -> reasoning_think.sessionId
 reasoning_think -> result.sessionId -> reasoning://sessions/{sessionId}
-reasoning_think -> result.sessionId -> file:///cortex/sessions/{sessionId}/trace.md
+reasoning_think -> result.sessionId -> reasoning://sessions/{sessionId}/trace
 \`\`\`
 </cross_tool_data_flow>
 `;

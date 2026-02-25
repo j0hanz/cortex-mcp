@@ -101,7 +101,7 @@ function buildTraceResource(session: Readonly<Session>): TextResourceContents {
     : session;
 
   return {
-    uri: `file:///cortex/sessions/${session.id}/trace.md`,
+    uri: `reasoning://sessions/${session.id}/trace`,
     mimeType: 'text/markdown',
     text: formatThoughtsToMarkdown(sessionView),
   };

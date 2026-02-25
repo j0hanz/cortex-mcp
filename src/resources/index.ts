@@ -21,7 +21,7 @@ import { buildWorkflowGuide } from './workflows.js';
 
 const SESSIONS_RESOURCE_URI = 'reasoning://sessions';
 const SESSION_RESOURCE_PREFIX = `${SESSIONS_RESOURCE_URI}/`;
-const TRACE_RESOURCE_PREFIX = 'file:///cortex/sessions/';
+const TRACE_RESOURCE_PREFIX = 'reasoning://sessions/';
 const REDACTED_THOUGHT_CONTENT = '[REDACTED]';
 
 // --- Helpers ---
@@ -276,10 +276,10 @@ export function registerAllResources(
   // Template for full trace
   server.registerResource(
     'reasoning.trace',
-    new ResourceTemplate('file:///cortex/sessions/{sessionId}/trace.md', {
+    new ResourceTemplate('reasoning://sessions/{sessionId}/trace', {
       list: () => ({
         resources: sessionStore.listSummaries().map((session) => ({
-          uri: `${TRACE_RESOURCE_PREFIX}${session.id}/trace.md`,
+          uri: `${TRACE_RESOURCE_PREFIX}${session.id}/trace`,
           name: `trace-${shortSessionId(session.id)}`,
           title: `Reasoning Trace ${shortSessionId(session.id)}`,
           description: `${session.level} session trace with ${String(session.generatedThoughts)} thought(s).`,
@@ -321,7 +321,7 @@ export function registerAllResources(
   server.registerResource(
     'reasoning.thought',
     new ResourceTemplate(
-      'file:///cortex/sessions/{sessionId}/{thoughtName}.md',
+      'reasoning://sessions/{sessionId}/thoughts/{thoughtName}',
       {
         list: undefined,
         complete: {
