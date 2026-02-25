@@ -50,6 +50,27 @@ export function parsePositiveIntEnv(
   return parsed;
 }
 
+/**
+ * Parse a boolean from an environment variable, returning `fallback` when absent
+ * or when the value is not a recognized boolean literal.
+ */
+export function parseBooleanEnv(name: string, fallback: boolean): boolean {
+  const raw = process.env[name];
+  if (raw === undefined) {
+    return fallback;
+  }
+
+  const normalized = raw.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+}
+
 export function collectPrefixMatches(
   candidates: readonly string[],
   value: string,

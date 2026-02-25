@@ -72,6 +72,41 @@ describe('server registration', () => {
     );
   });
 
+  it('keeps shared session store active while another server instance is open', async () => {
+    const serverA = createServer();
+    const serverB = createServer();
+
+    const [clientTransportA, serverTransportA] =
+      InMemoryTransport.createLinkedPair();
+    const [clientTransportB, serverTransportB] =
+      InMemoryTransport.createLinkedPair();
+
+    await serverA.connect(serverTransportA);
+    await serverB.connect(serverTransportB);
+
+    const clientA = new Client({ name: 'test-client-a', version: '0.0.0' });
+    const clientB = new Client({ name: 'test-client-b', version: '0.0.0' });
+    await clientA.connect(clientTransportA);
+    await clientB.connect(clientTransportB);
+
+    await clientA.close();
+    await serverA.close();
+
+    const result = await clientB.callTool({
+      name: 'reasoning_think',
+      arguments: {
+        query: 'second server still active',
+        level: 'basic',
+        thought: 'still running',
+      },
+    });
+    const structured = result.structuredContent as { ok?: boolean };
+    assert.equal(structured.ok, true);
+
+    await clientB.close();
+    await serverB.close();
+  });
+
   it('completes initialize handshake and exposes negotiated capabilities', async () => {
     const server = createServer();
     let initializedNotificationReceived = false;
@@ -346,6 +381,68 @@ describe('server registration', () => {
     await server.close();
   });
 
+  it('redacts thought content in resources when CORTEX_REDACT_TRACE_CONTENT is enabled', async () => {
+    const previous = process.env.CORTEX_REDACT_TRACE_CONTENT;
+    process.env.CORTEX_REDACT_TRACE_CONTENT = 'true';
+
+    const server = createServer();
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+
+    try {
+      await server.connect(serverTransport);
+
+      const client = new Client({ name: 'test-client', version: '0.0.0' });
+      await client.connect(clientTransport);
+
+      const toolResult = await client.callTool({
+        name: 'reasoning_think',
+        arguments: {
+          query: 'Redaction test',
+          level: 'basic',
+          targetThoughts: 3,
+          thought: 'Sensitive trace content',
+        },
+      });
+
+      const sessionId = (
+        toolResult.structuredContent as { result?: { sessionId?: string } }
+      ).result?.sessionId;
+      assert.equal(typeof sessionId, 'string');
+      if (sessionId === undefined) {
+        assert.fail('Expected sessionId for redaction test');
+      }
+
+      const trace = await client.readResource({
+        uri: `file:///cortex/sessions/${sessionId}/trace.md`,
+      });
+      const traceContent = trace.contents[0];
+      assert.ok(traceContent);
+      const traceText = getResourceText(traceContent);
+      assert.ok(traceText.includes('[REDACTED]'));
+      assert.equal(traceText.includes('Sensitive trace content'), false);
+
+      const detail = await client.readResource({
+        uri: `reasoning://sessions/${sessionId}`,
+      });
+      const detailContent = detail.contents[0];
+      assert.ok(detailContent);
+      const detailJson = JSON.parse(getResourceText(detailContent)) as {
+        thoughts: Array<{ content: string }>;
+      };
+      assert.equal(detailJson.thoughts[0]?.content, '[REDACTED]');
+
+      await client.close();
+    } finally {
+      await server.close();
+      if (previous === undefined) {
+        delete process.env.CORTEX_REDACT_TRACE_CONTENT;
+      } else {
+        process.env.CORTEX_REDACT_TRACE_CONTENT = previous;
+      }
+    }
+  });
+
   it('provides prompt and resource completions for session workflows', async () => {
     const server = createServer();
     const [clientTransport, serverTransport] =
@@ -467,6 +564,32 @@ describe('server registration', () => {
         task: { ttl: -1 },
         arguments: {
           query: 'invalid ttl',
+          level: 'basic',
+          thought: 'test',
+        },
+      })
+    );
+
+    await client.close();
+    await server.close();
+  });
+
+  it('rejects malformed task arguments at protocol validation layer', async () => {
+    const server = createServer();
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+
+    await server.connect(serverTransport);
+
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await client.connect(clientTransport);
+
+    await assert.rejects(
+      client.callTool({
+        name: 'reasoning_think',
+        task: { ttl: 60_000 },
+        arguments: {
+          query: '',
           level: 'basic',
           thought: 'test',
         },

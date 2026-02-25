@@ -6,6 +6,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import { engineEvents } from './engine/events.js';
 import type { ThoughtBudgetExhaustedPayload } from './engine/events.js';
+import { sessionStore } from './engine/reasoner.js';
 
 import { getErrorMessage } from './lib/errors.js';
 import type { IconMeta } from './lib/types.js';
@@ -30,6 +31,7 @@ const ICON_URL_CANDIDATES = [
 ];
 let cachedLocalIconData: string | null | undefined;
 let cachedVersion: string | undefined;
+let activeServerCount = 0;
 
 function getLocalIconData(): string | undefined {
   if (cachedLocalIconData !== undefined) {
@@ -178,11 +180,22 @@ function installCloseCleanup(server: McpServer, cleanup: () => void): void {
 
     closed = true;
     cleanup();
+
+    activeServerCount = Math.max(0, activeServerCount - 1);
+    if (activeServerCount === 0) {
+      sessionStore.dispose();
+    }
+
     await originalClose();
   };
 }
 
 export function createServer(): McpServer {
+  if (activeServerCount === 0) {
+    sessionStore.ensureCleanupTimer();
+  }
+  activeServerCount += 1;
+
   const version = loadVersion();
   const taskStore = new InMemoryTaskStore();
   const localIcon = getLocalIconData();

@@ -61,7 +61,7 @@ export class SessionStore {
   private oldestSessionId: string | undefined;
   private newestSessionId: string | undefined;
   private sortedSessionIdsCache: string[] | null = null;
-  private readonly cleanupInterval: NodeJS.Timeout;
+  private cleanupInterval: NodeJS.Timeout | undefined;
   private readonly ttlMs: number;
   private readonly maxSessions: number;
   private readonly maxTotalTokens: number;
@@ -75,11 +75,28 @@ export class SessionStore {
     this.ttlMs = ttlMs;
     this.maxSessions = maxSessions;
     this.maxTotalTokens = maxTotalTokens;
-    const sweepInterval = resolveSweepInterval(ttlMs);
+    this.ensureCleanupTimer();
+  }
+
+  ensureCleanupTimer(): void {
+    if (this.cleanupInterval) {
+      return;
+    }
+
+    const sweepInterval = resolveSweepInterval(this.ttlMs);
     this.cleanupInterval = setInterval(() => {
       this.sweep();
     }, sweepInterval);
     this.cleanupInterval.unref();
+  }
+
+  dispose(): void {
+    if (!this.cleanupInterval) {
+      return;
+    }
+
+    clearInterval(this.cleanupInterval);
+    this.cleanupInterval = undefined;
   }
 
   create(level: ReasoningLevel, totalThoughts?: number): Readonly<Session> {

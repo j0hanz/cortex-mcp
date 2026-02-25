@@ -552,4 +552,30 @@ describe('SessionStore', () => {
       assert.notEqual(store.get(s2.id), undefined);
     });
   });
+
+  describe('lifecycle', () => {
+    it('dispose is idempotent and ensureCleanupTimer recreates the timer', () => {
+      const store = new SessionStore();
+      const internal = store as unknown as {
+        cleanupInterval: NodeJS.Timeout | undefined;
+      };
+
+      const firstTimer = internal.cleanupInterval;
+      assert.ok(firstTimer);
+
+      store.dispose();
+      assert.equal(internal.cleanupInterval, undefined);
+
+      store.dispose();
+      assert.equal(internal.cleanupInterval, undefined);
+
+      store.ensureCleanupTimer();
+      const secondTimer = internal.cleanupInterval;
+      assert.ok(secondTimer);
+      assert.notEqual(secondTimer, firstTimer);
+
+      store.dispose();
+      assert.equal(internal.cleanupInterval, undefined);
+    });
+  });
 });

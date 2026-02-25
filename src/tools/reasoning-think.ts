@@ -41,7 +41,7 @@ import type {
   ReasoningRunMode,
   Session,
 } from '../lib/types.js';
-import { parsePositiveIntEnv } from '../lib/validators.js';
+import { parseBooleanEnv, parsePositiveIntEnv } from '../lib/validators.js';
 
 type ProgressToken = string | number;
 const DEFAULT_MAX_ACTIVE_REASONING_TASKS = 32;
@@ -74,11 +74,36 @@ interface ReasoningTaskExtra {
   _meta?: { progressToken?: ProgressToken } & Record<string, unknown>;
 }
 
+interface CancellationController {
+  controller: AbortController;
+  cleanup: () => void;
+}
+
+const REDACTED_THOUGHT_CONTENT = '[REDACTED]';
+
+function shouldRedactTraceContent(): boolean {
+  return parseBooleanEnv('CORTEX_REDACT_TRACE_CONTENT', false);
+}
+
 function buildTraceResource(session: Readonly<Session>): TextResourceContents {
+  const sessionView = shouldRedactTraceContent()
+    ? {
+        ...session,
+        thoughts: session.thoughts.map((thought) => ({
+          index: thought.index,
+          content: REDACTED_THOUGHT_CONTENT,
+          revision: thought.revision,
+          ...(thought.stepSummary !== undefined
+            ? { stepSummary: REDACTED_THOUGHT_CONTENT }
+            : {}),
+        })),
+      }
+    : session;
+
   return {
     uri: `file:///cortex/sessions/${session.id}/trace.md`,
     mimeType: 'text/markdown',
-    text: formatThoughtsToMarkdown(session),
+    text: formatThoughtsToMarkdown(sessionView),
   };
 }
 
@@ -470,25 +495,31 @@ async function emitLog(
   }
 }
 
-function createCancellationController(signal: AbortSignal): AbortController {
+function createCancellationController(
+  signal: AbortSignal
+): CancellationController {
   const controller = new AbortController();
   if (signal.aborted) {
     controller.abort();
-    return controller;
+    return {
+      controller,
+      cleanup: () => {
+        // No listener to clean up when already aborted.
+      },
+    };
   }
 
   const onAbort = (): void => {
     controller.abort();
   };
+  const cleanup = (): void => {
+    signal.removeEventListener('abort', onAbort);
+  };
+
   signal.addEventListener('abort', onAbort, { once: true });
-  controller.signal.addEventListener(
-    'abort',
-    () => {
-      signal.removeEventListener('abort', onAbort);
-    },
-    { once: true }
-  );
-  return controller;
+  controller.signal.addEventListener('abort', cleanup, { once: true });
+
+  return { controller, cleanup };
 }
 
 async function isTaskCancelled(
@@ -916,7 +947,8 @@ Use step_summary for a 1-sentence conclusion per step — these accumulate in th
 
 Levels: ${getLevelDescriptionString()}.
 Alternatives: runMode="run_to_completion" (batch), or observation/hypothesis/evaluation fields (structured).
-Errors: E_SESSION_NOT_FOUND (expired — start new), E_INVALID_THOUGHT_COUNT (check level ranges).`,
+Errors: E_SESSION_NOT_FOUND (expired — start new), E_INVALID_THOUGHT_COUNT (check level ranges).
+Protocol validation: malformed task metadata/arguments fail at request level before task start; runtime reasoning failures return tool isError=true payloads.`,
       inputSchema: ReasoningThinkInputSchema,
       outputSchema: ReasoningThinkToolOutputSchema,
       annotations: {
@@ -959,7 +991,7 @@ Errors: E_SESSION_NOT_FOUND (expired — start new), E_INVALID_THOUGHT_COUNT (ch
           throw error;
         }
 
-        const controller = createCancellationController(extra.signal);
+        const cancellation = createCancellationController(extra.signal);
         const runReasoningArgs: {
           server: McpServer;
           taskStore: TaskStoreLike;
@@ -973,7 +1005,7 @@ Errors: E_SESSION_NOT_FOUND (expired — start new), E_INVALID_THOUGHT_COUNT (ch
           taskStore: extra.taskStore,
           taskId: task.taskId,
           params,
-          controller,
+          controller: cancellation.controller,
         };
         if (progressToken !== undefined) {
           runReasoningArgs.progressToken = progressToken;
@@ -983,6 +1015,7 @@ Errors: E_SESSION_NOT_FOUND (expired — start new), E_INVALID_THOUGHT_COUNT (ch
         }
 
         void runReasoningTask(runReasoningArgs).finally(() => {
+          cancellation.cleanup();
           reasoningTaskLimiter.release();
         });
 

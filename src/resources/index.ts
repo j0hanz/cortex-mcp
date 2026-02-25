@@ -12,7 +12,7 @@ import type {
   Session,
   SessionSummary as StoreSessionSummary,
 } from '../lib/types.js';
-import { collectPrefixMatches } from '../lib/validators.js';
+import { collectPrefixMatches, parseBooleanEnv } from '../lib/validators.js';
 
 import { buildServerInstructions } from './instructions.js';
 import { buildToolCatalog } from './tool-catalog.js';
@@ -21,6 +21,7 @@ import { buildWorkflowGuide } from './workflows.js';
 const SESSIONS_RESOURCE_URI = 'reasoning://sessions';
 const SESSION_RESOURCE_PREFIX = `${SESSIONS_RESOURCE_URI}/`;
 const TRACE_RESOURCE_PREFIX = 'file:///cortex/sessions/';
+const REDACTED_THOUGHT_CONTENT = '[REDACTED]';
 
 // --- Helpers ---
 
@@ -131,6 +132,28 @@ function completeSessionIds(value: string): string[] {
 
 function toIsoTimestamp(unixMs: number): string {
   return new Date(unixMs).toISOString();
+}
+
+function shouldRedactTraceContent(): boolean {
+  return parseBooleanEnv('CORTEX_REDACT_TRACE_CONTENT', false);
+}
+
+function getSessionView(session: Readonly<Session>): Readonly<Session> {
+  if (!shouldRedactTraceContent()) {
+    return session;
+  }
+
+  return {
+    ...session,
+    thoughts: session.thoughts.map((thought) => ({
+      index: thought.index,
+      content: REDACTED_THOUGHT_CONTENT,
+      revision: thought.revision,
+      ...(thought.stepSummary !== undefined
+        ? { stepSummary: REDACTED_THOUGHT_CONTENT }
+        : {}),
+    })),
+  };
 }
 
 function completeThoughtNames(value: string, sessionId: string): string[] {
@@ -277,7 +300,7 @@ export function registerAllResources(
     },
     (uri, variables) => {
       const sessionId = extractStringVariable(variables, 'sessionId', uri);
-      const session = resolveSession(sessionId, uri);
+      const session = getSessionView(resolveSession(sessionId, uri));
       return {
         contents: [
           {
@@ -320,7 +343,7 @@ export function registerAllResources(
     },
     (uri, variables) => {
       const sessionId = extractStringVariable(variables, 'sessionId', uri);
-      const session = resolveSession(sessionId, uri);
+      const session = getSessionView(resolveSession(sessionId, uri));
       const thoughtName = extractStringVariable(variables, 'thoughtName', uri);
 
       const { index, requestedRevised } = parseThoughtName(
@@ -392,7 +415,7 @@ export function registerAllResources(
     },
     (uri, variables) => {
       const sessionId = extractStringVariable(variables, 'sessionId', uri);
-      const session = resolveSession(sessionId, uri);
+      const session = getSessionView(resolveSession(sessionId, uri));
       const generatedThoughts = session.thoughts.length;
       const summary = buildSessionSummary({ ...session, generatedThoughts });
 
