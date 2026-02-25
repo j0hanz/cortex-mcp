@@ -33,13 +33,13 @@ const BASIC_TEMPLATE = `<example>
 </thought_process>
 </example>
 
-<instructions>
-- The example above demonstrates the expected depth and quality for the \`thought\` and \`step_summary\` parameters.
-- Structure your reasoning using techniques like [Observation], [Hypothesis], [Evaluation], and [Conclusion].
-- Each \`thought\` must be concrete and self-contained. Avoid filler language.
-- Provide a concise 1-sentence \`step_summary\` for each step.
-- For this level, use 3 to 5 thoughts total.
-</instructions>`;
+<constraints>
+- Match the depth and quality of the example above.
+- Structure reasoning using: [Observation], [Hypothesis], [Evaluation], [Conclusion].
+- Write concrete, self-contained thoughts. No filler.
+- Provide a 1-sentence \`step_summary\` per step.
+- Total thoughts: 3 to 5.
+</constraints>`;
 
 const NORMAL_TEMPLATE = `<example>
 <query>How do I safely handle concurrent writes to a shared in-memory counter in a Node.js service?</query>
@@ -96,13 +96,13 @@ const NORMAL_TEMPLATE = `<example>
 </thought_process>
 </example>
 
-<instructions>
-- The example above demonstrates the expected depth and quality for the \`thought\` and \`step_summary\` parameters.
-- Structure your reasoning using techniques like [Observation], [Hypothesis], [Evaluation], [Strategy], and [Conclusion].
-- Each \`thought\` must be concrete and progress the analysis. Avoid restating earlier thoughts.
-- Provide a concise 1-sentence \`step_summary\` for each step.
-- For this level, use 6 to 10 thoughts total.
-</instructions>`;
+<constraints>
+- Match the depth and quality of the example above.
+- Structure reasoning using: [Observation], [Hypothesis], [Evaluation], [Strategy], [Conclusion].
+- Write concrete thoughts that progress the analysis. Do not restate earlier thoughts.
+- Provide a 1-sentence \`step_summary\` per step.
+- Total thoughts: 6 to 10.
+</constraints>`;
 
 const HIGH_TEMPLATE = `<example>
 <query>Our Node.js API latency jumped from p50=20ms to p50=800ms after a dependency upgrade. How do I diagnose and fix this?</query>
@@ -215,13 +215,13 @@ const HIGH_TEMPLATE = `<example>
 </thought_process>
 </example>
 
-<instructions>
-- The example above demonstrates the expected depth and quality for the \`thought\` and \`step_summary\` parameters.
-- Structure your reasoning using techniques like [Observation], [Hypothesis], [Strategy], [Action], [Evaluation], [Mitigation], [Validation], and [Conclusion].
-- Each \`thought\` must be specific, advancing the investigation — no summaries of prior steps, no filler.
-- Provide a concise 1-sentence \`step_summary\` for each step.
-- For this level, use 15 to 25 thoughts total; scale depth to complexity.
-</instructions>`;
+<constraints>
+- Match the depth and quality of the example above.
+- Structure reasoning using: [Observation], [Hypothesis], [Strategy], [Action], [Evaluation], [Mitigation], [Validation], [Conclusion].
+- Write specific thoughts that advance the investigation. No summaries of prior steps, no filler.
+- Provide a 1-sentence \`step_summary\` per step.
+- Total thoughts: 15 to 25. Scale depth to complexity.
+</constraints>`;
 
 const TEMPLATES: Record<ReasoningLevel, string> = {
   basic: BASIC_TEMPLATE,

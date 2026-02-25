@@ -1,12 +1,12 @@
 import { buildCoreContextPack } from './tool-info.js';
 
 const CATALOG_GUIDE = `<optional_parameters>
-- \`observation\`: What facts are known at this step? Use with \`hypothesis\` and \`evaluation\` as an alternative to \`thought\`.
-- \`hypothesis\`: What is the proposed idea or next logical leap?
-- \`evaluation\`: Critique the hypothesis. Are there flaws?
-- \`step_summary\`: A 1-sentence summary of the conclusion reached in this step. Accumulates in the \`summary\` field for contextual guidance.
-- \`is_conclusion\`: Set to true to end the session early with a final answer.
-- \`rollback_to_step\`: Roll back to a thought index (0-based). All thoughts after this index are discarded.
+- \`observation\`: Facts known at this step. Use with \`hypothesis\` and \`evaluation\` instead of \`thought\`.
+- \`hypothesis\`: Proposed idea or next logical leap.
+- \`evaluation\`: Critique of the hypothesis.
+- \`step_summary\`: 1-sentence conclusion summary. Accumulates in \`summary\` field.
+- \`is_conclusion\`: Set true to end session early.
+- \`rollback_to_step\`: 0-based thought index to rollback to. Discards subsequent thoughts.
 </optional_parameters>
 
 <cross_tool_data_flow>

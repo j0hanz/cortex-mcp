@@ -60,7 +60,7 @@ describe('getTemplate', () => {
   it('all templates contain a System Directive', () => {
     for (const level of ['basic', 'normal', 'high'] as const) {
       assert.ok(
-        getTemplate(level).includes('<instructions>'),
+        getTemplate(level).includes('<constraints>'),
         `${level} template missing System Directive`
       );
     }

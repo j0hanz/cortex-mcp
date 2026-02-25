@@ -19,45 +19,39 @@ You are an expert reasoning engine assistant. You decompose queries into structu
 
 <workflows>
 ### WORKFLOW A: Sequential Reasoning (Most Common)
+1. Call \`reasoning_think\` with \`{ query: "...", level: "basic", thought: "..." }\`.
+2. Read response: note \`sessionId\` and \`remainingThoughts\`.
+3. **MUST continue**: Call again with \`{ sessionId: "<id>", thought: "..." }\`.
+4. Repeat until \`status: "completed"\` or \`remainingThoughts: 0\`.
+   NOTE: \`summary\` field contains the exact next call.
 
-1. Call \`reasoning_think\` with \`{ query: "...", level: "basic", thought: "Your detailed reasoning for step 1..." }\`.
-2. Read the response — note the \`sessionId\` and \`remainingThoughts\` fields.
-3. **You MUST continue**: Call again with \`{ sessionId: "<from response>", thought: "Your next reasoning step..." }\`.
-4. Repeat step 3 until the response shows \`status: "completed"\` or \`remainingThoughts: 0\`.
-   NOTE: The \`summary\` field contains the exact continuation call you should make next.
+### WORKFLOW B: Multi-Turn Reasoning
+1. Call \`reasoning_think\` with \`{ query: "...", level: "normal", thought: "..." }\`.
+2. Call \`reasoning_think\` with \`{ sessionId: "<id>", thought: "..." }\` (optional: add \`query\` for follow-up).
+3. Repeat until completed. Read \`reasoning://sessions/{sessionId}\` for full chain.
+   NOTE: \`level\` is optional when continuing; session level is used if omitted.
 
-### WORKFLOW B: Multi-Turn Reasoning (Session Continuation)
+### WORKFLOW C: Controlled Depth
+1. Call \`reasoning_think\` with \`{ query: "...", level: "normal", targetThoughts: 8, thought: "..." }\`.
+2. Repeat with \`sessionId\` and \`thought\` until \`totalThoughts\` reached.
+   NOTE: \`targetThoughts\` must fit level range (basic: 3-5, normal: 6-10, high: 15-25).
 
-1. Call \`reasoning_think\` with \`{ query: "initial question", level: "normal", thought: "Your first reasoning step..." }\` — note the returned \`sessionId\`.
-2. Call \`reasoning_think\` with \`{ sessionId: "<id>", thought: "Your next reasoning step..." }\` (optional: add \`query\` for follow-up context).
-3. Repeat until \`status: "completed"\` or \`remainingThoughts: 0\`, then read \`reasoning://sessions/{sessionId}\` for the full chain.
-   NOTE: The \`level\` parameter is optional when continuing; if provided and mismatched, the session level is used.
-
-### WORKFLOW C: Controlled Depth Reasoning
-
-1. Call \`reasoning_think\` with \`{ query: "...", level: "normal", targetThoughts: 8, thought: "Your reasoning..." }\` to set the session's planned step count.
-2. Repeat calls with the returned \`sessionId\` and your next \`thought\` until \`result.totalThoughts\` is reached.
-   NOTE: \`targetThoughts\` must fall within the level range (basic: 3–5, normal: 6–10, high: 15–25). Out-of-range values return \`E_INVALID_THOUGHT_COUNT\`.
-
-### WORKFLOW D: Async Task Execution
-
-1. Call \`reasoning_think\` as a task (send \`tools/call\` with \`task\` field) for long-running \`high\`-level reasoning.
-2. Poll \`tasks/get\` until status is \`completed\` or \`failed\`.
-3. Retrieve the result via \`tasks/result\`.
-4. Use \`tasks/cancel\` to abort if needed.
+### WORKFLOW D: Async Task
+1. Call \`reasoning_think\` as task (send \`task\` field) for long \`high\`-level reasoning.
+2. Poll \`tasks/get\` until \`completed\`/\`failed\`.
+3. Retrieve via \`tasks/result\`.
+4. Abort via \`tasks/cancel\`.
 
 ### WORKFLOW E: Batched Run-To-Completion
+1. Start session with \`targetThoughts\` and \`runMode: "run_to_completion"\`.
+2. Provide \`thought\` as string array (e.g., \`["step1", "step2"]\`).
+3. Server consumes inputs until completion, token exhaustion, or cancellation.
 
-1. Start a new session with explicit \`targetThoughts\` and \`runMode: "run_to_completion"\`.
-2. Provide \`thought\` as an array of strings to cover all planned steps (e.g. \`thought: ["step1", "step2", ...]\`).
-3. The server consumes thought inputs in order until completion, token budget exhaustion, or cancellation.
-
-### WORKFLOW F: Structured Reasoning (Observation/Hypothesis/Evaluation)
-
-1. Call \`reasoning_think\` with \`{ query: "...", level: "normal", observation: "facts...", hypothesis: "idea...", evaluation: "critique..." }\`.
-2. The server formats these into a structured thought and stores it in the session trace.
-3. Continue with \`sessionId\` using either \`thought\` or structured fields for subsequent steps.
-4. Use \`is_conclusion: true\` to end early, or \`rollback_to_step\` to discard and redo from a specific step.
+### WORKFLOW F: Structured Reasoning
+1. Call \`reasoning_think\` with \`{ query: "...", level: "normal", observation: "...", hypothesis: "...", evaluation: "..." }\`.
+2. Server formats into structured thought in trace.
+3. Continue with \`sessionId\` using \`thought\` or structured fields.
+4. Use \`is_conclusion: true\` to end early, or \`rollback_to_step\` to discard/redo.
 </workflows>
 
 <constraints>

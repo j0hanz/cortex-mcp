@@ -102,17 +102,17 @@ function buildStartReasoningPrompt(args: {
       }`,
     ],
     task: [
-      `Start a new reasoning session using "${REASONING_TOOL_NAME}".`,
-      'Create the first step with a complete, concrete reasoning thought.',
+      `Start new reasoning session via "${REASONING_TOOL_NAME}".`,
+      'Generate the first concrete reasoning step.',
     ],
     constraints: [
       THOUGHT_PARAMETER_GUIDANCE,
-      'Preserve sessionId from the response for continuation calls.',
-      'Continue until status is completed or remainingThoughts is 0.',
+      'Preserve sessionId for continuation.',
+      'Continue until status="completed" or remainingThoughts=0.',
     ],
     output: [
-      'Return the first tool call payload only.',
-      'Fields: query, level, thought, and optional targetThoughts.',
+      'Return exactly one tool call payload.',
+      'Required fields: query, level, thought.',
     ],
   });
   return `${base}\n\n${getTemplate(level)}`;
@@ -135,15 +135,15 @@ function buildRetryReasoningPrompt(args: {
       }`,
     ],
     task: [
-      `Retry by calling "${REASONING_TOOL_NAME}" with an improved first thought.`,
+      `Retry calling "${REASONING_TOOL_NAME}" with an improved first thought.`,
     ],
     constraints: [
       THOUGHT_PARAMETER_GUIDANCE,
-      'Use a direct and specific thought with no filler language.',
+      'Write a direct, specific thought. No filler.',
     ],
     output: [
-      'Return one tool call payload only.',
-      'Fields: query, level, thought, and optional targetThoughts.',
+      'Return exactly one tool call payload.',
+      'Required fields: query, level, thought.',
     ],
   });
   return `${base}\n\n${getTemplate(level)}`;
@@ -172,17 +172,17 @@ function buildContinueReasoningPrompt(args: {
       }`,
     ],
     task: [
-      `Continue the existing session using "${REASONING_TOOL_NAME}".`,
-      'Generate the next reasoning step only.',
+      `Continue session via "${REASONING_TOOL_NAME}".`,
+      'Generate the next reasoning step.',
     ],
     constraints: [
       THOUGHT_PARAMETER_GUIDANCE,
-      'Keep the same sessionId in the call payload.',
-      'Prefer concise, concrete reasoning over meta commentary.',
+      'Keep the same sessionId.',
+      'Write concrete reasoning. No meta commentary.',
     ],
     output: [
-      'Return one continuation tool call payload only.',
-      'Fields: sessionId, thought, and optional query/level/targetThoughts.',
+      'Return exactly one continuation tool call payload.',
+      'Required fields: sessionId, thought.',
     ],
   });
 }
