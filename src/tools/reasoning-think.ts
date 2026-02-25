@@ -600,9 +600,7 @@ function createProgressHandler(args: {
     const message = formatProgressMessage({
       toolName: `꩜ ${TOOL_NAME}`,
       context: 'Thought',
-      metadata: `[${String(displayProgress)}/${String(batchTotal)}]${
-        summary ? ` ${summary}` : ''
-      }`,
+      ...(summary ? { metadata: summary } : {}),
       ...(isTerminal ? { outcome: 'complete' } : {}),
     });
 
