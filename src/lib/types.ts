@@ -1,11 +1,12 @@
-export type ReasoningLevel = 'basic' | 'normal' | 'high';
-export const REASONING_LEVELS = ['basic', 'normal', 'high'] as const;
+export type ReasoningLevel = 'basic' | 'normal' | 'high' | 'expert';
+export const REASONING_LEVELS = ['basic', 'normal', 'high', 'expert'] as const;
 
 /** Shared level bounds — single source of truth for min/maxThoughts per level. */
 export const LEVEL_BOUNDS = {
-  basic: { minThoughts: 3, maxThoughts: 5 },
-  normal: { minThoughts: 6, maxThoughts: 10 },
-  high: { minThoughts: 15, maxThoughts: 25 },
+  basic: { minThoughts: 1, maxThoughts: 3 },
+  normal: { minThoughts: 4, maxThoughts: 8 },
+  high: { minThoughts: 10, maxThoughts: 15 },
+  expert: { minThoughts: 20, maxThoughts: 25 },
 } as const satisfies Record<
   ReasoningLevel,
   { minThoughts: number; maxThoughts: number }

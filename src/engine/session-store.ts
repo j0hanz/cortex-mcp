@@ -15,7 +15,7 @@ import { engineEvents } from './events.js';
 
 export const DEFAULT_SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
 export const DEFAULT_MAX_SESSIONS = 100;
-export const DEFAULT_MAX_TOTAL_TOKENS = 500_000;
+export const DEFAULT_MAX_TOTAL_TOKENS = 2_000_000;
 const TOKEN_ESTIMATE_DIVISOR = 3.5;
 const MIN_SWEEP_INTERVAL_MS = 10;
 const MAX_SWEEP_INTERVAL_MS = 60_000;

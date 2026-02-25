@@ -13,17 +13,22 @@ const PROMPT_CONTRACTS: readonly PromptContract[] = [
   {
     name: 'reasoning.basic',
     title: 'Reasoning Basic',
-    description: 'Prepare a basic-depth reasoning request (3–5 thoughts).',
+    description: 'Prepare a basic-depth reasoning request (1–3 thoughts).',
   },
   {
     name: 'reasoning.normal',
     title: 'Reasoning Normal',
-    description: 'Prepare a normal-depth reasoning request (6–10 thoughts).',
+    description: 'Prepare a normal-depth reasoning request (4–8 thoughts).',
   },
   {
     name: 'reasoning.high',
     title: 'Reasoning High',
-    description: 'Prepare a high-depth reasoning request (15–25 thoughts).',
+    description: 'Prepare a high-depth reasoning request (10–15 thoughts).',
+  },
+  {
+    name: 'reasoning.expert',
+    title: 'Reasoning Expert',
+    description: 'Prepare an expert-depth reasoning request (20–25 thoughts).',
   },
   {
     name: 'reasoning.continue',

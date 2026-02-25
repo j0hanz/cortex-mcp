@@ -12,23 +12,23 @@ const BASIC_TEMPLATE = `<example>
 <thought_process>
 <step index="1" total="3">
 <thought>
-[Observation] A \`Set\` enforces uniqueness automatically; \`[...new Set(arr)]\` is a single-step O(n) operation. An Array-based approach (\`filter\` + \`indexOf\`) is O(n²) and adds unnecessary complexity.
+[Observation] A \`Set\` enforces uniqueness automatically; \`[...new Set(arr)]\` is an O(n) operation. An Array-based approach (filter + indexOf) is O(n²) and verbose.
 </thought>
-<step_summary>Set is O(n) while Array filter is O(n²).</step_summary>
+<step_summary>Set is O(n), Array unique-filter is O(n²).</step_summary>
 </step>
 
 <step index="2" total="3">
 <thought>
-[Evaluation] Edge cases: both preserve insertion order in modern JS engines, so ordering is not a differentiator. \`Set\` converts all values to a common reference internally, which handles string equality correctly.
+[Evaluation] Both preserve insertion order in modern JS. \`Set\` handles all primitives correctly. Array methods require careful callback logic for edge cases (e.g., NaN).
 </thought>
-<step_summary>Both preserve order, but Set handles string equality natively.</step_summary>
+<step_summary>Set handles primitives and edge cases robustly.</step_summary>
 </step>
 
 <step index="3" total="3">
 <thought>
-[Conclusion] Use \`Set\`. It is faster (O(n) vs O(n²)), shorter to write, and immediately communicates the intent of deduplication. \`[...new Set(list)]\` is the idiomatic solution.
+[Conclusion] Use \`Set\`. It is idiomatic, faster, and clearer. \`Array.from(new Set(list))\` or spread syntax is standard practice.
 </thought>
-<step_summary>Set is the optimal and idiomatic choice.</step_summary>
+<step_summary>Set is the standard, optmized solution.</step_summary>
 </step>
 </thought_process>
 </example>
@@ -38,7 +38,7 @@ const BASIC_TEMPLATE = `<example>
 - Structure reasoning using: [Observation], [Hypothesis], [Evaluation], [Conclusion].
 - Write concrete, self-contained thoughts. No filler.
 - Provide a 1-sentence \`step_summary\` per step.
-- Total thoughts: 3 to 5.
+- Total thoughts: 1 to 3.
 </constraints>`;
 
 const NORMAL_TEMPLATE = `<example>
@@ -47,51 +47,51 @@ const NORMAL_TEMPLATE = `<example>
 <thought_process>
 <step index="1" total="7">
 <thought>
-[Observation] Node.js is single-threaded: synchronous code is never interrupted mid-execution, so a plain \`counter++\` within one event-loop tick is effectively atomic from JavaScript's perspective.
+[Observation] Node.js is single-threaded. Synchronous code executes atomically within one event loop tick. \`counter++\` is safe *if* no \`await\` intervenes.
 </thought>
-<step_summary>Synchronous increments in Node.js are atomic.</step_summary>
+<step_summary>Synchronous operations are atomic in Node.js event loop.</step_summary>
 </step>
 
 <step index="2" total="7">
 <thought>
-[Hypothesis] The risk arises in *async* code. A read-modify-write spanning an \`await\` boundary is NOT atomic. Two concurrent callers can both read the same value before either writes, causing a lost update.
+[Hypothesis] Risks occur in async workflows. A read-modify-write spanning an \`await\` (e.g., fetch-increment-save) allows interception by other requests, causing lost updates.
 </thought>
-<step_summary>Async read-modify-write operations are not atomic and risk lost updates.</step_summary>
+<step_summary>Async boundaries break atomicity, risking race conditions.</step_summary>
 </step>
 
 <step index="3" total="7">
 <thought>
-[Evaluation] Example race: \`const v = await db.get('c'); await db.set('c', v + 1);\` — if two requests interleave at the \`await\` points, both read \`v=5\` and both write \`6\`, losing one increment.
+[Evaluation] Scenario: Req A reads 5, waits. Req B reads 5, waits. Both write 6. Net result: +1 instead of +2. This is a classic race condition.
 </thought>
-<step_summary>Interleaved async operations lead to data races.</step_summary>
+<step_summary>Parallel async execution leads to data loss.</step_summary>
 </step>
 
 <step index="4" total="7">
 <thought>
-[Strategy] Solution A — atomic DB operation: \`UPDATE counter SET n = n + 1 RETURNING n\` (SQL) or Redis \`INCR\`. The DB engine serialises the read-modify-write internally with no async gap.
+[Strategy] Option A (External): Offload atomicity to the database (SQL \`UPDATE ... RETURNING\`, Redis \`INCR\`). This is persistent and scalable.
 </thought>
-<step_summary>Database-level atomic operations prevent races.</step_summary>
+<step_summary>Database-level atomic operations ensure consistency.</step_summary>
 </step>
 
 <step index="5" total="7">
 <thought>
-[Strategy] Solution B — async mutex: use a library-level lock (e.g. \`async-mutex\`) to serialise access. Works for in-process state but does not scale across multiple processes or restarts.
+[Strategy] Option B (Mutex): Use \`async-mutex\` to serialize access to the critical section. Effective for in-process state but blocks the event loop if misused.
 </thought>
-<step_summary>In-process mutexes work but don't scale horizontally.</step_summary>
+<step_summary>In-memory mutexes serialize local async access.</step_summary>
 </step>
 
 <step index="6" total="7">
 <thought>
-[Strategy] Solution C — synchronous in-memory only: keep the counter as a plain variable, increment with \`counter++\` (no \`await\` in the read-modify-write path). Valid only for single-process, ephemeral state.
+[Strategy] Option C (Sync-Only): Keep state purely in-memory and synchronous. Only valid for ephemeral, non-distributed counters.
 </thought>
-<step_summary>Synchronous in-memory counters are safe for ephemeral, single-process state.</step_summary>
+<step_summary>Pure synchronous variables avoid the problem entirely.</step_summary>
 </step>
 
 <step index="7" total="7">
 <thought>
-[Conclusion] Prefer Solution A (atomic DB op) for correctness across restarts and multi-process deployments. Use Solution C only for in-process, non-persisted counters where an \`await\` never touches the variable. Avoid async read-modify-write without a mutex.
+[Conclusion] Use Option A (DB) for distributed/durable systems. Use Option C (Sync) for simple stats. Avoid raw async read-modify-write loops.
 </thought>
-<step_summary>Use DB atomic ops for persistence, or sync variables for ephemeral state.</step_summary>
+<step_summary>Prefer DB atomicity for robustness; sync vars for speed.</step_summary>
 </step>
 </thought_process>
 </example>
@@ -101,7 +101,7 @@ const NORMAL_TEMPLATE = `<example>
 - Structure reasoning using: [Observation], [Hypothesis], [Evaluation], [Strategy], [Conclusion].
 - Write concrete thoughts that progress the analysis. Do not restate earlier thoughts.
 - Provide a 1-sentence \`step_summary\` per step.
-- Total thoughts: 6 to 10.
+- Total thoughts: 4 to 8.
 </constraints>`;
 
 const HIGH_TEMPLATE = `<example>
@@ -110,107 +110,107 @@ const HIGH_TEMPLATE = `<example>
 <thought_process>
 <step index="1" total="15">
 <thought>
-[Strategy] Establish the change boundary: run \`git log --oneline\` to find the upgrade commit. Use \`git bisect\` between the last known-good tag and HEAD to confirm the exact commit that caused the regression.
+[Strategy] Identify the change boundary. Use \`git bisect\` to isolate the exact commit causing the regression. This confirms if the upgrade is the sole cause.
 </thought>
-<step_summary>Isolate the exact commit causing the regression using git bisect.</step_summary>
+<step_summary>Isolate the problematic commit with git bisect.</step_summary>
 </step>
 
 <step index="2" total="15">
 <thought>
-[Observation] Collect baseline metrics before touching anything: event-loop lag (\`perf_hooks.monitorEventLoopDelay\`), GC pause times (\`--expose-gc\` + \`PerformanceObserver\`), and per-route timings. This separates compute regressions from I/O regressions.
+[Observation] Collect baseline metrics: CPU usage, Memory (GC), Event Loop Lag, and Network I/O. Differentiation: High CPU/Lag = compute; High Wait = I/O.
 </thought>
-<step_summary>Collect baseline metrics to distinguish compute vs I/O regressions.</step_summary>
+<step_summary>Gather metrics to distinguish compute from I/O issues.</step_summary>
 </step>
 
 <step index="3" total="15">
 <thought>
-[Hypothesis] If event-loop lag is high (>50ms per tick), the cause is synchronous blocking inserted into the hot path — JSON serialisation of large objects, synchronous file I/O, regex backtracking, or CPU-heavy validation.
+[Hypothesis] High Event Loop Lag (>50ms) suggests synchronous blocking on the main thread (e.g., regex, large JSON parse, crypto). The upgrade may have introduced slow sync validation.
 </thought>
-<step_summary>High event-loop lag indicates synchronous blocking.</step_summary>
+<step_summary>Lag indicates synchronous blocking on the main thread.</step_summary>
 </step>
 
 <step index="4" total="15">
 <thought>
-[Hypothesis] If event-loop lag is low but p50 is high, the bottleneck is I/O wait: slow DB queries, connection-pool exhaustion, DNS resolution delays, or increased network RTT to the upgraded service.
+[Hypothesis] Low Lag but High P50 suggests upstream I/O latency. The new library version might differ in connection pooling, DNS resolution, or default timeouts.
 </thought>
-<step_summary>Low event-loop lag with high p50 indicates I/O bottlenecks.</step_summary>
+<step_summary>Latency without lag points to I/O or network bottlenecks.</step_summary>
 </step>
 
 <step index="5" total="15">
 <thought>
-[Action] Read the dependency's changelog between the old and new version. Look for: new middleware injected at startup, serialisation format changes, default timeout changes, or connection-pool default reductions.
+[Action] Audit the changelog between versions. Look for "Breaking Changes", new middleware, or altered default configurations (e.g., \`poolSize\`).
 </thought>
-<step_summary>Review the dependency changelog for breaking changes or new defaults.</step_summary>
+<step_summary>Review changelog for defaults or middleware shifts.</step_summary>
 </step>
 
 <step index="6" total="15">
 <thought>
-[Action] Profile with \`clinic.js flame\` (or \`node --prof\` + \`node --prof-process\`) under representative load. The flame graph will pinpoint whether wall-clock time is in JS compute vs. idle I/O await.
+[Action] Profile with \`clinic.js flame\` or \`node --prof\`. Generate a flame graph to see where the CPU time is spent during the request.
 </thought>
-<step_summary>Use flame graphs to pinpoint the exact bottleneck.</step_summary>
+<step_summary>Profile execution to visualize CPU hotspots.</step_summary>
 </step>
 
 <step index="7" total="15">
 <thought>
-[Action] Write a minimal reproduction that calls *only* the upgraded package's API with representative input. Benchmark it against the pinned old version in isolation to confirm the package itself is the source.
+[Action] Create a minimal reproduction script using *only* the new library version. Benchmark this in isolation to confirm the library itself is the bottleneck, excluding app logic.
 </thought>
-<step_summary>Create a minimal reproduction to isolate the package's performance.</step_summary>
+<step_summary>Isolate the library in a minimal repro script.</step_summary>
 </step>
 
 <step index="8" total="15">
 <thought>
-[Evaluation] Common 40× regression patterns: (a) added synchronous schema validation on every request, (b) HTTP/1.1 → HTTP/2 frame parsing overhead, (c) new middleware that buffers the full request body before routing.
+[Evaluation] Pattern A (Compute): The new version adds schema validation (e.g., Joi/Zod) on every read. This shows up as deep stacks in the flame graph.
 </thought>
-<step_summary>Evaluate common regression patterns like added validation or middleware.</step_summary>
+<step_summary>Check for accidental compute overhead (validation).</step_summary>
 </step>
 
 <step index="9" total="15">
 <thought>
-[Evaluation] Check connection-pool configuration: if the upgrade changed default pool size or idle timeout, requests may queue waiting for connections. Inspect \`pool.min\`, \`pool.max\`, and \`acquireTimeoutMillis\` in the new version's defaults.
+[Evaluation] Pattern B (Configuration): The connection pool default dropped from 10 to 1, causing serialization of concurrent requests.
 </thought>
-<step_summary>Verify connection-pool configurations for reduced defaults.</step_summary>
+<step_summary>Check for reduced concurrency limits in config.</step_summary>
 </step>
 
 <step index="10" total="15">
 <thought>
-[Evaluation] Check middleware registration order: some packages inject global middleware at \`require\`-time. A slow middleware (e.g., large-payload body parser) before fast routes affects all endpoints even if the route itself is unchanged.
+[Evaluation] Pattern C (Middleware): The package auto-registers a global body parser that waits for the full stream before processing, delaying TTFB.
 </thought>
-<step_summary>Check for slow global middleware affecting all routes.</step_summary>
+<step_summary>Check for eager middleware blocking request flow.</step_summary>
 </step>
 
 <step index="11" total="15">
 <thought>
-[Mitigation] Immediate mitigation: pin the dependency to the last known-good version (\`npm install dep@x.y.z\`) and deploy to restore SLA while the full investigation continues. Add a TODO linking to the issue tracker.
+[Mitigation] Pin the dependency to the previous working version immediately to restore SLA. Document the incident and block the upgrade in \`package.json\`.
 </thought>
-<step_summary>Pin the dependency to the last known-good version to restore SLA.</step_summary>
+<step_summary>Rollback and pin version to restore service health.</step_summary>
 </step>
 
 <step index="12" total="15">
 <thought>
-[Action] If the regression is a bug in the dependency, open an issue with the minimal reproduction from Thought 7. Check if a patch release or a configuration flag exists to disable the slow behaviour.
+[Action] Open a GitHub issue with the reproduction script (Thought 7). Maintainers need proof to prioritize a fix.
 </thought>
-<step_summary>Report the bug upstream with the minimal reproduction.</step_summary>
+<step_summary>Report bug upstream with reproduction evidence.</step_summary>
 </step>
 
 <step index="13" total="15">
 <thought>
-[Strategy] If the slow path is unavoidable, mitigation options: (a) cache the expensive result at the request or process level, (b) offload CPU work to a \`worker_threads\` worker, (c) evaluate an alternative package.
+[Strategy] If the upgrade is mandatory (security), mitigate via caching (Redis) or offloading the heavy task to a worker thread.
 </thought>
-<step_summary>Consider caching, worker threads, or alternative packages if unavoidable.</step_summary>
+<step_summary>Use caching or workers if rollback isn't an option.</step_summary>
 </step>
 
 <step index="14" total="15">
 <thought>
-[Validation] After applying the fix, run the same load test that revealed the regression. Confirm p50 and p99 return to baseline and do not diverge under sustained load. Check that GC pressure did not increase.
+[Validation] Re-run the load test against the fix/rollback. Verify P50/P99 metrics match the original baseline. Ensure no memory leaks (stable heap).
 </thought>
-<step_summary>Validate the fix under load to ensure metrics return to baseline.</step_summary>
+<step_summary>Validate metrics match baseline after fix.</step_summary>
 </step>
 
 <step index="15" total="15">
 <thought>
-[Conclusion] Diagnosis path: git bisect → event-loop lag check → clinic.js flame graph → isolated package benchmark → changelog review → pool/middleware audit. Mitigation: pin version immediately. Fix: configure, cache, or replace. Prevention: add a latency benchmark target to CI.
+[Conclusion] Diagnostic workflow: Bisect -> Metrics (Lag vs I/O) -> Profiling -> Isolation -> Config Audit. Action: Rollback, Report, Optimize.
 </thought>
-<step_summary>Summarize the diagnosis, mitigation, fix, and prevention strategy.</step_summary>
+<step_summary>Systematic diagnosis confirms root cause and fix.</step_summary>
 </step>
 </thought_process>
 </example>
@@ -220,13 +220,168 @@ const HIGH_TEMPLATE = `<example>
 - Structure reasoning using: [Observation], [Hypothesis], [Strategy], [Action], [Evaluation], [Mitigation], [Validation], [Conclusion].
 - Write specific thoughts that advance the investigation. No summaries of prior steps, no filler.
 - Provide a 1-sentence \`step_summary\` per step.
-- Total thoughts: 15 to 25. Scale depth to complexity.
+- Total thoughts: 10 to 15. Scale depth to complexity.
+</constraints>`;
+
+const EXPERT_TEMPLATE = `<example>
+<query>
+Implement a distributed, high-throughput event sourcing system using PostgreSQL and Kafka with exactly-once processing guarantees and conflict resolution.
+</query>
+<thought_process>
+<step index="1" total="20">
+<thought>
+[Decomposition] Core Constraints: High Throughput (Write-heavy), Distributed (Consistency risks), Exactly-once (Duplication risks), Conflict Resolution (Concurrency). Tech Stack: Postgres (Source of Truth), Kafka (Transport).
+</thought>
+<step_summary>Analyze constraints: Throughput, Consistency, and Reliability are paramount.</step_summary>
+</step>
+
+<step index="2" total="20">
+<thought>
+[Architecture] Pattern Selection: "Transactional Outbox". Writes to PG (Business Data + Event) must be atomic. Kafka producer is async. Direct dual-write (DB + Kafka) is unsafe (dual-write problem).
+</thought>
+<step_summary>Select Transactional Outbox pattern to solve the dual-write problem.</step_summary>
+</step>
+
+<step index="3" total="20">
+<thought>
+[Strategy] Storage Schema: \`aggregates\` table (current state, version column) and \`outbox\` table (id, aggregate_id, payload, created_at). Both written in one \`BEGIN...COMMIT\` block.
+</thought>
+<step_summary>Define PG schema with Aggregates and Outbox tables.</step_summary>
+</step>
+
+<step index="4" total="20">
+<thought>
+[Strategy] Ingestion: API receives command -> Loads Aggregate -> Validates -> Applies Event -> Updates State (ver++) -> Inserts Outbox -> Commits.
+</thought>
+<step_summary>Define synchronous write path: Load-Validate-Apply-Commit.</step_summary>
+</step>
+
+<step index="5" total="20">
+<thought>
+[Reliability] Publishing: Use Debezium (CDC) or a Polling Publisher to tail the \`outbox\` table and push to Kafka. CDC is lower latency; Polling is simpler. Choose CDC for "High Throughput".
+</thought>
+<step_summary>Use CDC (Debezium) for low-latency, reliable event publishing.</step_summary>
+</step>
+
+<step index="6" total="20">
+<thought>
+[Strategy] Kafka Partitioning: Partition by \`aggregate_id\`. guarantees strict ordering of events for a single entity. Global ordering is impossible and unnecessary.
+</thought>
+<step_summary>Partition Kafka by aggregate_id to ensure entity-level ordering.</step_summary>
+</step>
+
+<step index="7" total="20">
+<thought>
+[Implementation] Consumer Idempotency: "Exactly-Once" is effectively "At-Least-Once + Idempotency". Consumer tracks \`last_processed_offset\` or usage of a unique \`event_id\` in its local DB transaction.
+</thought>
+<step_summary>Implement idempotency via exactly-once semantics at the consumer.</step_summary>
+</step>
+
+<step index="8" total="20">
+<thought>
+[Conflict Resolution] Detect: Use Optimistic Concurrency Control (OCC) on the Write side. \`UPDATE aggregates SET ..., version = version + 1 WHERE id = $1 AND version = $2\`. If row count 0, concurrency violation.
+</thought>
+<step_summary>Use Optimistic Concurrency Control (OCC) to detect write conflicts.</step_summary>
+</step>
+
+<step index="9" total="20">
+<thought>
+[Conflict Resolution] Handle: On OCC failure, retry the command. Reload aggregate (fetching new state applied by competitor), re-validate, re-attempt.
+</thought>
+<step_summary>Retry commands on OCC failure after refreshing state.</step_summary>
+</step>
+
+<step index="10" total="20">
+<thought>
+[Optimization] Snapshotting: Replaying 1M events is slow. Create snapshots every N events. Store in \`snapshots\` table. Load = Snapshot + subsequent events.
+</thought>
+<step_summary>Implement snapshotting to bound strict replay times.</step_summary>
+</step>
+
+<step index="11" total="20">
+<thought>
+[Implementation] Dead Letter Queue (DLQ): If an event fails processing (bug, poison pill), move to DLQ after N retries to prevent partition blocking.
+</thought>
+<step_summary>Configure DLQ to prevent poison pills from blocking partitions.</step_summary>
+</step>
+
+<step index="12" total="20">
+<thought>
+[Throughput] Batching: Producer (CDC) batches records for Kafka compression. Consumer uses \`fetch.min.bytes\` to process batches. DB writes can use \`COPY\` if high volume, but usually row-by-row for OLTP.
+</thought>
+<step_summary>Tune batching parameters at Producer and Consumer layers.</step_summary>
+</step>
+
+<step index="13" total="20">
+<thought>
+[Scalability] Read Models (CQRS): The sourcing system handles Writes. Project events into separate Read Models (Elasticsearch, Redis) via separate consumers groups.
+</thought>
+<step_summary>Use CQRS to decouple write throughput from read complexity.</step_summary>
+</step>
+
+<step index="14" total="20">
+<thought>
+[Edge Case] Outbox Table Bloat: The outbox grows indefinitely. Strategy: "Delete after publish" (Debezium support) or separate vacuum process. PREFER delete-on-publish for hygiene.
+</thought>
+<step_summary>Prune outbox table after publication to maintain performance.</step_summary>
+</step>
+
+<step index="15" total="20">
+<thought>
+[Security] Auditability: The event log is the legal record. Ensure detailed metadata (user_id, ip, timestamp, reason) is in the event payload. Immutable.
+</thought>
+<step_summary>Enrich events with audit metadata; treat log as immutable.</step_summary>
+</step>
+
+<step index="16" total="20">
+<thought>
+[Failure Mode] Kafka Unavailable: Writes to PG continue (Outbox accumulates). Latency increases, but availability limits to PG uptime. Recovery: CDC catches up when Kafka returns.
+</thought>
+<step_summary>System remains available during Kafka outages; lag increases.</step_summary>
+</step>
+
+<step index="17" total="20">
+<thought>
+[Failure Mode] Consumer Lag: Validates "High Throughput". If lag grows, scale consumer groups (add partitions if needed). Autoscaler metric: \`kafka_consumergroup_lag\`.
+</thought>
+<step_summary>Monitor consumer lag to trigger horizontal scaling.</step_summary>
+</step>
+
+<step index="18" total="20">
+<thought>
+[Validation] Testing: Chaos Engineering. Kill Kafka broker, kill Consumer, kill PG leader. Verify no data loss (zero ack loss), no duplicates (idempotency), no ordering violation.
+</thought>
+<step_summary>Validate resilience via Chaos Engineering (broker/consumer kills).</step_summary>
+</step>
+
+<step index="19" total="20">
+<thought>
+[Synthesis] The solution decouples Write availability from Event Distribution. PG provides OCC + Persistence. Outbox + CDC guarantees delivery. Kafka provides ordering + backpressure.
+</thought>
+<step_summary>Synthesize the architecture: Decoupled, Durable, Ordered.</step_summary>
+</step>
+
+<step index="20" total="20">
+<thought>
+[Conclusion] Final Spec: Service (Node/Go) -> PG (OCC + Outbox) -> Debezium -> Kafka (Partition Key=AggID) -> Consumer (Idempotent). Guarantees: Strong Consistency (Write), Eventual Consistency (Read), Exactly-Once (E2E).
+</thought>
+<step_summary>Finalize the distributed event sourcing specification.</step_summary>
+</step>
+</thought_process>
+</example>
+
+<constraints>
+- Match the depth and quality of the example above.
+- Perform exhaustive analysis of edge cases, failure modes, and architectural trade-offs.
+- Structure reasoning using: [Decomposition], [Architecture], [Strategy], [Implementation], [Validation], [Optimization], [Security], [Conclusion].
+- Total thoughts: 20 to 25. Scale depth to extreme complexity.
 </constraints>`;
 
 const TEMPLATES: Record<ReasoningLevel, string> = {
   basic: BASIC_TEMPLATE,
   normal: NORMAL_TEMPLATE,
   high: HIGH_TEMPLATE,
+  expert: EXPERT_TEMPLATE,
 };
 
 export function getTemplate(level: ReasoningLevel): string {

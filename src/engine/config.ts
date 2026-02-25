@@ -10,6 +10,7 @@ export const LEVEL_CONFIGS = {
   basic: { ...LEVEL_BOUNDS.basic, tokenBudget: 2048 },
   normal: { ...LEVEL_BOUNDS.normal, tokenBudget: 8192 },
   high: { ...LEVEL_BOUNDS.high, tokenBudget: 32768 },
+  expert: { ...LEVEL_BOUNDS.expert, tokenBudget: 131072 },
 } as const satisfies Record<ReasoningLevel, LevelConfig>;
 
 export function getLevelConfig(level: ReasoningLevel): LevelConfig {

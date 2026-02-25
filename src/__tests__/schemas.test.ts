@@ -22,7 +22,7 @@ describe('ReasoningThinkInputSchema', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'Continue reasoning',
       level: 'high',
-      targetThoughts: 20,
+      targetThoughts: 12,
       sessionId: 'abc-123',
       thought: 'Continuing the analysis from the previous step.',
     });
@@ -96,7 +96,7 @@ describe('ReasoningThinkInputSchema', () => {
       query: 'test',
       level: 'basic',
       thought: 'Some thought.',
-      targetThoughts: 2,
+      targetThoughts: 0,
     });
     assert.equal(result.success, false);
   });
@@ -116,7 +116,7 @@ describe('ReasoningThinkInputSchema', () => {
       query: 'test',
       level: 'basic',
       thought: 'Some thought.',
-      targetThoughts: 5,
+      targetThoughts: 3,
     });
     assert.equal(result.success, true);
   });
@@ -141,12 +141,12 @@ describe('ReasoningThinkInputSchema', () => {
     assert.equal(result.success, false);
   });
 
-  it('accepts targetThoughts at max (25)', () => {
+  it('accepts targetThoughts at max (15)', () => {
     const result = ReasoningThinkInputSchema.safeParse({
       query: 'test',
       level: 'high',
       thought: 'Some thought.',
-      targetThoughts: 25,
+      targetThoughts: 15,
     });
     assert.equal(result.success, true);
   });

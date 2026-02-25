@@ -53,7 +53,7 @@ export const ReasoningThinkInputSchema = z
       .union([THOUGHT_TEXT_SCHEMA, THOUGHT_BATCH_SCHEMA])
       .optional()
       .describe(
-        'Full reasoning content for this step. Stored verbatim. String or string array.'
+        'Full reasoning content for this step. Stored verbatim. Use string for single steps, or string array for batch mode.'
       ),
     is_conclusion: z
       .boolean()

@@ -9,6 +9,7 @@ import { formatThoughtsToMarkdown } from '../lib/formatting.js';
 import { withIconMeta } from '../lib/tool-response.js';
 import type {
   IconMeta,
+  ReasoningLevel,
   Session,
   SessionSummary as StoreSessionSummary,
 } from '../lib/types.js';
@@ -48,7 +49,7 @@ function resolveSession(sessionId: string, uri: URL): Readonly<Session> {
 
 interface SessionResourceSummary {
   id: string;
-  level: 'basic' | 'normal' | 'high';
+  level: ReasoningLevel;
   status: 'active' | 'completed' | 'cancelled';
   generatedThoughts: number;
   remainingThoughts: number;

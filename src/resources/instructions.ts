@@ -88,7 +88,7 @@ ${sharedConstraints}
 
 <error_handling>
 - \`E_SESSION_NOT_FOUND\`: Expired/missing. List sessions or start new.
-- \`E_INVALID_THOUGHT_COUNT\`: \`targetThoughts\` out of range (basic: 3-5, normal: 6-10, high: 15-25).
+- \`E_INVALID_THOUGHT_COUNT\`: \`targetThoughts\` out of range (basic: 1-3, normal: 4-8, high: 10-15, expert: 20-25).
 - \`E_INSUFFICIENT_THOUGHTS\`: Not enough inputs for \`run_to_completion\`.
 - \`E_INVALID_RUN_MODE_ARGS\`: Invalid \`runMode\` args (e.g., missing \`targetThoughts\`).
 - \`E_ABORTED\`: Cancelled. Retry if needed.

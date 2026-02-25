@@ -9,8 +9,8 @@ describe('reason', () => {
       thought: 'The answer is 4 because 2+2=4.',
     });
     assert.equal(session.thoughts.length, 1);
-    assert.ok(session.totalThoughts >= 3);
-    assert.ok(session.totalThoughts <= 5);
+    assert.ok(session.totalThoughts >= 1);
+    assert.ok(session.totalThoughts <= 3);
     sessionStore.delete(session.id);
   });
 
@@ -19,8 +19,8 @@ describe('reason', () => {
       thought: 'Gravity is a fundamental force of attraction between masses.',
     });
     assert.equal(session.thoughts.length, 1);
-    assert.ok(session.totalThoughts >= 6);
-    assert.ok(session.totalThoughts <= 10);
+    assert.ok(session.totalThoughts >= 4);
+    assert.ok(session.totalThoughts <= 8);
     sessionStore.delete(session.id);
   });
 
@@ -30,8 +30,8 @@ describe('reason', () => {
         'World peace requires addressing root causes of conflict including inequality and resource scarcity.',
     });
     assert.equal(session.thoughts.length, 1);
-    assert.ok(session.totalThoughts >= 15);
-    assert.ok(session.totalThoughts <= 25);
+    assert.ok(session.totalThoughts >= 10);
+    assert.ok(session.totalThoughts <= 15);
     sessionStore.delete(session.id);
   });
 
@@ -89,6 +89,7 @@ describe('reason', () => {
   it('reuses existing session via sessionId', async () => {
     const first = await reason('Initial query', 'basic', {
       thought: 'First thought about the initial query.',
+      targetThoughts: 3,
     });
     const initialThoughtCount = first.thoughts.length;
     const second = await reason('Follow-up', 'basic', {
@@ -105,6 +106,7 @@ describe('reason', () => {
   it('stores each thought on continuation calls', async () => {
     const first = await reason('Initial query', 'basic', {
       thought: 'Step 1: Understanding the problem.',
+      targetThoughts: 3,
     });
     const secondContent =
       'Step 2: The root cause is a race condition in the async handler.';
@@ -125,6 +127,7 @@ describe('reason', () => {
   it('ignores level mismatch when continuing a session', async () => {
     const first = await reason('Initial query', 'basic', {
       thought: 'First thought.',
+      targetThoughts: 3,
     });
     const second = await reason('Follow-up', 'high', {
       sessionId: first.id,
@@ -139,6 +142,7 @@ describe('reason', () => {
   it('continues session without explicit level', async () => {
     const first = await reason('Initial query', 'basic', {
       thought: 'First thought.',
+      targetThoughts: 3,
     });
     const second = await reason('Follow-up', undefined, {
       sessionId: first.id,
@@ -178,7 +182,7 @@ describe('reason', () => {
           targetThoughts: 9,
           thought: 'This should fail.',
         }),
-      { message: /targetThoughts must be between 3 and 5 for level "basic"/ }
+      { message: /targetThoughts must be between 1 and 3 for level "basic"/ }
     );
   });
 
@@ -186,7 +190,7 @@ describe('reason', () => {
     const session = await reason('hi', 'basic', {
       thought: 'Simple greeting query, minimal analysis needed.',
     });
-    assert.equal(session.totalThoughts, 3); // basic minThoughts
+    assert.equal(session.totalThoughts, 1); // basic minThoughts
     assert.equal(session.thoughts.length, 1);
     sessionStore.delete(session.id);
   });
@@ -200,9 +204,9 @@ describe('reason', () => {
     const session = await reason(longQuery, 'basic', {
       thought: 'Analyzing the multi-faceted nature of this complex query.',
     });
-    // Should produce 4 or 5 total thoughts (near maxThoughts = 5)
-    assert.ok(session.totalThoughts >= 4);
-    assert.ok(session.totalThoughts <= 5);
+    // Should produce 2 or 3 total thoughts (near maxThoughts = 3)
+    assert.ok(session.totalThoughts >= 2);
+    assert.ok(session.totalThoughts <= 3);
     assert.equal(session.thoughts.length, 1);
     sessionStore.delete(session.id);
   });

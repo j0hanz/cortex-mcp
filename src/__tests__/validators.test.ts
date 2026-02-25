@@ -11,53 +11,53 @@ import {
 describe('getThoughtBounds', () => {
   it('returns correct bounds for basic level', () => {
     const bounds = getThoughtBounds('basic');
-    assert.equal(bounds.minThoughts, 3);
-    assert.equal(bounds.maxThoughts, 5);
+    assert.equal(bounds.minThoughts, 1);
+    assert.equal(bounds.maxThoughts, 3);
   });
 
   it('returns correct bounds for normal level', () => {
     const bounds = getThoughtBounds('normal');
-    assert.equal(bounds.minThoughts, 6);
-    assert.equal(bounds.maxThoughts, 10);
+    assert.equal(bounds.minThoughts, 4);
+    assert.equal(bounds.maxThoughts, 8);
   });
 
   it('returns correct bounds for high level', () => {
     const bounds = getThoughtBounds('high');
-    assert.equal(bounds.minThoughts, 15);
-    assert.equal(bounds.maxThoughts, 25);
+    assert.equal(bounds.minThoughts, 10);
+    assert.equal(bounds.maxThoughts, 15);
   });
 });
 
 describe('getTargetThoughtsError', () => {
   it('returns undefined for valid targetThoughts within basic range', () => {
+    assert.equal(getTargetThoughtsError('basic', 1), undefined);
     assert.equal(getTargetThoughtsError('basic', 3), undefined);
-    assert.equal(getTargetThoughtsError('basic', 5), undefined);
   });
 
   it('returns undefined for valid targetThoughts within normal range', () => {
-    assert.equal(getTargetThoughtsError('normal', 6), undefined);
-    assert.equal(getTargetThoughtsError('normal', 10), undefined);
+    assert.equal(getTargetThoughtsError('normal', 4), undefined);
+    assert.equal(getTargetThoughtsError('normal', 8), undefined);
   });
 
   it('returns undefined for valid targetThoughts within high range', () => {
+    assert.equal(getTargetThoughtsError('high', 10), undefined);
     assert.equal(getTargetThoughtsError('high', 15), undefined);
-    assert.equal(getTargetThoughtsError('high', 25), undefined);
   });
 
   it('returns error for targetThoughts below minimum', () => {
-    const error = getTargetThoughtsError('basic', 2);
+    const error = getTargetThoughtsError('basic', 0);
     assert.ok(error);
     assert.ok(error.includes('between'));
+    assert.ok(error.includes('1'));
     assert.ok(error.includes('3'));
-    assert.ok(error.includes('5'));
   });
 
   it('returns error for targetThoughts above maximum', () => {
-    const error = getTargetThoughtsError('high', 26);
+    const error = getTargetThoughtsError('high', 16);
     assert.ok(error);
     assert.ok(error.includes('between'));
+    assert.ok(error.includes('10'));
     assert.ok(error.includes('15'));
-    assert.ok(error.includes('25'));
   });
 
   it('returns error for non-integer targetThoughts', () => {
