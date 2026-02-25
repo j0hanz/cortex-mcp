@@ -71,12 +71,21 @@ export const ReasoningThinkInputSchema = z
       .string()
       .optional()
       .describe('1-sentence summary of the conclusion reached.'),
-    observation: z.string().optional().describe('Facts known at this step.'),
+    observation: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Facts known at this step.'),
     hypothesis: z
       .string()
+      .min(1)
       .optional()
       .describe('Proposed idea or next logical leap.'),
-    evaluation: z.string().optional().describe('Critique of the hypothesis.'),
+    evaluation: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Critique of the hypothesis.'),
   })
   .superRefine((data, ctx) => {
     const runMode = data.runMode ?? DEFAULT_RUN_MODE;

@@ -101,7 +101,7 @@ function buildTraceResource(session: Readonly<Session>): TextResourceContents {
     : session;
 
   return {
-    uri: `reasoning://sessions/${session.id}/trace.md`,
+    uri: `file:///cortex/sessions/${session.id}/trace.md`,
     mimeType: 'text/markdown',
     text: formatThoughtsToMarkdown(sessionView),
   };
@@ -912,7 +912,7 @@ async function runReasoningTask(args: {
         generatedThoughts,
         totalThoughts: session.thoughts.length,
       },
-      sessionId
+      resolvedSessionId
     );
   } catch (error) {
     const failureArgs: Parameters<typeof handleTaskFailure>[0] = {

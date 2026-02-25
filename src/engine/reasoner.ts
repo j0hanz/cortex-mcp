@@ -64,11 +64,12 @@ export async function reason(
     onProgress,
   } = options ?? {};
 
-  const hasContent =
-    thought !== undefined ||
-    (observation !== undefined &&
-      hypothesis !== undefined &&
-      evaluation !== undefined);
+  const hasStructuredInput =
+    observation !== undefined &&
+    hypothesis !== undefined &&
+    evaluation !== undefined;
+
+  const hasContent = thought !== undefined || hasStructuredInput;
 
   if (!hasContent && rollbackToStep === undefined) {
     throw new InvalidRunModeArgsError(
@@ -91,8 +92,8 @@ export async function reason(
       const current = getSessionOrThrow(session.id);
 
       let content = thought;
-      if (!content && observation) {
-        content = `**Observation:** ${observation}\n\n**Hypothesis:** ${hypothesis ?? ''}\n\n**Evaluation:** ${evaluation ?? ''}`;
+      if (!content && hasStructuredInput) {
+        content = `**Observation:** ${observation}\n\n**Hypothesis:** ${hypothesis}\n\n**Evaluation:** ${evaluation}`;
       }
 
       if (!content) {

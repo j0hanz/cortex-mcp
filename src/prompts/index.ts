@@ -153,9 +153,8 @@ function buildContinueReasoningPrompt(args: {
   sessionId: string;
   query?: string;
   level?: ReasoningLevel;
-  targetThoughts?: number;
 }): string {
-  const { sessionId, query, level, targetThoughts } = args;
+  const { sessionId, query, level } = args;
   return buildPromptText({
     context: [
       `Session: ${JSON.stringify(sessionId)}`,
@@ -165,11 +164,6 @@ function buildContinueReasoningPrompt(args: {
       level === undefined
         ? 'Level: keep session level'
         : `Level override: ${level}`,
-      `Target thoughts: ${
-        targetThoughts === undefined
-          ? 'unchanged / default'
-          : String(targetThoughts)
-      }`,
     ],
     task: [
       `Continue session via "${REASONING_TOOL_NAME}".`,
@@ -326,23 +320,13 @@ export function registerAllPrompts(
           ),
           (value) => completeLevel(value ?? '')
         ),
-        targetThoughts: z
-          .number()
-          .int()
-          .min(1)
-          .max(25)
-          .optional()
-          .describe(
-            'Optional exact step count within the selected level range (max 25)'
-          ),
       },
     },
-    ({ sessionId, query, level, targetThoughts }) => {
+    ({ sessionId, query, level }) => {
       const text = buildContinueReasoningPrompt({
         sessionId,
         ...(query !== undefined ? { query } : {}),
         ...(level !== undefined ? { level } : {}),
-        ...(targetThoughts !== undefined ? { targetThoughts } : {}),
       });
       return createTextPrompt(text);
     }
