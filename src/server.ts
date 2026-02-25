@@ -252,7 +252,7 @@ export function createServer(): McpServer {
       },
       taskStore,
       instructions:
-        'Multi-level reasoning MCP server. Use reasoning_think to decompose queries into sequential thought steps at basic (3–5), normal (6–10), or high (15–25) depth. Full usage guide: read internal://instructions or invoke get-help.',
+        'Multi-level reasoning MCP server. Use reasoning_think to decompose queries into sequential thought steps at basic (1–3), normal (4–8), high (10–15), or expert (20–25) depth. Full usage guide: read internal://instructions or invoke get-help.',
     }
   );
 

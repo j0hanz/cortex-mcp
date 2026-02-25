@@ -692,7 +692,7 @@ function getActionableMessage(
 ): string {
   switch (errorCode) {
     case 'E_INVALID_THOUGHT_COUNT':
-      return `${originalMessage} Fix: set targetThoughts within the level range (basic 3–5, normal 6–10, high 15–25).`;
+      return `${originalMessage} Fix: set targetThoughts within the level range (basic 1–3, normal 4–8, high 10–15, expert 20–25).`;
     case 'E_INSUFFICIENT_THOUGHTS':
       return `${originalMessage} Fix: provide enough thought inputs for the remaining steps, or use runMode: "step".`;
     case 'E_INVALID_RUN_MODE_ARGS':

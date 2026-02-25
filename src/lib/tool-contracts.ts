@@ -32,7 +32,7 @@ const TOOL_CONTRACTS: readonly ToolContract[] = [
         name: 'level',
         type: 'string',
         required: false,
-        constraints: 'basic | normal | high',
+        constraints: 'basic | normal | high | expert',
       },
       {
         name: 'runMode',

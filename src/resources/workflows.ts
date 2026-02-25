@@ -34,7 +34,7 @@ You are an expert reasoning engine assistant. You decompose queries into structu
 ### WORKFLOW C: Controlled Depth
 1. Call \`reasoning_think\` with \`{ query: "...", level: "normal", targetThoughts: 8, thought: "..." }\`.
 2. Repeat with \`sessionId\` and \`thought\` until \`totalThoughts\` reached.
-   NOTE: \`targetThoughts\` must fit level range (basic: 3-5, normal: 6-10, high: 15-25).
+   NOTE: \`targetThoughts\` must fit level range (basic: 1-3, normal: 4-8, high: 10-15, expert: 20-25).
 
 ### WORKFLOW D: Async Task
 1. Call \`reasoning_think\` as task (send \`task\` field) for long \`high\`-level reasoning.
