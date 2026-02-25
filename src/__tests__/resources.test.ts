@@ -29,9 +29,7 @@ after(async () => {
 
 // Helpers
 
-async function callToolRaw(
-  args: Record<string, unknown>
-): Promise<{
+async function callToolRaw(args: Record<string, unknown>): Promise<{
   content: Array<{ type: string; text?: string }>;
   isError?: boolean;
 }> {
