@@ -15,17 +15,14 @@ const ThoughtSchema = z.strictObject({
   stepSummary: z
     .string()
     .optional()
-    .describe('1-sentence summary of the conclusion reached.'),
+    .describe('One-sentence summary of this step.'),
 });
 
 const ReasoningThinkSuccessSchema = z.strictObject({
   ok: z.literal(true),
   result: z.strictObject({
     sessionId: z.string(),
-    query: z
-      .string()
-      .optional()
-      .describe('Original query text for this session.'),
+    query: z.string().optional().describe('Original query for this session.'),
     level: z.enum(REASONING_LEVELS),
     status: z.enum(SESSION_STATUSES),
     thoughts: z.array(ThoughtSchema),
@@ -33,17 +30,17 @@ const ReasoningThinkSuccessSchema = z.strictObject({
     requestedThoughts: z.number(),
     totalThoughts: z.number(),
     tokenBudget: z.number().describe('Approximate token budget.'),
-    tokensUsed: z.number().describe('Approximate tokens used.'),
+    tokensUsed: z.number().describe('Approximate tokens consumed.'),
     ttlMs: z.number(),
     expiresAt: z.number(),
     createdAt: z.number(),
     updatedAt: z.number(),
     remainingThoughts: z
       .number()
-      .describe('Thoughts remaining before reaching totalThoughts.'),
+      .describe('Thoughts remaining before totalThoughts is reached.'),
     summary: z
       .string()
-      .describe('Actionable next-step instruction or completion status.'),
+      .describe('Next action instruction or completion status.'),
   }),
 });
 

@@ -27,10 +27,10 @@ function addCustomIssue(
 export const ReasoningThinkInputSchema = z
   .strictObject({
     query: QUERY_TEXT_SCHEMA.optional().describe(
-      'Question or problem to reason about.'
+      'Question or problem to analyze.'
     ),
     level: LEVEL_SCHEMA.optional().describe(
-      `Reasoning depth level (required for new sessions). ${getLevelDescriptionString()}.`
+      `Reasoning depth level. Required for new sessions. ${getLevelDescriptionString()}.`
     ),
     targetThoughts: z
       .number()
@@ -38,39 +38,39 @@ export const ReasoningThinkInputSchema = z
       .min(1)
       .max(25)
       .optional()
-      .describe('Explicit thought count. Must fit level range.'),
+      .describe('Exact thought count. Must fit the level range.'),
     sessionId: z
       .string()
       .min(1)
       .max(128)
       .optional()
-      .describe('Session ID to continue.'),
+      .describe('Session ID for continuation.'),
     runMode: z
       .enum(RUN_MODE_VALUES)
       .optional()
-      .describe('Execution mode. "step" (default) or "run_to_completion".'),
+      .describe('Execution mode: "step" (default) or "run_to_completion".'),
     thought: z
       .union([THOUGHT_TEXT_SCHEMA, THOUGHT_BATCH_SCHEMA])
       .optional()
       .describe(
-        'Full reasoning content for this step. Stored verbatim. Use string for single steps, or string array for batch mode.'
+        'Reasoning text for this step. Stored verbatim. Use string for single-step mode, string[] for batch mode.'
       ),
     is_conclusion: z
       .boolean()
       .optional()
-      .describe('End session early if final answer reached.'),
+      .describe('End session early when the final answer is reached.'),
     rollback_to_step: z
       .number()
       .int()
       .min(0)
       .optional()
       .describe(
-        '0-based thought index to rollback to. Discards subsequent thoughts.'
+        '0-based thought index to rollback to. Later thoughts are discarded.'
       ),
     step_summary: z
       .string()
       .optional()
-      .describe('1-sentence summary of the conclusion reached.'),
+      .describe('One-sentence summary of this step.'),
     observation: z
       .string()
       .min(1)
@@ -80,12 +80,12 @@ export const ReasoningThinkInputSchema = z
       .string()
       .min(1)
       .optional()
-      .describe('Proposed idea or next logical leap.'),
+      .describe('Proposed next idea or logical step.'),
     evaluation: z
       .string()
       .min(1)
       .optional()
-      .describe('Critique of the hypothesis.'),
+      .describe('Evaluation of the hypothesis.'),
   })
   .superRefine((data, ctx) => {
     const runMode = data.runMode ?? DEFAULT_RUN_MODE;

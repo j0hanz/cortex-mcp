@@ -22,7 +22,7 @@ const COMPLETION_LIMIT = 20;
 const LEVEL_ENUM_SCHEMA = z.enum(REASONING_LEVELS);
 const REASONING_TOOL_NAME = 'reasoning_think';
 const THOUGHT_PARAMETER_GUIDANCE =
-  'Provide full reasoning in "thought" for every step.';
+  'Provide complete reasoning in "thought" for every call.';
 
 function completeSessionId(value: string): string[] {
   return collectPrefixMatches(
@@ -103,15 +103,16 @@ function buildStartReasoningPrompt(args: {
     ],
     task: [
       `Start new reasoning session via "${REASONING_TOOL_NAME}".`,
-      'Generate the first concrete reasoning step.',
+      'Generate the first concrete reasoning step now.',
     ],
     constraints: [
       THOUGHT_PARAMETER_GUIDANCE,
       'Preserve sessionId for continuation.',
       'Continue until status="completed" or remainingThoughts=0.',
+      'No meta commentary.',
     ],
     output: [
-      'Return exactly one tool call payload.',
+      'Return exactly one tool payload. No prose.',
       'Required fields: query, level, thought.',
     ],
   });
@@ -140,9 +141,10 @@ function buildRetryReasoningPrompt(args: {
     constraints: [
       THOUGHT_PARAMETER_GUIDANCE,
       'Write a direct, specific thought. No filler.',
+      'No meta commentary.',
     ],
     output: [
-      'Return exactly one tool call payload.',
+      'Return exactly one tool payload. No prose.',
       'Required fields: query, level, thought.',
     ],
   });
@@ -175,7 +177,7 @@ function buildContinueReasoningPrompt(args: {
       'Write concrete reasoning. No meta commentary.',
     ],
     output: [
-      'Return exactly one continuation tool call payload.',
+      'Return exactly one continuation tool payload. No prose.',
       'Required fields: sessionId, thought.',
     ],
   });
@@ -216,16 +218,14 @@ export function registerAllPrompts(
             .string()
             .min(1)
             .max(10000)
-            .describe('The question or problem to reason about'),
+            .describe('Question or problem to reason about.'),
           targetThoughts: z
             .number()
             .int()
             .min(1)
             .max(25)
             .optional()
-            .describe(
-              'Optional exact step count within the selected level range (max 25)'
-            ),
+            .describe('Optional exact step count in the level range (max 25).'),
         },
       },
       ({ query, targetThoughts }) => {
@@ -253,9 +253,9 @@ export function registerAllPrompts(
           .string()
           .min(1)
           .max(10000)
-          .describe('The original or modified query'),
+          .describe('Original or revised query.'),
         level: completable(
-          LEVEL_ENUM_SCHEMA.describe('The reasoning level to use'),
+          LEVEL_ENUM_SCHEMA.describe('Reasoning level to use.'),
           (value) => completeLevel(value)
         ),
         targetThoughts: z
@@ -264,7 +264,7 @@ export function registerAllPrompts(
           .min(1)
           .max(25)
           .optional()
-          .describe('Optional exact step count'),
+          .describe('Optional exact step count.'),
       },
     },
     ({ query, level, targetThoughts }) => {
@@ -305,7 +305,7 @@ export function registerAllPrompts(
             .string()
             .min(1)
             .max(128)
-            .describe('Existing session ID to continue'),
+            .describe('Existing session ID to continue.'),
           (value) => completeSessionId(value)
         ),
         query: z
@@ -313,10 +313,10 @@ export function registerAllPrompts(
           .min(1)
           .max(10000)
           .optional()
-          .describe('Follow-up query for the existing session'),
+          .describe('Optional follow-up query.'),
         level: completable(
           LEVEL_ENUM_SCHEMA.optional().describe(
-            'Optional in the tool; session level is used if provided'
+            'Optional level override; otherwise use the session level.'
           ),
           (value) => completeLevel(value ?? '')
         ),

@@ -42,13 +42,13 @@ export function buildServerInstructions(): string {
     .join('\n');
 
   return `<role>
-You are an expert reasoning engine assistant. You decompose queries into structured thought chains at configurable depth levels (basic, normal, high).
+You are a reasoning assistant. Decompose queries into structured thought chains at configurable depth levels (basic, normal, high, expert).
 </role>
 
 <capabilities>
-- Domain: Multi-level reasoning engine.
-- Resources: Sessions (in-memory, 30m TTL), thought chains, progress notifications.
-- Tools: \`reasoning_think\` (WRITE: creates/extends sessions).
+- Domain: Multi-level reasoning.
+- Resources: In-memory sessions (30m TTL), thought chains, progress updates.
+- Tool: \`reasoning_think\` (creates/continues sessions).
 </capabilities>
 
 <prompts>
@@ -70,12 +70,12 @@ ${promptList}
 </resources>
 
 <tasks_and_progress>
-- Pass \`_meta.progressToken\` for \`notifications/progress\`.
+- Pass \`_meta.progressToken\` to receive \`notifications/progress\`.
 - \`reasoning_think\` supports tasks (\`execution.taskSupport: "optional"\`):
-  - Send \`task\` in \`tools/call\` to get \`taskId\`.
-  - Poll \`tasks/get\`, fetch via \`tasks/result\`, abort via \`tasks/cancel\`.
-- Progress emission: \`high\` level every 2 steps; \`basic\`/\`normal\` every step.
-- \`runMode: "run_to_completion"\`: Pass \`thought\` as string array for batch execution.
+  - Send \`task\` in \`tools/call\` to receive \`taskId\`.
+  - Poll \`tasks/get\`, read \`tasks/result\`, abort via \`tasks/cancel\`.
+- Progress frequency: \`high\` every 2 steps; \`basic\`/\`normal\` every step.
+- For \`runMode: "run_to_completion"\`, pass \`thought\` as a string array.
 </tasks_and_progress>
 
 <tool_contracts>
@@ -87,13 +87,13 @@ ${sharedConstraints}
 </constraints>
 
 <error_handling>
-- \`E_SESSION_NOT_FOUND\`: Expired/missing. List sessions or start new.
-- \`E_INVALID_THOUGHT_COUNT\`: \`targetThoughts\` out of range (basic: 1-3, normal: 4-8, high: 10-15, expert: 20-25).
-- \`E_INSUFFICIENT_THOUGHTS\`: Not enough inputs for \`run_to_completion\`.
-- \`E_INVALID_RUN_MODE_ARGS\`: Invalid \`runMode\` args (e.g., missing \`targetThoughts\`).
-- \`E_ABORTED\`: Cancelled. Retry if needed.
+- \`E_SESSION_NOT_FOUND\`: Session is missing/expired. List sessions or start a new one.
+- \`E_INVALID_THOUGHT_COUNT\`: \`targetThoughts\` outside level range (basic: 1-3, normal: 4-8, high: 10-15, expert: 20-25).
+- \`E_INSUFFICIENT_THOUGHTS\`: Too few thought inputs for \`run_to_completion\`.
+- \`E_INVALID_RUN_MODE_ARGS\`: Invalid \`runMode\` arguments (for example, missing \`targetThoughts\`).
+- \`E_ABORTED\`: Task/session was cancelled.
 - \`E_SERVER_BUSY\`: Too many concurrent tasks. Retry later or use sync mode.
-- \`E_REASONING\`: Engine error. Check message and retry.
+- \`E_REASONING\`: Internal reasoning error. Check message and retry.
 </error_handling>
 `;
 }

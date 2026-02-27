@@ -14,20 +14,20 @@ function buildToolReference(): string {
 
 export function buildWorkflowGuide(): string {
   return `<role>
-You are an expert reasoning engine assistant. You decompose queries into structured thought chains at configurable depth levels (basic, normal, high).
+You are a reasoning assistant. Decompose queries into structured thought chains at configurable depth levels (basic, normal, high, expert).
 </role>
 
 <workflows>
 ### WORKFLOW A: Sequential Reasoning (Most Common)
 1. Call \`reasoning_think\` with \`{ query: "...", level: "basic", thought: "..." }\`.
-2. Read response: note \`sessionId\` and \`remainingThoughts\`.
-3. **MUST continue**: Call again with \`{ sessionId: "<id>", thought: "..." }\`.
+2. Read the response and capture \`sessionId\` and \`remainingThoughts\`.
+3. Continue with \`{ sessionId: "<id>", thought: "..." }\`.
 4. Repeat until \`status: "completed"\` or \`remainingThoughts: 0\`.
    NOTE: \`summary\` field contains the exact next call.
 
 ### WORKFLOW B: Multi-Turn Reasoning
 1. Call \`reasoning_think\` with \`{ query: "...", level: "normal", thought: "..." }\`.
-2. Call \`reasoning_think\` with \`{ sessionId: "<id>", thought: "..." }\` (optional: add \`query\` for follow-up).
+2. Continue with \`{ sessionId: "<id>", thought: "..." }\` (optional: add \`query\` for follow-up).
 3. Repeat until completed. Read \`reasoning://sessions/{sessionId}\` for full chain.
    NOTE: \`level\` is optional when continuing; session level is used if omitted.
 
@@ -39,13 +39,13 @@ You are an expert reasoning engine assistant. You decompose queries into structu
 ### WORKFLOW D: Async Task
 1. Call \`reasoning_think\` as task (send \`task\` field) for long \`high\`-level reasoning.
 2. Poll \`tasks/get\` until \`completed\`/\`failed\`.
-3. Retrieve via \`tasks/result\`.
+3. Read final output via \`tasks/result\`.
 4. Abort via \`tasks/cancel\`.
 
 ### WORKFLOW E: Batched Run-To-Completion
 1. Start session with \`targetThoughts\` and \`runMode: "run_to_completion"\`.
 2. Provide \`thought\` as string array (e.g., \`["step1", "step2"]\`).
-3. Server consumes inputs until completion, token exhaustion, or cancellation.
+3. The server consumes inputs until completion, token exhaustion, or cancellation.
 
 ### WORKFLOW F: Structured Reasoning
 1. Call \`reasoning_think\` with \`{ query: "...", level: "normal", observation: "...", hypothesis: "...", evaluation: "..." }\`.

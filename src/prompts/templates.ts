@@ -3,7 +3,7 @@ import type { ReasoningLevel } from '../lib/types.js';
 // ---------------------------------------------------------------------------
 // Guided few-shot examples for each reasoning level.
 // Each template shows correct `thought` depth and step count so the LLM
-// calibrates its output to the selected level requirements.
+// can match level-specific depth and structure.
 // ---------------------------------------------------------------------------
 
 const BASIC_TEMPLATE = `<example>
@@ -28,16 +28,16 @@ const BASIC_TEMPLATE = `<example>
 <thought>
 [Conclusion] Use \`Set\`. It is idiomatic, faster, and clearer. \`Array.from(new Set(list))\` or spread syntax is standard practice.
 </thought>
-<step_summary>Set is the standard, optmized solution.</step_summary>
+<step_summary>Set is the standard, optimized solution.</step_summary>
 </step>
 </thought_process>
 </example>
 
 <constraints>
-- Match the depth and quality of the example above.
-- Structure reasoning using: [Observation], [Hypothesis], [Evaluation], [Conclusion].
+- Match the example's depth and quality.
+- Use labels: [Observation], [Hypothesis], [Evaluation], [Conclusion].
 - Write concrete, self-contained thoughts. No filler.
-- Provide a 1-sentence \`step_summary\` per step.
+- Include one 1-sentence \`step_summary\` per step.
 - Total thoughts: 1 to 3.
 </constraints>`;
 
@@ -97,10 +97,10 @@ const NORMAL_TEMPLATE = `<example>
 </example>
 
 <constraints>
-- Match the depth and quality of the example above.
-- Structure reasoning using: [Observation], [Hypothesis], [Evaluation], [Strategy], [Conclusion].
-- Write concrete thoughts that progress the analysis. Do not restate earlier thoughts.
-- Provide a 1-sentence \`step_summary\` per step.
+- Match the example's depth and quality.
+- Use labels: [Observation], [Hypothesis], [Evaluation], [Strategy], [Conclusion].
+- Write concrete thoughts that move the analysis forward. Do not restate earlier thoughts.
+- Include one 1-sentence \`step_summary\` per step.
 - Total thoughts: 4 to 8.
 </constraints>`;
 
@@ -216,10 +216,10 @@ const HIGH_TEMPLATE = `<example>
 </example>
 
 <constraints>
-- Match the depth and quality of the example above.
-- Structure reasoning using: [Observation], [Hypothesis], [Strategy], [Action], [Evaluation], [Mitigation], [Validation], [Conclusion].
-- Write specific thoughts that advance the investigation. No summaries of prior steps, no filler.
-- Provide a 1-sentence \`step_summary\` per step.
+- Match the example's depth and quality.
+- Use labels: [Observation], [Hypothesis], [Strategy], [Action], [Evaluation], [Mitigation], [Validation], [Conclusion].
+- Write specific thoughts that advance the investigation. No step recaps. No filler.
+- Include one 1-sentence \`step_summary\` per step.
 - Total thoughts: 10 to 15. Scale depth to complexity.
 </constraints>`;
 
@@ -265,7 +265,7 @@ Implement a distributed, high-throughput event sourcing system using PostgreSQL 
 
 <step index="6" total="20">
 <thought>
-[Strategy] Kafka Partitioning: Partition by \`aggregate_id\`. guarantees strict ordering of events for a single entity. Global ordering is impossible and unnecessary.
+[Strategy] Kafka Partitioning: Partition by \`aggregate_id\`. This guarantees strict ordering of events for a single entity. Global ordering is impossible and unnecessary.
 </thought>
 <step_summary>Partition Kafka by aggregate_id to ensure entity-level ordering.</step_summary>
 </step>
@@ -371,9 +371,9 @@ Implement a distributed, high-throughput event sourcing system using PostgreSQL 
 </example>
 
 <constraints>
-- Match the depth and quality of the example above.
-- Perform exhaustive analysis of edge cases, failure modes, and architectural trade-offs.
-- Structure reasoning using: [Decomposition], [Architecture], [Strategy], [Implementation], [Validation], [Optimization], [Security], [Conclusion].
+- Match the example's depth and quality.
+- Perform exhaustive analysis of edge cases, failure modes, and trade-offs.
+- Use labels: [Decomposition], [Architecture], [Strategy], [Implementation], [Validation], [Optimization], [Security], [Conclusion].
 - Total thoughts: 20 to 25. Scale depth to extreme complexity.
 </constraints>`;
 

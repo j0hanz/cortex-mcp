@@ -41,13 +41,13 @@ export function buildCoreContextPack(): string {
 
 export function getSharedConstraints(): string[] {
   return [
-    'Sessions are in-memory — all data is lost on process restart.',
-    'Session TTL: 30 minutes from last update. Expired sessions cannot be recovered.',
+    'Sessions are in memory. Process restarts clear all session data.',
+    'Session TTL is 30 minutes from last update. Expired sessions cannot be recovered.',
     'Maximum query length: 10,000 characters.',
-    'Token budget enforcement is approximate (character-based proxy, not true tokenization).',
+    'Token budget enforcement is approximate (character-count proxy, not true tokenization).',
     'stdio transport only — no HTTP endpoint available.',
-    'Every thought in the trace contains LLM-authored reasoning content provided via the `thought` parameter.',
-    "targetThoughts must be an integer within the level's min/max range.",
+    'Every trace thought stores model-authored reasoning from the `thought` parameter.',
+    "`targetThoughts` must be an integer inside the level's min/max range.",
     'Session store limits are configurable via CORTEX_SESSION_TTL_MS, CORTEX_MAX_SESSIONS, and CORTEX_MAX_TOTAL_TOKENS.',
   ];
 }
