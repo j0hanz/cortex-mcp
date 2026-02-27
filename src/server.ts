@@ -25,6 +25,14 @@ const RESOURCE_LIST_CHANGED_METHOD = 'resources/list_changed';
 const RESOURCE_UPDATED_METHOD = 'resources/updated';
 const SERVER_DESCRIPTION =
   'Multi-level reasoning MCP server with configurable depth levels.';
+const SESSION_LIFECYCLE_EVENTS = [
+  'session:created',
+  'session:completed',
+  'session:cancelled',
+  'session:expired',
+  'session:evicted',
+  'session:deleted',
+] as const;
 const ICON_URL_CANDIDATES = [
   new URL('../assets/logo.svg', import.meta.url),
   new URL('./assets/logo.svg', import.meta.url),
@@ -161,15 +169,22 @@ function attachEngineEventHandlers(server: McpServer): () => void {
     });
   };
 
+  const registerSessionLifecycleHandlers = (): void => {
+    for (const event of SESSION_LIFECYCLE_EVENTS) {
+      engineEvents.on(event, onSessionLifecycle);
+    }
+  };
+
+  const unregisterSessionLifecycleHandlers = (): void => {
+    for (const event of SESSION_LIFECYCLE_EVENTS) {
+      engineEvents.off(event, onSessionLifecycle);
+    }
+  };
+
   engineEvents.on('resources:changed', onResourcesChanged);
   engineEvents.on('resource:updated', onResourceUpdated);
   engineEvents.on('thought:budget-exhausted', onBudgetExhausted);
-  engineEvents.on('session:created', onSessionLifecycle);
-  engineEvents.on('session:completed', onSessionLifecycle);
-  engineEvents.on('session:cancelled', onSessionLifecycle);
-  engineEvents.on('session:expired', onSessionLifecycle);
-  engineEvents.on('session:evicted', onSessionLifecycle);
-  engineEvents.on('session:deleted', onSessionLifecycle);
+  registerSessionLifecycleHandlers();
 
   let detached = false;
   return (): void => {
@@ -180,12 +195,7 @@ function attachEngineEventHandlers(server: McpServer): () => void {
     engineEvents.off('resources:changed', onResourcesChanged);
     engineEvents.off('resource:updated', onResourceUpdated);
     engineEvents.off('thought:budget-exhausted', onBudgetExhausted);
-    engineEvents.off('session:created', onSessionLifecycle);
-    engineEvents.off('session:completed', onSessionLifecycle);
-    engineEvents.off('session:cancelled', onSessionLifecycle);
-    engineEvents.off('session:expired', onSessionLifecycle);
-    engineEvents.off('session:evicted', onSessionLifecycle);
-    engineEvents.off('session:deleted', onSessionLifecycle);
+    unregisterSessionLifecycleHandlers();
   };
 }
 

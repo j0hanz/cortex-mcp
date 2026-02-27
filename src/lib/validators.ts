@@ -1,5 +1,21 @@
 import { LEVEL_BOUNDS, type ReasoningLevel } from './types.js';
 
+const TRUE_ENV_VALUES = new Set(['1', 'true', 'yes', 'on']);
+const FALSE_ENV_VALUES = new Set(['0', 'false', 'no', 'off']);
+
+function readEnv(name: string): string | undefined {
+  return process.env[name];
+}
+
+function parseEnvInt(raw: string): number | undefined {
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isInteger(parsed) ? parsed : undefined;
+}
+
+function normalizeEnvValue(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
 function isOutOfBounds(
   value: number,
   bounds: Readonly<{ minThoughts: number; maxThoughts: number }>
@@ -39,12 +55,13 @@ export function parsePositiveIntEnv(
   fallback: number,
   minimum = 1
 ): number {
-  const raw = process.env[name];
+  const raw = readEnv(name);
   if (raw === undefined) {
     return fallback;
   }
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isInteger(parsed) || parsed < minimum) {
+
+  const parsed = parseEnvInt(raw);
+  if (parsed === undefined || parsed < minimum) {
     return fallback;
   }
   return parsed;
@@ -55,16 +72,16 @@ export function parsePositiveIntEnv(
  * or when the value is not a recognized boolean literal.
  */
 export function parseBooleanEnv(name: string, fallback: boolean): boolean {
-  const raw = process.env[name];
+  const raw = readEnv(name);
   if (raw === undefined) {
     return fallback;
   }
 
-  const normalized = raw.trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+  const normalized = normalizeEnvValue(raw);
+  if (TRUE_ENV_VALUES.has(normalized)) {
     return true;
   }
-  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+  if (FALSE_ENV_VALUES.has(normalized)) {
     return false;
   }
 

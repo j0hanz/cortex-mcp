@@ -59,6 +59,16 @@ function createTextPrompt(text: string): {
   };
 }
 
+function assignIfDefined<T extends object, K extends keyof T>(
+  target: T,
+  key: K,
+  value: T[K] | undefined
+): void {
+  if (value !== undefined) {
+    target[key] = value;
+  }
+}
+
 function buildPromptText(args: {
   context: string[];
   task: string[];
@@ -85,13 +95,28 @@ function buildPromptText(args: {
   ].join('\n');
 }
 
+function buildReasoningPrompt(args: {
+  context: string[];
+  task: string[];
+  constraints: string[];
+  output: string[];
+  templateLevel?: ReasoningLevel;
+}): string {
+  const { templateLevel, ...sections } = args;
+  const base = buildPromptText(sections);
+  if (templateLevel === undefined) {
+    return base;
+  }
+  return `${base}\n\n${getTemplate(templateLevel)}`;
+}
+
 function buildStartReasoningPrompt(args: {
   level: ReasoningLevel;
   query: string;
   targetThoughts?: number;
 }): string {
   const { level, query, targetThoughts } = args;
-  const base = buildPromptText({
+  return buildReasoningPrompt({
     context: [
       `Query: ${JSON.stringify(query)}`,
       `Requested level: ${level}`,
@@ -115,8 +140,8 @@ function buildStartReasoningPrompt(args: {
       'Return exactly one tool payload. No prose.',
       'Required fields: query, level, thought.',
     ],
+    templateLevel: level,
   });
-  return `${base}\n\n${getTemplate(level)}`;
 }
 
 function buildRetryReasoningPrompt(args: {
@@ -125,7 +150,7 @@ function buildRetryReasoningPrompt(args: {
   targetThoughts?: number;
 }): string {
   const { query, level, targetThoughts } = args;
-  const base = buildPromptText({
+  return buildReasoningPrompt({
     context: [
       `Retry query: ${JSON.stringify(query)}`,
       `Retry level: ${level}`,
@@ -147,8 +172,8 @@ function buildRetryReasoningPrompt(args: {
       'Return exactly one tool payload. No prose.',
       'Required fields: query, level, thought.',
     ],
+    templateLevel: level,
   });
-  return `${base}\n\n${getTemplate(level)}`;
 }
 
 function buildContinueReasoningPrompt(args: {
@@ -157,7 +182,7 @@ function buildContinueReasoningPrompt(args: {
   level?: ReasoningLevel;
 }): string {
   const { sessionId, query, level } = args;
-  return buildPromptText({
+  return buildReasoningPrompt({
     context: [
       `Session: ${JSON.stringify(sessionId)}`,
       query === undefined
@@ -229,11 +254,12 @@ export function registerAllPrompts(
         },
       },
       ({ query, targetThoughts }) => {
-        const text = buildStartReasoningPrompt({
+        const promptArgs: Parameters<typeof buildStartReasoningPrompt>[0] = {
           level,
           query,
-          ...(targetThoughts !== undefined ? { targetThoughts } : {}),
-        });
+        };
+        assignIfDefined(promptArgs, 'targetThoughts', targetThoughts);
+        const text = buildStartReasoningPrompt(promptArgs);
         return createTextPrompt(text);
       }
     );
@@ -268,11 +294,12 @@ export function registerAllPrompts(
       },
     },
     ({ query, level, targetThoughts }) => {
-      const text = buildRetryReasoningPrompt({
+      const promptArgs: Parameters<typeof buildRetryReasoningPrompt>[0] = {
         query,
         level,
-        ...(targetThoughts !== undefined ? { targetThoughts } : {}),
-      });
+      };
+      assignIfDefined(promptArgs, 'targetThoughts', targetThoughts);
+      const text = buildRetryReasoningPrompt(promptArgs);
       return createTextPrompt(text);
     }
   );
@@ -323,11 +350,12 @@ export function registerAllPrompts(
       },
     },
     ({ sessionId, query, level }) => {
-      const text = buildContinueReasoningPrompt({
+      const promptArgs: Parameters<typeof buildContinueReasoningPrompt>[0] = {
         sessionId,
-        ...(query !== undefined ? { query } : {}),
-        ...(level !== undefined ? { level } : {}),
-      });
+      };
+      assignIfDefined(promptArgs, 'query', query);
+      assignIfDefined(promptArgs, 'level', level);
+      const text = buildContinueReasoningPrompt(promptArgs);
       return createTextPrompt(text);
     }
   );

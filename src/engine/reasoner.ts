@@ -3,6 +3,7 @@ import {
   ReasoningAbortedError,
   SessionNotFoundError,
 } from '../lib/errors.js';
+import { requireSession } from '../lib/session-utils.js';
 import type { ReasoningLevel, Session } from '../lib/types.js';
 import { parsePositiveIntEnv } from '../lib/validators.js';
 
@@ -176,11 +177,11 @@ async function withSessionLock<T>(
 }
 
 function getSessionOrThrow(sessionId: string): Readonly<Session> {
-  const session = sessionStore.get(sessionId);
-  if (!session) {
-    throw new SessionNotFoundError(sessionId);
-  }
-  return session;
+  return requireSession(
+    sessionId,
+    (id) => sessionStore.get(id),
+    (id) => new SessionNotFoundError(id)
+  );
 }
 
 function emitBudgetExhaustedIfNeeded(args: {
@@ -226,10 +227,7 @@ function resolveSession(
   targetThoughts?: number
 ): Readonly<Session> {
   if (sessionId) {
-    const existing = sessionStore.get(sessionId);
-    if (!existing) {
-      throw new SessionNotFoundError(sessionId);
-    }
+    const existing = getSessionOrThrow(sessionId);
     assertExistingSessionConstraints(existing, targetThoughts);
     return existing;
   }

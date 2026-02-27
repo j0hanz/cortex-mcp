@@ -400,16 +400,7 @@ export class SessionStore {
       return;
     }
 
-    const { prevId, nextId } = node;
-    if (prevId) {
-      this.setNextId(prevId, nextId);
-    } else {
-      this.oldestSessionId = nextId;
-    }
-
-    if (nextId) {
-      this.setPrevId(nextId, prevId);
-    }
+    this.detachNode(node);
 
     node.prevId = this.newestSessionId;
     node.nextId = undefined;
@@ -429,7 +420,17 @@ export class SessionStore {
       return;
     }
 
+    this.detachNode(node, { updateNewest: true });
+
+    this.sessionOrder.delete(sessionId);
+  }
+
+  private detachNode(
+    node: SessionOrderNode,
+    options?: { updateNewest?: boolean }
+  ): void {
     const { prevId, nextId } = node;
+
     if (prevId) {
       this.setNextId(prevId, nextId);
     } else {
@@ -438,11 +439,12 @@ export class SessionStore {
 
     if (nextId) {
       this.setPrevId(nextId, prevId);
-    } else {
-      this.newestSessionId = prevId;
+      return;
     }
 
-    this.sessionOrder.delete(sessionId);
+    if (options?.updateNewest) {
+      this.newestSessionId = prevId;
+    }
   }
 
   private setNextId(sessionId: string, nextId: string | undefined): void {

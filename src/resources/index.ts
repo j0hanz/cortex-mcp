@@ -6,6 +6,11 @@ import { McpError } from '@modelcontextprotocol/sdk/types.js';
 import { sessionStore } from '../engine/reasoner.js';
 
 import { formatThoughtsToMarkdown } from '../lib/formatting.js';
+import {
+  buildSessionView,
+  getSessionLifecycle,
+  requireSession,
+} from '../lib/session-utils.js';
 import { withIconMeta } from '../lib/tool-response.js';
 import type {
   IconMeta,
@@ -22,7 +27,6 @@ import { buildWorkflowGuide } from './workflows.js';
 const SESSIONS_RESOURCE_URI = 'reasoning://sessions';
 const SESSION_RESOURCE_PREFIX = `${SESSIONS_RESOURCE_URI}/`;
 const TRACE_RESOURCE_PREFIX = 'reasoning://sessions/';
-const REDACTED_THOUGHT_CONTENT = '[REDACTED]';
 
 // --- Helpers ---
 
@@ -40,11 +44,11 @@ function extractStringVariable(
 }
 
 function resolveSession(sessionId: string, uri: URL): Readonly<Session> {
-  const session = sessionStore.get(sessionId);
-  if (!session) {
-    throw new McpError(-32002, `Resource not found: ${uri.toString()}`);
-  }
-  return session;
+  return requireSession(
+    sessionId,
+    (id) => sessionStore.get(id),
+    () => new McpError(-32002, `Resource not found: ${uri.toString()}`)
+  );
 }
 
 interface SessionResourceSummary {
@@ -64,9 +68,7 @@ interface SessionResourceSummary {
 function buildSessionSummary(
   session: Readonly<StoreSessionSummary>
 ): SessionResourceSummary {
-  const ttlMs = sessionStore.getTtlMs();
-  const expiresAt =
-    sessionStore.getExpiresAt(session.id) ?? session.updatedAt + ttlMs;
+  const { expiresAt } = getSessionLifecycle(session, sessionStore);
 
   return {
     id: session.id,
@@ -140,21 +142,9 @@ function shouldRedactTraceContent(): boolean {
 }
 
 function getSessionView(session: Readonly<Session>): Readonly<Session> {
-  if (!shouldRedactTraceContent()) {
-    return session;
-  }
-
-  return {
-    ...session,
-    thoughts: session.thoughts.map((thought) => ({
-      index: thought.index,
-      content: REDACTED_THOUGHT_CONTENT,
-      revision: thought.revision,
-      ...(thought.stepSummary !== undefined
-        ? { stepSummary: REDACTED_THOUGHT_CONTENT }
-        : {}),
-    })),
-  };
+  return buildSessionView(session, {
+    redactThoughtContent: shouldRedactTraceContent(),
+  });
 }
 
 function completeThoughtNames(value: string, sessionId: string): string[] {
@@ -182,6 +172,35 @@ function completeThoughtNames(value: string, sessionId: string): string[] {
   return results;
 }
 
+function registerStaticMarkdownResource(args: {
+  server: McpServer;
+  name: string;
+  uri: string;
+  title: string;
+  description: string;
+  text: string;
+  priority: number;
+  iconMeta: IconMeta | undefined;
+}): void {
+  const { server, name, uri, title, description, text, priority, iconMeta } =
+    args;
+
+  server.registerResource(
+    name,
+    uri,
+    {
+      title,
+      description,
+      mimeType: 'text/markdown',
+      annotations: { audience: ['assistant'], priority },
+      ...(withIconMeta(iconMeta) ?? {}),
+    },
+    (resourceUri) => ({
+      contents: [{ uri: resourceUri.href, mimeType: 'text/markdown', text }],
+    })
+  );
+}
+
 export function registerAllResources(
   server: McpServer,
   iconMeta?: IconMeta
@@ -190,54 +209,38 @@ export function registerAllResources(
   const toolCatalog = buildToolCatalog();
   const workflows = buildWorkflowGuide();
 
-  server.registerResource(
-    'server-instructions',
-    'internal://instructions',
-    {
-      title: 'Server Instructions',
-      description: 'Usage instructions for the MCP server.',
-      mimeType: 'text/markdown',
-      annotations: { audience: ['assistant'], priority: 0.8 },
-      ...(withIconMeta(iconMeta) ?? {}),
-    },
-    (uri) => ({
-      contents: [
-        { uri: uri.href, mimeType: 'text/markdown', text: instructions },
-      ],
-    })
-  );
+  registerStaticMarkdownResource({
+    server,
+    name: 'server-instructions',
+    uri: 'internal://instructions',
+    title: 'Server Instructions',
+    description: 'Usage instructions for the MCP server.',
+    text: instructions,
+    priority: 0.8,
+    iconMeta,
+  });
 
-  server.registerResource(
-    'tool-catalog',
-    'internal://tool-catalog',
-    {
-      title: 'Tool Catalog',
-      description: 'Tool reference: models, params, outputs, data flow.',
-      mimeType: 'text/markdown',
-      annotations: { audience: ['assistant'], priority: 0.7 },
-      ...(withIconMeta(iconMeta) ?? {}),
-    },
-    (uri) => ({
-      contents: [
-        { uri: uri.href, mimeType: 'text/markdown', text: toolCatalog },
-      ],
-    })
-  );
+  registerStaticMarkdownResource({
+    server,
+    name: 'tool-catalog',
+    uri: 'internal://tool-catalog',
+    title: 'Tool Catalog',
+    description: 'Tool reference: models, params, outputs, data flow.',
+    text: toolCatalog,
+    priority: 0.7,
+    iconMeta,
+  });
 
-  server.registerResource(
-    'workflows',
-    'internal://workflows',
-    {
-      title: 'Workflows',
-      description: 'Recommended workflows and tool sequences.',
-      mimeType: 'text/markdown',
-      annotations: { audience: ['assistant'], priority: 0.7 },
-      ...(withIconMeta(iconMeta) ?? {}),
-    },
-    (uri) => ({
-      contents: [{ uri: uri.href, mimeType: 'text/markdown', text: workflows }],
-    })
-  );
+  registerStaticMarkdownResource({
+    server,
+    name: 'workflows',
+    uri: 'internal://workflows',
+    title: 'Workflows',
+    description: 'Recommended workflows and tool sequences.',
+    text: workflows,
+    priority: 0.7,
+    iconMeta,
+  });
 
   server.registerResource(
     'reasoning.sessions',

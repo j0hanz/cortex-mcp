@@ -30,11 +30,12 @@ const ENTRIES = Object.fromEntries(
 
 export function buildCoreContextPack(): string {
   const names = Object.keys(ENTRIES).sort((a, b) => a.localeCompare(b));
-  const rows = names.map((name) => {
-    const e = ENTRIES[name];
-    return e
-      ? `| \`${e.name}\` | ${e.model} | ${e.timeout} | ${e.maxOutputTokens} | ${e.purpose} |`
-      : '';
+  const rows = names.flatMap((name) => {
+    const entry = ENTRIES[name];
+    if (!entry) {
+      return [];
+    }
+    return `| \`${entry.name}\` | ${entry.model} | ${entry.timeout} | ${entry.maxOutputTokens} | ${entry.purpose} |`;
   });
   return `<core_context_pack>\n| Tool | Model | Timeout | Max Output Tokens | Purpose |\n|------|-------|---------|-------------------|---------|\n${rows.join('\n')}\n</core_context_pack>`;
 }
