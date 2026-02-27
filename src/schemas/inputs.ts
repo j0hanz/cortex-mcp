@@ -24,70 +24,71 @@ function addCustomIssue(
   });
 }
 
-export const ReasoningThinkInputSchema = z
-  .strictObject({
-    query: QUERY_TEXT_SCHEMA.optional().describe(
-      'Question or problem to analyze.'
+export const ReasoningThinkInputBaseSchema = z.strictObject({
+  query: QUERY_TEXT_SCHEMA.optional().describe(
+    'Question or problem to analyze.'
+  ),
+  level: LEVEL_SCHEMA.optional().describe(
+    `Reasoning depth level. Required for new sessions. ${getLevelDescriptionString()}.`
+  ),
+  targetThoughts: z
+    .number()
+    .int()
+    .min(1)
+    .max(25)
+    .optional()
+    .describe('Exact thought count. Must fit the level range.'),
+  sessionId: z
+    .string()
+    .min(1)
+    .max(128)
+    .optional()
+    .describe('Session ID for continuation.'),
+  runMode: z
+    .enum(RUN_MODE_VALUES)
+    .optional()
+    .describe('Execution mode: "step" (default) or "run_to_completion".'),
+  thought: z
+    .union([THOUGHT_TEXT_SCHEMA, THOUGHT_BATCH_SCHEMA])
+    .optional()
+    .describe(
+      'Reasoning text for this step. Stored verbatim. Use string for single-step mode, string[] for batch mode.'
     ),
-    level: LEVEL_SCHEMA.optional().describe(
-      `Reasoning depth level. Required for new sessions. ${getLevelDescriptionString()}.`
+  is_conclusion: z
+    .boolean()
+    .optional()
+    .describe('End session early when the final answer is reached.'),
+  rollback_to_step: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe(
+      '0-based thought index to rollback to. Later thoughts are discarded.'
     ),
-    targetThoughts: z
-      .number()
-      .int()
-      .min(1)
-      .max(25)
-      .optional()
-      .describe('Exact thought count. Must fit the level range.'),
-    sessionId: z
-      .string()
-      .min(1)
-      .max(128)
-      .optional()
-      .describe('Session ID for continuation.'),
-    runMode: z
-      .enum(RUN_MODE_VALUES)
-      .optional()
-      .describe('Execution mode: "step" (default) or "run_to_completion".'),
-    thought: z
-      .union([THOUGHT_TEXT_SCHEMA, THOUGHT_BATCH_SCHEMA])
-      .optional()
-      .describe(
-        'Reasoning text for this step. Stored verbatim. Use string for single-step mode, string[] for batch mode.'
-      ),
-    is_conclusion: z
-      .boolean()
-      .optional()
-      .describe('End session early when the final answer is reached.'),
-    rollback_to_step: z
-      .number()
-      .int()
-      .min(0)
-      .optional()
-      .describe(
-        '0-based thought index to rollback to. Later thoughts are discarded.'
-      ),
-    step_summary: z
-      .string()
-      .optional()
-      .describe('One-sentence summary of this step.'),
-    observation: z
-      .string()
-      .min(1)
-      .optional()
-      .describe('Facts known at this step.'),
-    hypothesis: z
-      .string()
-      .min(1)
-      .optional()
-      .describe('Proposed next idea or logical step.'),
-    evaluation: z
-      .string()
-      .min(1)
-      .optional()
-      .describe('Evaluation of the hypothesis.'),
-  })
-  .superRefine((data, ctx) => {
+  step_summary: z
+    .string()
+    .optional()
+    .describe('One-sentence summary of this step.'),
+  observation: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Facts known at this step.'),
+  hypothesis: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Proposed next idea or logical step.'),
+  evaluation: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Evaluation of the hypothesis.'),
+});
+
+export const ReasoningThinkInputSchema =
+  ReasoningThinkInputBaseSchema.superRefine((data, ctx) => {
     const runMode = data.runMode ?? DEFAULT_RUN_MODE;
 
     if (data.sessionId === undefined && data.query === undefined) {

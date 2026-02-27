@@ -1,7 +1,7 @@
-import { Buffer } from 'node:buffer';
 import { randomUUID } from 'node:crypto';
 
 import { SessionNotFoundError } from '../lib/errors.js';
+import { estimateTokens } from '../lib/text.js';
 import type {
   LevelConfig,
   ReasoningLevel,
@@ -16,7 +16,6 @@ import { engineEvents } from './events.js';
 export const DEFAULT_SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
 export const DEFAULT_MAX_SESSIONS = 100;
 export const DEFAULT_MAX_TOTAL_TOKENS = 2_000_000;
-const TOKEN_ESTIMATE_DIVISOR = 3.5;
 const MIN_SWEEP_INTERVAL_MS = 10;
 const MAX_SWEEP_INTERVAL_MS = 60_000;
 
@@ -37,11 +36,6 @@ type MutableSession = Omit<Mutable<Session>, 'thoughts'> & {
   _cachedSnapshot?: Session | undefined;
   _cachedSummary?: SessionSummary | undefined;
 };
-
-function estimateTokens(text: string): number {
-  const byteLength = Buffer.byteLength(text, 'utf8');
-  return Math.max(1, Math.ceil(byteLength / TOKEN_ESTIMATE_DIVISOR));
-}
 
 function getThoughtTokenCount(
   thought: Pick<MutableThought, 'content' | 'tokenCount'>

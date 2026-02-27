@@ -1,3 +1,6 @@
+import type { TextResourceContents } from '@modelcontextprotocol/sdk/types.js';
+
+import { formatThoughtsToMarkdown } from './formatting.js';
 import type { Session } from './types.js';
 
 const DEFAULT_REDACTED_THOUGHT_CONTENT = '[REDACTED]';
@@ -55,5 +58,20 @@ export function buildSessionView(
         ? { stepSummary: redactedText }
         : {}),
     })),
+  };
+}
+
+export function buildTraceResource(
+  session: Readonly<Session>,
+  redactContent: boolean
+): TextResourceContents {
+  const sessionView = buildSessionView(session, {
+    redactThoughtContent: redactContent,
+  });
+
+  return {
+    uri: `reasoning://sessions/${session.id}/trace`,
+    mimeType: 'text/markdown',
+    text: formatThoughtsToMarkdown(sessionView),
   };
 }

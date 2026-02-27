@@ -4,7 +4,7 @@ import {
   type LevelConfig,
   type ReasoningLevel,
 } from '../lib/types.js';
-import { getTargetThoughtsError } from '../lib/validators.js';
+import { getTargetThoughtsError, parseBooleanEnv } from '../lib/validators.js';
 
 export const LEVEL_CONFIGS = {
   basic: { ...LEVEL_BOUNDS.basic, tokenBudget: 2048 },
@@ -12,6 +12,10 @@ export const LEVEL_CONFIGS = {
   high: { ...LEVEL_BOUNDS.high, tokenBudget: 32768 },
   expert: { ...LEVEL_BOUNDS.expert, tokenBudget: 131072 },
 } as const satisfies Record<ReasoningLevel, LevelConfig>;
+
+export function shouldRedactTraceContent(): boolean {
+  return parseBooleanEnv('CORTEX_REDACT_TRACE_CONTENT', false);
+}
 
 export function getLevelConfig(level: ReasoningLevel): LevelConfig {
   return LEVEL_CONFIGS[level];

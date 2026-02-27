@@ -94,3 +94,10 @@ export function truncateByUtf8Boundary(str: string, maxBytes: number): string {
   const decoder = new StringDecoder(UTF8);
   return decoder.write(encoded.subarray(0, safeMaxBytes));
 }
+
+const TOKEN_ESTIMATE_DIVISOR = 3.5;
+
+export function estimateTokens(text: string): number {
+  const byteLength = Buffer.byteLength(text, 'utf8');
+  return Math.max(1, Math.ceil(byteLength / TOKEN_ESTIMATE_DIVISOR));
+}

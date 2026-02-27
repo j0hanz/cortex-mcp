@@ -34,7 +34,6 @@ import {
   formatProgressMessage,
   formatThoughtsToMarkdown,
 } from '../lib/formatting.js';
-import { buildSessionView, getSessionLifecycle } from '../lib/session-utils.js';
 import { createToolResponse, withIconMeta } from '../lib/tool-response.js';
 import type {
   IconMeta,
@@ -80,24 +79,26 @@ interface CancellationController {
   cleanup: () => void;
 }
 
-function setIfDefined<T extends object, K extends keyof T>(
-  target: T,
-  key: K,
-  value: T[K] | undefined
-): void {
-  if (value !== undefined) {
-    target[key] = value;
-  }
-}
+const REDACTED_THOUGHT_CONTENT = '[REDACTED]';
 
 function shouldRedactTraceContent(): boolean {
   return parseBooleanEnv('CORTEX_REDACT_TRACE_CONTENT', false);
 }
 
 function buildTraceResource(session: Readonly<Session>): TextResourceContents {
-  const sessionView = buildSessionView(session, {
-    redactThoughtContent: shouldRedactTraceContent(),
-  });
+  const sessionView = shouldRedactTraceContent()
+    ? {
+        ...session,
+        thoughts: session.thoughts.map((thought) => ({
+          index: thought.index,
+          content: REDACTED_THOUGHT_CONTENT,
+          revision: thought.revision,
+          ...(thought.stepSummary !== undefined
+            ? { stepSummary: REDACTED_THOUGHT_CONTENT }
+            : {}),
+        })),
+      }
+    : session;
 
   return {
     uri: `reasoning://sessions/${session.id}/trace`,
@@ -352,34 +353,20 @@ async function executeReasoningSteps(args: {
     maxSteps = 1;
   }
 
-  const firstStepExtras: {
-    observation?: string;
-    hypothesis?: string;
-    evaluation?: string;
-    stepSummary?: string;
-    isConclusion?: boolean;
-    rollbackToStep?: number;
-  } = {};
-  setIfDefined(firstStepExtras, 'observation', observation);
-  setIfDefined(firstStepExtras, 'hypothesis', hypothesis);
-  setIfDefined(firstStepExtras, 'evaluation', evaluation);
-  setIfDefined(firstStepExtras, 'stepSummary', stepSummary);
-  setIfDefined(firstStepExtras, 'isConclusion', isConclusion);
-  setIfDefined(firstStepExtras, 'rollbackToStep', rollbackToStep);
-
-  const baseOptions: {
-    targetThoughts?: number;
-    abortSignal: AbortSignal;
-    onProgress: (
-      progress: number,
-      total: number,
-      summary?: string
-    ) => Promise<void>;
-  } = {
+  // Build first-step-only extras once, outside the loop.
+  const firstStepExtras = {
+    ...(observation !== undefined ? { observation } : {}),
+    ...(hypothesis !== undefined ? { hypothesis } : {}),
+    ...(evaluation !== undefined ? { evaluation } : {}),
+    ...(stepSummary !== undefined ? { stepSummary } : {}),
+    ...(isConclusion !== undefined ? { isConclusion } : {}),
+    ...(rollbackToStep !== undefined ? { rollbackToStep } : {}),
+  };
+  const baseOptions = {
+    ...(targetThoughts !== undefined ? { targetThoughts } : {}),
     abortSignal: controller.signal,
     onProgress,
   };
-  setIfDefined(baseOptions, 'targetThoughts', targetThoughts);
 
   for (let index = 0; index < maxSteps; index++) {
     await ensureTaskIsActive(taskStore, taskId, controller);
@@ -398,30 +385,12 @@ async function executeReasoningSteps(args: {
       break;
     }
 
-    const reasonOptions: {
-      targetThoughts?: number;
-      abortSignal: AbortSignal;
-      onProgress: (
-        progress: number,
-        total: number,
-        summary?: string
-      ) => Promise<void>;
-      thought?: string;
-      sessionId?: string;
-      observation?: string;
-      hypothesis?: string;
-      evaluation?: string;
-      stepSummary?: string;
-      isConclusion?: boolean;
-      rollbackToStep?: number;
-    } = {
+    const reasonOptions = {
       ...baseOptions,
+      ...(inputThought !== undefined ? { thought: inputThought } : {}),
+      ...(activeSessionId !== undefined ? { sessionId: activeSessionId } : {}),
+      ...(index === 0 ? firstStepExtras : {}),
     };
-    setIfDefined(reasonOptions, 'thought', inputThought);
-    setIfDefined(reasonOptions, 'sessionId', activeSessionId);
-    if (index === 0) {
-      Object.assign(reasonOptions, firstStepExtras);
-    }
 
     session = await reason(queryText, level, reasonOptions);
 
@@ -442,7 +411,9 @@ function buildStructuredResult(
   generatedThoughts: number,
   targetThoughts: number | undefined
 ): ReasoningThinkSuccess {
-  const { ttlMs, expiresAt } = getSessionLifecycle(session, sessionStore);
+  const ttlMs = sessionStore.getTtlMs();
+  const expiresAt =
+    sessionStore.getExpiresAt(session.id) ?? session.updatedAt + ttlMs;
 
   const requestedThoughts = targetThoughts ?? session.totalThoughts;
   const remainingThoughts = Math.max(
@@ -882,14 +853,24 @@ async function runReasoningTask(args: {
       thoughtInputs,
       onProgress,
     };
-    setIfDefined(executeArgs, 'sessionId', params.sessionId);
-    setIfDefined(executeArgs, 'targetThoughts', targetThoughts);
-    setIfDefined(executeArgs, 'observation', params.observation);
-    setIfDefined(executeArgs, 'hypothesis', params.hypothesis);
-    setIfDefined(executeArgs, 'evaluation', params.evaluation);
-    setIfDefined(executeArgs, 'stepSummary', params.step_summary);
-    setIfDefined(executeArgs, 'isConclusion', params.is_conclusion);
-    setIfDefined(executeArgs, 'rollbackToStep', params.rollback_to_step);
+    if (params.sessionId !== undefined) {
+      executeArgs.sessionId = params.sessionId;
+    }
+    if (targetThoughts !== undefined) {
+      executeArgs.targetThoughts = targetThoughts;
+    }
+    if (params.observation !== undefined)
+      executeArgs.observation = params.observation;
+    if (params.hypothesis !== undefined)
+      executeArgs.hypothesis = params.hypothesis;
+    if (params.evaluation !== undefined)
+      executeArgs.evaluation = params.evaluation;
+    if (params.step_summary !== undefined)
+      executeArgs.stepSummary = params.step_summary;
+    if (params.is_conclusion !== undefined)
+      executeArgs.isConclusion = params.is_conclusion;
+    if (params.rollback_to_step !== undefined)
+      executeArgs.rollbackToStep = params.rollback_to_step;
 
     const session = await executeReasoningSteps(executeArgs);
     resolvedSessionId = session.id;
@@ -1037,8 +1018,12 @@ Protocol validation: malformed task metadata/arguments fail at request level bef
           params,
           controller: cancellation.controller,
         };
-        setIfDefined(runReasoningArgs, 'progressToken', progressToken);
-        setIfDefined(runReasoningArgs, 'sessionId', extra.sessionId);
+        if (progressToken !== undefined) {
+          runReasoningArgs.progressToken = progressToken;
+        }
+        if (extra.sessionId !== undefined) {
+          runReasoningArgs.sessionId = extra.sessionId;
+        }
 
         void runReasoningTask(runReasoningArgs).finally(() => {
           cancellation.cleanup();
