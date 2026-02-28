@@ -3,10 +3,12 @@ import type {
   CallToolResult,
   LoggingLevel,
   Task,
-  TextResourceContents,
 } from '@modelcontextprotocol/sdk/types.js';
 
-import { getLevelDescriptionString } from '../engine/config.js';
+import {
+  getLevelDescriptionString,
+  shouldRedactTraceContent,
+} from '../engine/config.js';
 import { reason, sessionStore } from '../engine/reasoner.js';
 
 import {
@@ -24,16 +26,20 @@ import {
   getErrorMessage,
   InsufficientThoughtsError,
   InvalidRunModeArgsError,
-  isObjectRecord,
   ReasoningAbortedError,
   ReasoningError,
   ServerBusyError,
   SessionNotFoundError,
 } from '../lib/errors.js';
-import {
-  formatProgressMessage,
-  formatThoughtsToMarkdown,
-} from '../lib/formatting.js';
+import { formatProgressMessage } from '../lib/formatting.js';
+import { notifyProgress, shouldEmitProgress } from '../lib/progress.js';
+import { buildTraceResource } from '../lib/session-utils.js';
+import type {
+  CancellationController,
+  ProgressToken,
+  TaskContext,
+  TaskStoreLike,
+} from '../lib/task.js';
 import { createToolResponse, withIconMeta } from '../lib/tool-response.js';
 import type {
   IconMeta,
@@ -41,71 +47,14 @@ import type {
   ReasoningRunMode,
   Session,
 } from '../lib/types.js';
-import { parseBooleanEnv, parsePositiveIntEnv } from '../lib/validators.js';
+import { parsePositiveIntEnv } from '../lib/validators.js';
 
-type ProgressToken = string | number;
+import {
+  assertCallToolResult,
+  assertReasoningTaskExtra,
+} from './reasoning-validators.js';
+
 const DEFAULT_MAX_ACTIVE_REASONING_TASKS = 32;
-
-interface TaskStoreLike {
-  createTask(options: {
-    ttl?: number | null;
-    pollInterval?: number;
-  }): Promise<Task>;
-  getTask(taskId: string): Promise<Task>;
-  storeTaskResult(
-    taskId: string,
-    status: 'completed' | 'failed',
-    result: CallToolResult
-  ): Promise<void>;
-  updateTaskStatus(
-    taskId: string,
-    status: Task['status'],
-    statusMessage?: string
-  ): Promise<void>;
-  getTaskResult(taskId: string): Promise<unknown>;
-}
-
-interface ReasoningTaskExtra {
-  signal: AbortSignal;
-  sessionId?: string;
-  taskId?: string;
-  taskRequestedTtl?: number | null;
-  taskStore: TaskStoreLike;
-  _meta?: { progressToken?: ProgressToken } & Record<string, unknown>;
-}
-
-interface CancellationController {
-  controller: AbortController;
-  cleanup: () => void;
-}
-
-const REDACTED_THOUGHT_CONTENT = '[REDACTED]';
-
-function shouldRedactTraceContent(): boolean {
-  return parseBooleanEnv('CORTEX_REDACT_TRACE_CONTENT', false);
-}
-
-function buildTraceResource(session: Readonly<Session>): TextResourceContents {
-  const sessionView = shouldRedactTraceContent()
-    ? {
-        ...session,
-        thoughts: session.thoughts.map((thought) => ({
-          index: thought.index,
-          content: REDACTED_THOUGHT_CONTENT,
-          revision: thought.revision,
-          ...(thought.stepSummary !== undefined
-            ? { stepSummary: REDACTED_THOUGHT_CONTENT }
-            : {}),
-        })),
-      }
-    : session;
-
-  return {
-    uri: `reasoning://sessions/${session.id}/trace`,
-    mimeType: 'text/markdown',
-    text: formatThoughtsToMarkdown(sessionView),
-  };
-}
 
 const reasoningTaskLimiter = createTaskLimiter(
   parsePositiveIntEnv(
@@ -114,159 +63,11 @@ const reasoningTaskLimiter = createTaskLimiter(
   )
 );
 
-function isTaskStoreLike(value: unknown): value is TaskStoreLike {
-  if (!isObjectRecord(value)) {
-    return false;
-  }
-  return (
-    typeof value.createTask === 'function' &&
-    typeof value.getTask === 'function' &&
-    typeof value.storeTaskResult === 'function' &&
-    typeof value.updateTaskStatus === 'function' &&
-    typeof value.getTaskResult === 'function'
-  );
-}
-
-function isAbortSignalLike(value: unknown): value is AbortSignal {
-  if (!isObjectRecord(value)) {
-    return false;
-  }
-  return (
-    typeof value.aborted === 'boolean' &&
-    typeof value.addEventListener === 'function' &&
-    typeof value.removeEventListener === 'function'
-  );
-}
-
-function isProgressToken(value: unknown): value is ProgressToken {
-  return typeof value === 'string' || typeof value === 'number';
-}
-
-function isFiniteNonNegativeNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
-}
-
-function isReasoningTaskExtra(value: unknown): value is ReasoningTaskExtra {
-  if (!isObjectRecord(value)) {
-    return false;
-  }
-  if (!isTaskStoreLike(value.taskStore) || !isAbortSignalLike(value.signal)) {
-    return false;
-  }
-  if (value.sessionId !== undefined && typeof value.sessionId !== 'string') {
-    return false;
-  }
-  if (value.taskId !== undefined && typeof value.taskId !== 'string') {
-    return false;
-  }
-  if (
-    value.taskRequestedTtl !== undefined &&
-    value.taskRequestedTtl !== null &&
-    !isFiniteNonNegativeNumber(value.taskRequestedTtl)
-  ) {
-    return false;
-  }
-  if (value._meta !== undefined) {
-    if (!isObjectRecord(value._meta)) {
-      return false;
-    }
-    const { progressToken } = value._meta;
-    if (progressToken !== undefined && !isProgressToken(progressToken)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function assertReasoningTaskExtra(rawExtra: unknown): ReasoningTaskExtra {
-  if (!isReasoningTaskExtra(rawExtra)) {
-    throw new Error('Invalid task context in request handler.');
-  }
-  return rawExtra;
-}
-
-function isContentBlockLike(value: unknown): boolean {
-  if (!isObjectRecord(value) || typeof value.type !== 'string') {
-    return false;
-  }
-
-  if (value.type === 'text') {
-    return typeof value.text === 'string';
-  }
-
-  if (value.type === 'resource') {
-    return isObjectRecord(value.resource);
-  }
-
-  return true;
-}
-
-function isCallToolResult(value: unknown): value is CallToolResult {
-  if (!isObjectRecord(value) || !Array.isArray(value.content)) {
-    return false;
-  }
-
-  if (!value.content.every((entry) => isContentBlockLike(entry))) {
-    return false;
-  }
-
-  if (value.isError !== undefined && typeof value.isError !== 'boolean') {
-    return false;
-  }
-
-  return true;
-}
-
-function assertCallToolResult(value: unknown): asserts value is CallToolResult {
-  if (!isCallToolResult(value)) {
-    throw new Error('Stored task result is not a valid CallToolResult.');
-  }
-}
-
 function getReasoningErrorCode(error: unknown): string {
   if (error instanceof ReasoningError) {
     return error.code;
   }
   return 'E_REASONING';
-}
-
-function shouldEmitProgress(
-  progress: number,
-  total: number,
-  level: ReasoningLevel | undefined
-): boolean {
-  if (progress <= 1 || progress >= total) {
-    return true;
-  }
-  // High level: emit every 2 steps to reduce noise
-  if (level === 'high') {
-    return progress % 2 === 0;
-  }
-  // Basic/Normal: emit every step
-  return true;
-}
-
-async function notifyProgress(args: {
-  server: McpServer;
-  progressToken: ProgressToken;
-  progress: number;
-  total: number;
-  message: string;
-}): Promise<void> {
-  const { server, progressToken, progress, total, message } = args;
-  try {
-    await server.server.notification({
-      method: 'notifications/progress',
-      params: {
-        progressToken,
-        progress,
-        total,
-        message,
-      },
-    });
-  } catch {
-    // Ignore notification errors
-  }
 }
 
 function buildThoughtInputs(params: ReasoningThinkInput): string[] {
@@ -899,7 +700,7 @@ async function runReasoningTask(args: {
     await taskStore.storeTaskResult(
       taskId,
       'completed',
-      createToolResponse(result, buildTraceResource(session))
+      createToolResponse(result, buildTraceResource(session, shouldRedactTraceContent()))
     );
     await notifyTaskStatus(server, taskId, 'completed');
     await emitLog(
@@ -928,7 +729,7 @@ async function runReasoningTask(args: {
   }
 }
 
-function getTaskId(extra: ReasoningTaskExtra): string {
+function getTaskId(extra: TaskContext): string {
   if (typeof extra.taskId !== 'string' || extra.taskId.length === 0) {
     throw new InvalidRunModeArgsError('Task ID missing in request context.');
   }
