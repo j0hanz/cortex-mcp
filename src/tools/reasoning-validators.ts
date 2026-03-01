@@ -1,6 +1,6 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 
-import { isObjectRecord } from '../lib/errors.js';
+import { isObjectRecord, ReasoningError } from '../lib/errors.js';
 import type { ProgressToken, TaskContext, TaskStoreLike } from '../lib/task.js';
 
 function isTaskStoreLike(value: unknown): value is TaskStoreLike {
@@ -69,7 +69,10 @@ function isReasoningTaskExtra(value: unknown): value is TaskContext {
 
 export function assertReasoningTaskExtra(rawExtra: unknown): TaskContext {
   if (!isReasoningTaskExtra(rawExtra)) {
-    throw new Error('Invalid task context in request handler.');
+    throw new ReasoningError(
+      'E_INVALID_CONTEXT',
+      'Invalid task context in request handler.'
+    );
   }
   return rawExtra;
 }

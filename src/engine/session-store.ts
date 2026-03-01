@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
-import { SessionNotFoundError } from '../lib/errors.js';
+import {
+  InvalidThoughtCountError,
+  SessionNotFoundError,
+} from '../lib/errors.js';
 import { estimateTokens } from '../lib/text.js';
 import type {
   LevelConfig,
@@ -149,6 +152,14 @@ export class SessionStore {
     return this.ttlMs;
   }
 
+  getMaxSessions(): number {
+    return this.maxSessions;
+  }
+
+  getMaxTotalTokens(): number {
+    return this.maxTotalTokens;
+  }
+
   getExpiresAt(sessionId: string): number | undefined {
     const session = this.sessions.get(sessionId);
     if (!session) {
@@ -212,9 +223,13 @@ export class SessionStore {
       throw new SessionNotFoundError(sessionId);
     }
 
-    // If toIndex is out of bounds or implies no change, return.
-    // We keep thoughts up to and including toIndex.
-    if (toIndex < 0 || toIndex >= session.thoughts.length - 1) {
+    if (toIndex < 0 || toIndex >= session.thoughts.length) {
+      throw new InvalidThoughtCountError(
+        `rollback_to_step ${String(toIndex)} out of range [0, ${String(session.thoughts.length - 1)}]`
+      );
+    }
+    // No-op if already at the target position
+    if (toIndex === session.thoughts.length - 1) {
       return;
     }
 

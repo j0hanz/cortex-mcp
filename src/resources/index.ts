@@ -4,6 +4,7 @@ import type { Variables } from '@modelcontextprotocol/sdk/shared/uriTemplate.js'
 import { McpError } from '@modelcontextprotocol/sdk/types.js';
 
 import { shouldRedactTraceContent } from '../engine/config.js';
+import { getLevelConfig } from '../engine/config.js';
 import { sessionStore } from '../engine/reasoner.js';
 
 import { completeSessionIds } from '../lib/completions.js';
@@ -14,12 +15,14 @@ import {
   requireSession,
 } from '../lib/session-utils.js';
 import { withIconMeta } from '../lib/tool-response.js';
+import { REASONING_LEVELS } from '../lib/types.js';
 import type {
   IconMeta,
   ReasoningLevel,
   Session,
   SessionSummary as StoreSessionSummary,
 } from '../lib/types.js';
+import { parsePositiveIntEnv } from '../lib/validators.js';
 
 import { buildServerInstructions } from './instructions.js';
 import { buildToolCatalog } from './tool-catalog.js';
@@ -230,6 +233,55 @@ export function registerAllResources(
     priority: 0.7,
     iconMeta,
   });
+
+  const DEFAULT_MAX_ACTIVE_REASONING_TASKS = 32;
+  const maxActiveTasks = parsePositiveIntEnv(
+    'CORTEX_MAX_ACTIVE_REASONING_TASKS',
+    DEFAULT_MAX_ACTIVE_REASONING_TASKS
+  );
+  server.registerResource(
+    'server-config',
+    'internal://server-config',
+    {
+      title: 'Server Configuration',
+      description:
+        'Runtime limits and level configurations for the reasoning server.',
+      mimeType: 'application/json',
+      annotations: { audience: ['assistant'], priority: 0.6 },
+      ...(withIconMeta(iconMeta) ?? {}),
+    },
+    (resourceUri) => {
+      const levels = Object.fromEntries(
+        REASONING_LEVELS.map((level) => {
+          const config = getLevelConfig(level);
+          return [
+            level,
+            {
+              minThoughts: config.minThoughts,
+              maxThoughts: config.maxThoughts,
+              tokenBudget: config.tokenBudget,
+            },
+          ];
+        })
+      );
+      const configData = serializeJson({
+        maxSessions: sessionStore.getMaxSessions(),
+        sessionTtlMs: sessionStore.getTtlMs(),
+        maxTotalTokens: sessionStore.getMaxTotalTokens(),
+        maxActiveTasks,
+        levels,
+      });
+      return {
+        contents: [
+          {
+            uri: resourceUri.href,
+            mimeType: 'application/json',
+            text: configData,
+          },
+        ],
+      };
+    }
+  );
 
   server.registerResource(
     'reasoning.sessions',

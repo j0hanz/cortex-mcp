@@ -26,6 +26,17 @@ const sessionStore = new SessionStore(
 
 const sessionLocks = new Map<string, Promise<void>>();
 
+// Clean up stale lock entries when sessions are removed
+for (const event of [
+  'session:expired',
+  'session:evicted',
+  'session:deleted',
+] as const) {
+  engineEvents.on(event, (data: { sessionId: string }) => {
+    sessionLocks.delete(data.sessionId);
+  });
+}
+
 export { sessionStore };
 
 interface ReasonOptions {
@@ -147,7 +158,13 @@ export async function reason(
       }
 
       if (onProgress) {
-        await onProgress(addedThought.index + 1, totalThoughts, stepSummary);
+        try {
+          await onProgress(addedThought.index + 1, totalThoughts, stepSummary);
+        } catch (progressError) {
+          // Log but don't propagate transport errors — re-throw only on abort
+          engineEvents.emit('error', progressError);
+          throwIfReasoningAborted(abortSignal);
+        }
         throwIfReasoningAborted(abortSignal);
       }
 

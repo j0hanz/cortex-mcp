@@ -8,7 +8,10 @@ import {
   SessionStore,
 } from '../engine/session-store.js';
 
-import { SessionNotFoundError } from '../lib/errors.js';
+import {
+  InvalidThoughtCountError,
+  SessionNotFoundError,
+} from '../lib/errors.js';
 
 function makeStore(
   opts: { ttl?: number; maxSessions?: number; maxTokens?: number } = {}
@@ -332,5 +335,103 @@ describe('SessionStore — dispose', () => {
     assert.doesNotThrow(() => {
       store.dispose();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// rollback bounds validation
+// ---------------------------------------------------------------------------
+
+describe('SessionStore — rollback bounds', () => {
+  const store = makeStore();
+  after(() => {
+    store.dispose();
+  });
+
+  it('throws InvalidThoughtCountError for toIndex >= thoughts.length', () => {
+    const s = store.create('normal');
+    store.addThought(s.id, 'T0');
+    store.addThought(s.id, 'T1');
+    store.addThought(s.id, 'T2');
+    assert.throws(
+      () => store.rollback(s.id, 99),
+      (err: unknown) => err instanceof InvalidThoughtCountError
+    );
+  });
+
+  it('throws InvalidThoughtCountError for negative toIndex', () => {
+    const s = store.create('basic');
+    store.addThought(s.id, 'T0');
+    assert.throws(
+      () => store.rollback(s.id, -1),
+      (err: unknown) => err instanceof InvalidThoughtCountError
+    );
+  });
+
+  it('no-op when toIndex equals last thought index', () => {
+    const s = store.create('normal');
+    store.addThought(s.id, 'T0');
+    store.addThought(s.id, 'T1');
+    store.rollback(s.id, 1); // index == length-1, no change
+    const updated = store.get(s.id);
+    assert.equal(updated?.thoughts.length, 2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// expert-level token budget
+// ---------------------------------------------------------------------------
+
+describe('SessionStore — expert token accounting', () => {
+  const store = makeStore();
+  after(() => {
+    store.dispose();
+  });
+
+  it('tracks cumulative tokensUsed across 20 thoughts', () => {
+    const s = store.create('expert', 20);
+    for (let i = 0; i < 20; i++) {
+      store.addThought(s.id, `Expert thought ${String(i)}`);
+    }
+    const updated = store.get(s.id);
+    assert.equal(updated?.thoughts.length, 20);
+    assert.ok((updated?.tokensUsed ?? 0) > 0);
+    assert.ok(store.getTotalTokensUsed() > 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sweep expiration
+// ---------------------------------------------------------------------------
+
+describe('SessionStore — sweep', () => {
+  it('sweep removes expired sessions after TTL', async () => {
+    const store = makeStore({ ttl: 1 }); // 1ms TTL, sweep interval 10ms
+    const s = store.create('basic');
+    // Wait for sweep interval to fire
+    await new Promise((resolve) => {
+      setTimeout(resolve, 50);
+    });
+    assert.equal(store.get(s.id), undefined, 'expired session should be swept');
+    store.dispose();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// config getters
+// ---------------------------------------------------------------------------
+
+describe('SessionStore — config getters', () => {
+  const store = makeStore({ maxSessions: 50, maxTokens: 1_000_000 });
+  after(() => {
+    store.dispose();
+  });
+
+  it('getMaxSessions returns configured value', () => {
+    assert.equal(store.getMaxSessions(), 50);
+  });
+
+  it('getMaxTotalTokens returns configured value', () => {
+    assert.equal(store.getMaxTotalTokens(), 1_000_000);
   });
 });

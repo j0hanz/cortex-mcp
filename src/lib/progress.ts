@@ -12,6 +12,10 @@ export function shouldEmitProgress(
   if (progress <= 1 || progress >= total) {
     return true;
   }
+  // Expert level: emit every 5 steps to reduce noise on 20-25 step sessions
+  if (level === 'expert') {
+    return progress % 5 === 0;
+  }
   // High level: emit every 2 steps to reduce noise
   if (level === 'high') {
     return progress % 2 === 0;

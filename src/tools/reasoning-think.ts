@@ -750,6 +750,12 @@ async function runReasoningTask(args: {
 
     if (await isTaskCancelled(taskStore, taskId)) {
       sessionStore.markCancelled(resolvedSessionId);
+      const cancelResponse = createErrorResponse(
+        'E_ABORTED',
+        'Task cancelled by client'
+      );
+      await storeTaskFailure(taskStore, taskId, cancelResponse);
+      await notifyTaskStatus(server, taskId, 'failed');
       await emitLog(
         server,
         'notice',
