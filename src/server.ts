@@ -11,11 +11,9 @@ import { sessionStore } from './engine/reasoner.js';
 import { getErrorMessage } from './lib/errors.js';
 import type { IconMeta } from './lib/types.js';
 
-import { registerAllTools } from './tools/index.js';
-
 import { registerAllPrompts } from './prompts/index.js';
-
 import { registerAllResources } from './resources/index.js';
+import { registerAllTools } from './tools/index.js';
 
 const ICON_MIME = 'image/svg+xml';
 const SERVER_NAME = 'cortex-mcp';

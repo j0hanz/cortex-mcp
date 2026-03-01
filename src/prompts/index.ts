@@ -1,7 +1,6 @@
-import { z } from 'zod';
-
 import { completable } from '@modelcontextprotocol/sdk/server/completable.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { z } from 'zod';
 
 import { completeLevel, completeSessionIds } from '../lib/completions.js';
 import {
@@ -13,7 +12,6 @@ import type { IconMeta, ReasoningLevel } from '../lib/types.js';
 import { REASONING_LEVELS } from '../lib/types.js';
 
 import { buildServerInstructions } from '../resources/instructions.js';
-
 import { getTemplate } from './templates.js';
 
 const LEVEL_ENUM_SCHEMA = z.enum(REASONING_LEVELS);
