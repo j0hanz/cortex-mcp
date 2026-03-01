@@ -24,7 +24,7 @@ function addCustomIssue(
   });
 }
 
-export const ReasoningThinkInputBaseSchema = z.strictObject({
+const ReasoningThinkInputBaseSchema = z.strictObject({
   query: QUERY_TEXT_SCHEMA.optional().describe(
     'Question or problem to analyze.'
   ),

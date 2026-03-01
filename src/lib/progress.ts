@@ -2,7 +2,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import type { ReasoningLevel } from './types.js';
 
-export type ProgressToken = string | number;
+type ProgressToken = string | number;
 
 export function shouldEmitProgress(
   progress: number,

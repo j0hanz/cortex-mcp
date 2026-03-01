@@ -14,7 +14,7 @@ export const LEVEL_BOUNDS = {
 
 export type ReasoningRunMode = 'step' | 'run_to_completion';
 
-export type SessionStatus = 'active' | 'completed' | 'cancelled';
+type SessionStatus = 'active' | 'completed' | 'cancelled';
 export const SESSION_STATUSES = ['active', 'completed', 'cancelled'] as const;
 
 interface Timestamped {

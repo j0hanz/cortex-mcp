@@ -4,7 +4,7 @@ import type { Session, Thought } from './types.js';
 // Types for extracted trace artifacts
 // ---------------------------------------------------------------------------
 
-export interface PinnedSection {
+interface PinnedSection {
   readonly title: string;
   readonly content: string;
   readonly thoughtIndex: number;
@@ -190,46 +190,4 @@ export function formatProgressMessage(args: {
     return `${toolName}: ${context}${metaPart} • ${outcome}`;
   }
   return `${toolName}: ${context}${metaPart}`;
-}
-
-export function buildSessionSummary(session: Readonly<Session>): string {
-  if (session.status === 'completed') {
-    return `Reasoning complete — ${String(session.thoughts.length)} thought${
-      session.thoughts.length === 1 ? '' : 's'
-    } at [${session.level}] level. Session ${session.id}.`;
-  }
-  if (session.status === 'cancelled') {
-    return `Reasoning cancelled at thought ${String(session.thoughts.length)}/${String(
-      session.totalThoughts
-    )}. Session ${session.id}.`;
-  }
-
-  const remainingThoughts = Math.max(
-    0,
-    session.totalThoughts - session.thoughts.length
-  );
-
-  const recentSummaries = session.thoughts
-    .filter((t) => t.stepSummary)
-    .slice(-3)
-    .map((t) => `Step ${t.index + 1}: ${t.stepSummary ?? ''}`)
-    .join('; ');
-  const summaryText = recentSummaries
-    ? `Summary so far: ${recentSummaries}. `
-    : '';
-
-  const progress = session.thoughts.length / session.totalThoughts;
-  let prompt = 'Synthesize your findings toward a final conclusion.';
-  if (progress < 0.3) {
-    prompt = 'Focus on gathering facts and identifying unknowns.';
-  } else if (progress < 0.7) {
-    prompt = 'Formulate and critique hypotheses based on the facts.';
-  }
-
-  return (
-    `CONTINUE: ${prompt} Call reasoning_think with { sessionId: "${session.id}", thought: "<your next reasoning step>" }. ` +
-    `${summaryText}Progress: ${String(session.thoughts.length)}/${String(
-      session.totalThoughts
-    )} thoughts, ${String(remainingThoughts)} remaining.`
-  );
 }

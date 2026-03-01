@@ -1,4 +1,4 @@
-export interface TaskLimiter {
+interface TaskLimiter {
   tryAcquire: () => boolean;
   release: () => void;
 }

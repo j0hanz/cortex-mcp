@@ -28,7 +28,7 @@ const sessionLocks = new Map<string, Promise<void>>();
 
 export { sessionStore };
 
-export interface ReasonOptions {
+interface ReasonOptions {
   sessionId?: string;
   targetThoughts?: number;
   thought?: string;

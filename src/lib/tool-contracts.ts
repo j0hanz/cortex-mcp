@@ -1,4 +1,4 @@
-export interface ToolContract {
+interface ToolContract {
   name: string;
   purpose: string;
   model: string;

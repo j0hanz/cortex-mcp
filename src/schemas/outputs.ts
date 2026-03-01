@@ -44,11 +44,6 @@ const ReasoningThinkSuccessSchema = z.strictObject({
   }),
 });
 
-const ReasoningThinkErrorSchema = z.strictObject({
-  ok: z.literal(false),
-  error: ErrorInfoSchema,
-});
-
 function getMissingFieldIssue(data: {
   ok: boolean;
   result?: unknown;
@@ -94,15 +89,3 @@ export const ReasoningThinkToolOutputSchema = z
   });
 
 export type ReasoningThinkSuccess = z.infer<typeof ReasoningThinkSuccessSchema>;
-
-/** Generic ok/error envelope — useful for contract tests and external validators. */
-export const DefaultOutputSchema = z.union([
-  z.strictObject({ ok: z.literal(true), result: z.unknown() }),
-  z.strictObject({ ok: z.literal(false), error: ErrorInfoSchema }),
-]);
-
-/** Full discriminated union for the reasoning_think tool result. */
-export const ReasoningThinkResultSchema = z.union([
-  ReasoningThinkSuccessSchema,
-  ReasoningThinkErrorSchema,
-]);

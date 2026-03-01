@@ -23,7 +23,7 @@ function isOutOfBounds(
   return value < bounds.minThoughts || value > bounds.maxThoughts;
 }
 
-export function getThoughtBounds(level: ReasoningLevel): {
+function getThoughtBounds(level: ReasoningLevel): {
   minThoughts: number;
   maxThoughts: number;
 } {

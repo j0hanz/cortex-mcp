@@ -6,7 +6,7 @@ import {
 } from '../lib/types.js';
 import { getTargetThoughtsError, parseBooleanEnv } from '../lib/validators.js';
 
-export const LEVEL_CONFIGS = {
+const LEVEL_CONFIGS = {
   basic: { ...LEVEL_BOUNDS.basic, tokenBudget: 2048 },
   normal: { ...LEVEL_BOUNDS.normal, tokenBudget: 8192 },
   high: { ...LEVEL_BOUNDS.high, tokenBudget: 32768 },

@@ -3,7 +3,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { isObjectRecord } from '../lib/errors.js';
 import type { ProgressToken, TaskContext, TaskStoreLike } from '../lib/task.js';
 
-export function isTaskStoreLike(value: unknown): value is TaskStoreLike {
+function isTaskStoreLike(value: unknown): value is TaskStoreLike {
   if (!isObjectRecord(value)) {
     return false;
   }
@@ -16,7 +16,7 @@ export function isTaskStoreLike(value: unknown): value is TaskStoreLike {
   );
 }
 
-export function isAbortSignalLike(value: unknown): value is AbortSignal {
+function isAbortSignalLike(value: unknown): value is AbortSignal {
   if (!isObjectRecord(value)) {
     return false;
   }
@@ -27,7 +27,7 @@ export function isAbortSignalLike(value: unknown): value is AbortSignal {
   );
 }
 
-export function isProgressToken(value: unknown): value is ProgressToken {
+function isProgressToken(value: unknown): value is ProgressToken {
   return typeof value === 'string' || typeof value === 'number';
 }
 
@@ -35,7 +35,7 @@ function isFiniteNonNegativeNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
 
-export function isReasoningTaskExtra(value: unknown): value is TaskContext {
+function isReasoningTaskExtra(value: unknown): value is TaskContext {
   if (!isObjectRecord(value)) {
     return false;
   }
@@ -90,7 +90,7 @@ function isContentBlockLike(value: unknown): boolean {
   return true;
 }
 
-export function isCallToolResult(value: unknown): value is CallToolResult {
+function isCallToolResult(value: unknown): value is CallToolResult {
   if (!isObjectRecord(value) || !Array.isArray(value.content)) {
     return false;
   }
