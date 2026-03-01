@@ -145,6 +145,32 @@ describe('reasoning_think — continuation', () => {
     assert.ok(secondParsed.result.thoughts.length > firstThoughtCount);
   });
 
+  it('updates session query when continuation provides query', async () => {
+    const first = await callTool(client, {
+      query: 'Original query',
+      level: 'basic',
+      targetThoughts: 2,
+      thought: 'Step one.',
+    });
+    const firstParsed = parseText(first) as {
+      ok: boolean;
+      result: { sessionId: string; query?: string };
+    };
+    assertOk(firstParsed);
+
+    const second = await callTool(client, {
+      sessionId: firstParsed.result.sessionId,
+      query: 'Updated continuation query',
+      thought: 'Step two.',
+    });
+    const secondParsed = parseText(second) as {
+      ok: boolean;
+      result: { query?: string };
+    };
+    assertOk(secondParsed);
+    assert.equal(secondParsed.result.query, 'Updated continuation query');
+  });
+
   it('returns ok=false for unknown sessionId', async () => {
     const result = await callTool(client, {
       sessionId: '00000000-0000-0000-0000-000000000000',

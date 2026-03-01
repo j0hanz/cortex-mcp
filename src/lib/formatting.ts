@@ -105,7 +105,7 @@ function renderPinnedSections(sections: readonly PinnedSection[]): string {
 function formatThoughtHeading(thought: Readonly<Thought>): string {
   const thoughtNumber = thought.index + 1;
   const suffix = thought.revision > 0 ? ' [Revised]' : '';
-  return `𖦹 Thought [${String(thoughtNumber)}]${suffix}`;
+  return `[${String(thoughtNumber)}]${suffix}`;
 }
 
 function renderThoughtSection(thought: Readonly<Thought>): string {
@@ -171,11 +171,11 @@ export function formatThoughtsToMarkdown(
 }
 
 /**
- * Format a standardized progress message string.
+ * Format a progress message for MCP events and logs.
  *
- * Rules:
- * - Start/Mid: <tool>: <context> [metadata]
- * - End: <tool>: <context> [metadata] • <outcome>
+ * Format: `toolName: context [metadata] • outcome`
+ * - `metadata` is optional and rendered only if provided.
+ * - `outcome` is optional; if not provided, the separator (`•`) is omitted.
  */
 export function formatProgressMessage(args: {
   toolName: string;

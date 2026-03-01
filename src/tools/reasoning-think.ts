@@ -426,13 +426,8 @@ function createProgressHandler(args: {
     // Ensure we don't exceed batchTotal for the progress bar (though technically logic shouldn't)
     const displayProgress = Math.min(currentBatchIndex, batchTotal);
     const isTerminal = displayProgress >= batchTotal;
-
-    // We must emit if it's the terminal update for this batch,
-    // otherwise we respect the session-level skipping rules.
-    // If a summary is provided, we force an emit to show the meaningful update.
     if (
       !isTerminal &&
-      !summary &&
       !shouldEmitProgress(displayProgress, batchTotal, level)
     ) {
       return;

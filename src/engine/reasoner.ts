@@ -81,6 +81,7 @@ export async function reason(
   const session = resolveSession(level, sessionId, query, targetThoughts);
   const config = getLevelConfig(session.level);
   const { totalThoughts } = session;
+  const shouldUpdateQuery = sessionId !== undefined && query.length > 0;
 
   return runWithContext({ sessionId: session.id }, () =>
     withSessionLock(session.id, async () => {
@@ -88,6 +89,10 @@ export async function reason(
 
       if (rollbackToStep !== undefined) {
         sessionStore.rollback(session.id, rollbackToStep);
+      }
+
+      if (shouldUpdateQuery) {
+        sessionStore.updateQuery(session.id, query);
       }
 
       const current = getSessionOrThrow(session.id);

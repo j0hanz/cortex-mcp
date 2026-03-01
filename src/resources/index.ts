@@ -330,7 +330,7 @@ export function registerAllResources(
     ),
     {
       title: 'Reasoning Thought',
-      description: 'Markdown content of a single thought (e.g. Thought-1.md).',
+      description: 'Markdown content of a single thought (e.g. Thought-1).',
       mimeType: 'text/markdown',
       ...(withIconMeta(iconMeta) ?? {}),
     },

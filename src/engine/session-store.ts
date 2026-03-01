@@ -161,6 +161,16 @@ export class SessionStore {
     return this.totalTokens;
   }
 
+  updateQuery(sessionId: string, query: string): void {
+    const session = this.sessions.get(sessionId);
+    if (!session || session.query === query) {
+      return;
+    }
+
+    session.query = query;
+    this.markSessionTouched(session);
+  }
+
   delete(id: string): boolean {
     const session = this.deleteSessionInternal(id);
     if (!session) {
