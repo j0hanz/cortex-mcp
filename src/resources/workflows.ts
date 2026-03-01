@@ -1,20 +1,12 @@
-import { getToolContracts } from '../lib/tool-contracts.js';
-
-import { getSharedConstraints } from './tool-info.js';
-
-function buildToolReference(): string {
-  return [...getToolContracts()]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map(
-      (c) =>
-        `### \`${c.name}\`\n- Purpose: ${c.purpose}\n- Output: \`${c.outputShape}\``
-    )
-    .join('\n\n');
-}
+import {
+  buildToolReference,
+  formatSharedConstraints,
+  SERVER_ROLE,
+} from './tool-info.js';
 
 export function buildWorkflowGuide(): string {
   return `<role>
-You are a reasoning assistant. Decompose queries into structured thought chains at configurable depth levels (basic, normal, high, expert).
+${SERVER_ROLE}
 </role>
 
 <workflows>
@@ -55,9 +47,7 @@ You are a reasoning assistant. Decompose queries into structured thought chains 
 </workflows>
 
 <constraints>
-${getSharedConstraints()
-  .map((c) => `- ${c}`)
-  .join('\n')}
+${formatSharedConstraints()}
 </constraints>
 
 <tool_reference>

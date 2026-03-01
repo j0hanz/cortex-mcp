@@ -3,8 +3,10 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Variables } from '@modelcontextprotocol/sdk/shared/uriTemplate.js';
 import { McpError } from '@modelcontextprotocol/sdk/types.js';
 
+import { shouldRedactTraceContent } from '../engine/config.js';
 import { sessionStore } from '../engine/reasoner.js';
 
+import { completeSessionIds } from '../lib/completions.js';
 import { formatThoughtsToMarkdown } from '../lib/formatting.js';
 import {
   buildSessionView,
@@ -18,7 +20,6 @@ import type {
   Session,
   SessionSummary as StoreSessionSummary,
 } from '../lib/types.js';
-import { collectPrefixMatches, parseBooleanEnv } from '../lib/validators.js';
 
 import { buildServerInstructions } from './instructions.js';
 import { buildToolCatalog } from './tool-catalog.js';
@@ -123,22 +124,10 @@ function shortSessionId(sessionId: string): string {
   return sessionId.slice(0, 8);
 }
 
-const MAX_COMPLETION_RESULTS = 20;
-
-function completeSessionIds(value: string): string[] {
-  return collectPrefixMatches(
-    sessionStore.listSessionIds(),
-    value,
-    MAX_COMPLETION_RESULTS
-  );
-}
+const MAX_THOUGHT_COMPLETION_RESULTS = 20;
 
 function toIsoTimestamp(unixMs: number): string {
   return new Date(unixMs).toISOString();
-}
-
-function shouldRedactTraceContent(): boolean {
-  return parseBooleanEnv('CORTEX_REDACT_TRACE_CONTENT', false);
 }
 
 function getSessionView(session: Readonly<Session>): Readonly<Session> {
@@ -165,7 +154,7 @@ function completeThoughtNames(value: string, sessionId: string): string[] {
         results.push(revised);
       }
     }
-    if (results.length >= MAX_COMPLETION_RESULTS) {
+    if (results.length >= MAX_THOUGHT_COMPLETION_RESULTS) {
       break;
     }
   }

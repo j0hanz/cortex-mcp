@@ -3,8 +3,7 @@ import { z } from 'zod';
 import { completable } from '@modelcontextprotocol/sdk/server/completable.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
-import { sessionStore } from '../engine/reasoner.js';
-
+import { completeLevel, completeSessionIds } from '../lib/completions.js';
 import {
   getPromptContracts,
   type PromptContract,
@@ -12,36 +11,15 @@ import {
 import { withIconMeta } from '../lib/tool-response.js';
 import type { IconMeta, ReasoningLevel } from '../lib/types.js';
 import { REASONING_LEVELS } from '../lib/types.js';
-import { collectPrefixMatches } from '../lib/validators.js';
 
 import { buildServerInstructions } from '../resources/instructions.js';
 
 import { getTemplate } from './templates.js';
 
-const COMPLETION_LIMIT = 20;
 const LEVEL_ENUM_SCHEMA = z.enum(REASONING_LEVELS);
 const REASONING_TOOL_NAME = 'reasoning_think';
 const THOUGHT_PARAMETER_GUIDANCE =
   'Provide complete reasoning in "thought" for every call.';
-
-function completeSessionId(value: string): string[] {
-  return collectPrefixMatches(
-    sessionStore.listSessionIds(),
-    value,
-    COMPLETION_LIMIT
-  );
-}
-
-function completeLevel(value: string): ReasoningLevel[] {
-  const normalized = value.toLowerCase();
-  const results: ReasoningLevel[] = [];
-  for (const level of REASONING_LEVELS) {
-    if (level.startsWith(normalized)) {
-      results.push(level);
-    }
-  }
-  return results;
-}
 
 function createTextPrompt(text: string): {
   messages: [{ role: 'user'; content: { type: 'text'; text: string } }];
@@ -333,7 +311,7 @@ export function registerAllPrompts(
             .min(1)
             .max(128)
             .describe('Existing session ID to continue.'),
-          (value) => completeSessionId(value)
+          (value) => completeSessionIds(value)
         ),
         query: z
           .string()

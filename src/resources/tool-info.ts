@@ -1,5 +1,8 @@
 import { getToolContracts } from '../lib/tool-contracts.js';
 
+export const SERVER_ROLE =
+  'You are a reasoning assistant. Decompose queries into structured thought chains at configurable depth levels (basic, normal, high, expert).';
+
 interface ToolEntry {
   name: string;
   model: string;
@@ -40,7 +43,7 @@ export function buildCoreContextPack(): string {
   return `<core_context_pack>\n| Tool | Model | Timeout | Max Output Tokens | Purpose |\n|------|-------|---------|-------------------|---------|\n${rows.join('\n')}\n</core_context_pack>`;
 }
 
-export function getSharedConstraints(): string[] {
+function getSharedConstraints(): string[] {
   return [
     'Sessions are in memory. Process restarts clear all session data.',
     'Session TTL is 30 minutes from last update. Expired sessions cannot be recovered.',
@@ -51,4 +54,20 @@ export function getSharedConstraints(): string[] {
     "`targetThoughts` must be an integer inside the level's min/max range.",
     'Session store limits are configurable via CORTEX_SESSION_TTL_MS, CORTEX_MAX_SESSIONS, and CORTEX_MAX_TOTAL_TOKENS.',
   ];
+}
+
+export function formatSharedConstraints(): string {
+  return getSharedConstraints()
+    .map((c) => `- ${c}`)
+    .join('\n');
+}
+
+export function buildToolReference(): string {
+  return [...getToolContracts()]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(
+      (c) =>
+        `### \`${c.name}\`\n- Purpose: ${c.purpose}\n- Output: \`${c.outputShape}\``
+    )
+    .join('\n\n');
 }

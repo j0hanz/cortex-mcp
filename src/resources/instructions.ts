@@ -1,7 +1,7 @@
 import { getPromptContracts } from '../lib/prompt-contracts.js';
 import { getToolContracts } from '../lib/tool-contracts.js';
 
-import { getSharedConstraints } from './tool-info.js';
+import { formatSharedConstraints, SERVER_ROLE } from './tool-info.js';
 
 function formatParam(p: {
   name: string;
@@ -37,12 +37,10 @@ export function buildServerInstructions(): string {
     .map(formatPrompt)
     .join('\n');
 
-  const sharedConstraints = getSharedConstraints()
-    .map((c) => `- ${c}`)
-    .join('\n');
+  const sharedConstraints = formatSharedConstraints();
 
   return `<role>
-You are a reasoning assistant. Decompose queries into structured thought chains at configurable depth levels (basic, normal, high, expert).
+${SERVER_ROLE}
 </role>
 
 <capabilities>

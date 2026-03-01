@@ -86,6 +86,45 @@ function getStartingThoughtCount(sessionId?: string): number {
   return sessionStore.get(sessionId)?.thoughts.length ?? 0;
 }
 
+function hasExtraStepFields(params: ReasoningThinkInput): boolean {
+  return (
+    params.observation !== undefined ||
+    params.hypothesis !== undefined ||
+    params.evaluation !== undefined ||
+    params.is_conclusion !== undefined ||
+    params.rollback_to_step !== undefined
+  );
+}
+
+type ExecuteArgs = Parameters<typeof executeReasoningSteps>[0];
+
+function buildExecuteArgs(base: {
+  taskStore: ExecuteArgs['taskStore'];
+  taskId: string;
+  controller: AbortController;
+  queryText: string;
+  level: ReasoningLevel | undefined;
+  runMode: ReasoningRunMode;
+  thoughtInputs: string[];
+  onProgress: ExecuteArgs['onProgress'];
+  params: ReasoningThinkInput;
+  targetThoughts: number | undefined;
+}): ExecuteArgs {
+  const { params, targetThoughts, ...rest } = base;
+  const args: ExecuteArgs = rest;
+  if (params.sessionId !== undefined) args.sessionId = params.sessionId;
+  if (targetThoughts !== undefined) args.targetThoughts = targetThoughts;
+  if (params.observation !== undefined) args.observation = params.observation;
+  if (params.hypothesis !== undefined) args.hypothesis = params.hypothesis;
+  if (params.evaluation !== undefined) args.evaluation = params.evaluation;
+  if (params.step_summary !== undefined) args.stepSummary = params.step_summary;
+  if (params.is_conclusion !== undefined)
+    args.isConclusion = params.is_conclusion;
+  if (params.rollback_to_step !== undefined)
+    args.rollbackToStep = params.rollback_to_step;
+  return args;
+}
+
 function shouldStopReasoningLoop(
   session: Readonly<Session>,
   runMode: ReasoningRunMode
@@ -556,6 +595,75 @@ async function handleTaskFailure(args: {
   );
 }
 
+async function handleTaskSuccess(args: {
+  server: McpServer;
+  taskStore: TaskStoreLike;
+  taskId: string;
+  session: Readonly<Session>;
+  startingCount: number;
+  targetThoughts: number | undefined;
+}): Promise<void> {
+  const { server, taskStore, taskId, session, startingCount, targetThoughts } =
+    args;
+  const generatedThoughts = Math.max(
+    0,
+    session.thoughts.length - startingCount
+  );
+  const result = buildStructuredResult(
+    session,
+    generatedThoughts,
+    targetThoughts
+  );
+
+  await taskStore.storeTaskResult(
+    taskId,
+    'completed',
+    createToolResponse(
+      result,
+      buildTraceResource(session, shouldRedactTraceContent())
+    )
+  );
+  await notifyTaskStatus(server, taskId, 'completed');
+  await emitLog(
+    server,
+    'info',
+    {
+      event: 'task_completed',
+      taskId,
+      sessionId: session.id,
+      generatedThoughts,
+      totalThoughts: session.thoughts.length,
+    },
+    session.id
+  );
+}
+
+function computeBatchTotal(
+  runMode: ReasoningRunMode,
+  thoughtCount: number,
+  params: ReasoningThinkInput
+): number {
+  let batchTotal = runMode === 'step' ? 1 : thoughtCount;
+  if (batchTotal === 0 && hasExtraStepFields(params)) {
+    batchTotal = 1;
+  }
+  return Math.max(1, batchTotal);
+}
+
+async function emitInitialProgress(
+  server: McpServer,
+  progressToken: ProgressToken,
+  total: number,
+  level: ReasoningLevel | undefined
+): Promise<void> {
+  const message = formatProgressMessage({
+    toolName: `꩜ ${TOOL_NAME}`,
+    context: level ? 'starting' : 'continuing',
+    metadata: level ? `[${level}]` : 'session',
+  });
+  await notifyProgress({ server, progressToken, progress: 0, total, message });
+}
+
 async function runReasoningTask(args: {
   server: McpServer;
   taskStore: TaskStoreLike;
@@ -601,34 +709,19 @@ async function runReasoningTask(args: {
     }
 
     const startingCount = getStartingThoughtCount(params.sessionId);
+    const normalizedBatchTotal = computeBatchTotal(
+      runMode,
+      thoughtInputs.length,
+      params
+    );
 
-    let batchTotal = runMode === 'step' ? 1 : thoughtInputs.length;
-    if (
-      batchTotal === 0 &&
-      (params.observation !== undefined ||
-        params.hypothesis !== undefined ||
-        params.evaluation !== undefined ||
-        params.is_conclusion !== undefined ||
-        params.rollback_to_step !== undefined)
-    ) {
-      batchTotal = 1;
-    }
-
-    const normalizedBatchTotal = Math.max(1, batchTotal);
     if (progressToken !== undefined) {
-      const message = formatProgressMessage({
-        toolName: `꩜ ${TOOL_NAME}`,
-        context: level ? 'starting' : 'continuing',
-        metadata: level ? `[${level}]` : 'session',
-      });
-
-      await notifyProgress({
+      await emitInitialProgress(
         server,
         progressToken,
-        progress: 0,
-        total: normalizedBatchTotal,
-        message,
-      });
+        normalizedBatchTotal,
+        level
+      );
     }
 
     const progressArgs: Parameters<typeof createProgressHandler>[0] = {
@@ -644,7 +737,7 @@ async function runReasoningTask(args: {
       progressArgs.progressToken = progressToken;
     }
     const onProgress = createProgressHandler(progressArgs);
-    const executeArgs: Parameters<typeof executeReasoningSteps>[0] = {
+    const executeArgs = buildExecuteArgs({
       taskStore,
       taskId,
       controller,
@@ -653,25 +746,9 @@ async function runReasoningTask(args: {
       runMode,
       thoughtInputs,
       onProgress,
-    };
-    if (params.sessionId !== undefined) {
-      executeArgs.sessionId = params.sessionId;
-    }
-    if (targetThoughts !== undefined) {
-      executeArgs.targetThoughts = targetThoughts;
-    }
-    if (params.observation !== undefined)
-      executeArgs.observation = params.observation;
-    if (params.hypothesis !== undefined)
-      executeArgs.hypothesis = params.hypothesis;
-    if (params.evaluation !== undefined)
-      executeArgs.evaluation = params.evaluation;
-    if (params.step_summary !== undefined)
-      executeArgs.stepSummary = params.step_summary;
-    if (params.is_conclusion !== undefined)
-      executeArgs.isConclusion = params.is_conclusion;
-    if (params.rollback_to_step !== undefined)
-      executeArgs.rollbackToStep = params.rollback_to_step;
+      params,
+      targetThoughts,
+    });
 
     const session = await executeReasoningSteps(executeArgs);
     resolvedSessionId = session.id;
@@ -687,37 +764,14 @@ async function runReasoningTask(args: {
       return;
     }
 
-    const generatedThoughts = Math.max(
-      0,
-      session.thoughts.length - startingCount
-    );
-    const result = buildStructuredResult(
-      session,
-      generatedThoughts,
-      targetThoughts
-    );
-
-    await taskStore.storeTaskResult(
-      taskId,
-      'completed',
-      createToolResponse(
-        result,
-        buildTraceResource(session, shouldRedactTraceContent())
-      )
-    );
-    await notifyTaskStatus(server, taskId, 'completed');
-    await emitLog(
+    await handleTaskSuccess({
       server,
-      'info',
-      {
-        event: 'task_completed',
-        taskId,
-        sessionId: session.id,
-        generatedThoughts,
-        totalThoughts: session.thoughts.length,
-      },
-      resolvedSessionId
-    );
+      taskStore,
+      taskId,
+      session,
+      startingCount,
+      targetThoughts,
+    });
   } catch (error) {
     const failureArgs: Parameters<typeof handleTaskFailure>[0] = {
       server,
@@ -807,15 +861,7 @@ Protocol validation: malformed task metadata/arguments fail at request level bef
         }
 
         const cancellation = createCancellationController(extra.signal);
-        const runReasoningArgs: {
-          server: McpServer;
-          taskStore: TaskStoreLike;
-          taskId: string;
-          params: ReasoningThinkInput;
-          progressToken?: ProgressToken;
-          controller: AbortController;
-          sessionId?: string;
-        } = {
+        const runReasoningArgs: Parameters<typeof runReasoningTask>[0] = {
           server,
           taskStore: extra.taskStore,
           taskId: task.taskId,
