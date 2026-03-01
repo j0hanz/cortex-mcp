@@ -1,5 +1,4 @@
 import { sessionStore } from '../engine/reasoner.js';
-
 import { REASONING_LEVELS, type ReasoningLevel } from './types.js';
 import { collectPrefixMatches } from './validators.js';
 

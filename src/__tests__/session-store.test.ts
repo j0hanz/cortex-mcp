@@ -2,16 +2,16 @@ import assert from 'node:assert/strict';
 import { after, describe, it } from 'node:test';
 
 import {
+  InvalidThoughtCountError,
+  SessionNotFoundError,
+} from '../lib/errors.js';
+
+import {
   DEFAULT_MAX_SESSIONS,
   DEFAULT_MAX_TOTAL_TOKENS,
   DEFAULT_SESSION_TTL_MS,
   SessionStore,
 } from '../engine/session-store.js';
-
-import {
-  InvalidThoughtCountError,
-  SessionNotFoundError,
-} from '../lib/errors.js';
 
 function makeStore(
   opts: { ttl?: number; maxSessions?: number; maxTokens?: number } = {}

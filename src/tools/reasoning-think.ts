@@ -5,12 +5,6 @@ import type {
   Task,
 } from '@modelcontextprotocol/sdk/types.js';
 
-import {
-  getLevelDescriptionString,
-  shouldRedactTraceContent,
-} from '../engine/config.js';
-import { reason, sessionStore } from '../engine/reasoner.js';
-
 import { createTaskLimiter } from '../lib/concurrency.js';
 import {
   createErrorResponse,
@@ -48,6 +42,11 @@ import {
   ReasoningThinkToolOutputSchema,
 } from '../schemas/outputs.js';
 
+import {
+  getLevelDescriptionString,
+  shouldRedactTraceContent,
+} from '../engine/config.js';
+import { reason, sessionStore } from '../engine/reasoner.js';
 import {
   assertCallToolResult,
   assertReasoningTaskExtra,

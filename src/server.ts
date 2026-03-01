@@ -4,13 +4,12 @@ import { findPackageJSON } from 'node:module';
 import { InMemoryTaskStore } from '@modelcontextprotocol/sdk/experimental/tasks';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
-import { engineEvents } from './engine/events.js';
-import type { ThoughtBudgetExhaustedPayload } from './engine/events.js';
-import { sessionStore } from './engine/reasoner.js';
-
 import { getErrorMessage } from './lib/errors.js';
 import type { IconMeta } from './lib/types.js';
 
+import { engineEvents } from './engine/events.js';
+import type { ThoughtBudgetExhaustedPayload } from './engine/events.js';
+import { sessionStore } from './engine/reasoner.js';
 import { registerAllPrompts } from './prompts/index.js';
 import { registerAllResources } from './resources/index.js';
 import { registerAllTools } from './tools/index.js';

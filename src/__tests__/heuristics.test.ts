@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { InvalidThoughtCountError } from '../lib/errors.js';
+
 import { getLevelConfig } from '../engine/config.js';
 import {
   countSentences,
   getStructureDensityScore,
   resolveThoughtCount,
 } from '../engine/heuristics.js';
-
-import { InvalidThoughtCountError } from '../lib/errors.js';
 
 // ---------------------------------------------------------------------------
 // resolveThoughtCount

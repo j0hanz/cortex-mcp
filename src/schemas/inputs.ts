@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-import { getLevelDescriptionString } from '../engine/config.js';
-
 import { REASONING_LEVELS } from '../lib/types.js';
 import { getTargetThoughtsError } from '../lib/validators.js';
+
+import { getLevelDescriptionString } from '../engine/config.js';
 
 const RUN_MODE_VALUES = ['step', 'run_to_completion'] as const;
 const DEFAULT_RUN_MODE = 'step';

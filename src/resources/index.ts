@@ -3,10 +3,6 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Variables } from '@modelcontextprotocol/sdk/shared/uriTemplate.js';
 import { McpError } from '@modelcontextprotocol/sdk/types.js';
 
-import { shouldRedactTraceContent } from '../engine/config.js';
-import { getLevelConfig } from '../engine/config.js';
-import { sessionStore } from '../engine/reasoner.js';
-
 import { completeSessionIds } from '../lib/completions.js';
 import { formatThoughtsToMarkdown } from '../lib/formatting.js';
 import {
@@ -24,6 +20,9 @@ import type {
 } from '../lib/types.js';
 import { parsePositiveIntEnv } from '../lib/validators.js';
 
+import { shouldRedactTraceContent } from '../engine/config.js';
+import { getLevelConfig } from '../engine/config.js';
+import { sessionStore } from '../engine/reasoner.js';
 import { buildServerInstructions } from './instructions.js';
 import { buildToolCatalog } from './tool-catalog.js';
 import { buildWorkflowGuide } from './workflows.js';
