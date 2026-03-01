@@ -700,7 +700,10 @@ async function runReasoningTask(args: {
     await taskStore.storeTaskResult(
       taskId,
       'completed',
-      createToolResponse(result, buildTraceResource(session, shouldRedactTraceContent()))
+      createToolResponse(
+        result,
+        buildTraceResource(session, shouldRedactTraceContent())
+      )
     );
     await notifyTaskStatus(server, taskId, 'completed');
     await emitLog(
