@@ -532,42 +532,6 @@ Errors: E_SESSION_NOT_FOUND (expired — start new), E_INVALID_THOUGHT_COUNT (ch
   );
 }
 
-function validateCrossFieldRules(
-  params: ReasoningThinkInput
-): CallToolResult | undefined {
-  if (params.sessionId === undefined && params.query === undefined) {
-    return createErrorResponse(
-      'E_VALIDATION',
-      'query is required when starting a new session. Provide query + level + thought.'
-    );
-  }
-  if (params.sessionId === undefined && params.level === undefined) {
-    return createErrorResponse(
-      'E_VALIDATION',
-      'level is required when starting a new session. Choose: basic, normal, high, expert.'
-    );
-  }
-  const runMode = params.runMode ?? 'step';
-  if (runMode === 'step' && Array.isArray(params.thought)) {
-    return createErrorResponse(
-      'E_VALIDATION',
-      'thought must be a string in step mode. Use runMode: "run_to_completion" for batch input.'
-    );
-  }
-  const hasThought = params.thought !== undefined;
-  const hasStructured =
-    params.observation !== undefined &&
-    params.hypothesis !== undefined &&
-    params.evaluation !== undefined;
-  if (!hasThought && !hasStructured && params.rollbackToStep === undefined) {
-    return createErrorResponse(
-      'E_VALIDATION',
-      'Provide "thought", structured fields (observation + hypothesis + evaluation), or rollbackToStep.'
-    );
-  }
-  return undefined;
-}
-
 const MAX_EMBED_TRACE_TOKENS = 50_000;
 
 async function runReasoning(args: {
@@ -583,11 +547,6 @@ async function runReasoning(args: {
   const thoughtInputs = buildThoughtInputs(params);
   const queryText = query ?? '';
   let resolvedSessionId = params.sessionId ?? sessionId;
-
-  const validationError = validateCrossFieldRules(params);
-  if (validationError) {
-    return validationError;
-  }
 
   await emitLog(server, 'info', {
     event: 'reasoning_started',

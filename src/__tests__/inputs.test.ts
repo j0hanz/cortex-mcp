@@ -156,20 +156,20 @@ describe('ReasoningThinkInputSchema — batch thought array', () => {
 // ---------------------------------------------------------------------------
 
 describe('ReasoningThinkInputSchema — invalid missing fields', () => {
-  it('missing both query and sessionId passes schema (handler validates)', () => {
-    valid({ level: 'basic', thought: 'something' });
+  it('missing both query and sessionId is invalid', () => {
+    invalid({ level: 'basic', thought: 'something' });
   });
 
-  it('missing both level and sessionId passes schema (handler validates)', () => {
-    valid({ query: 'q', thought: 'something' });
+  it('missing both level and sessionId is invalid', () => {
+    invalid({ query: 'q', thought: 'something' });
   });
 
-  it('missing thought + structured + rollbackToStep passes schema (handler validates)', () => {
-    valid({ query: 'q', level: 'basic' });
+  it('missing thought + structured + rollbackToStep is invalid', () => {
+    invalid({ query: 'q', level: 'basic' });
   });
 
-  it('empty object passes schema (handler validates)', () => {
-    valid({});
+  it('empty object is invalid', () => {
+    invalid({});
   });
 });
 

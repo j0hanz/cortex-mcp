@@ -66,7 +66,7 @@ ${promptList}
 </resources>
 
 <progress>
-- Requires \`_meta.progressToken\` in \`tools/call\`.
+- Optional \`_meta.progressToken\` in \`tools/call\` enables progress notifications.
 - Frequency: every step (basic/normal), every 2 steps (high), every 5 steps (expert).
 - \`runMode: "run_to_completion"\`: pass \`thought\` as string array.
 </progress>

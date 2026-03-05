@@ -70,6 +70,39 @@ export const ReasoningThinkInputSchema = z
       .describe('Critique of hypothesis.'),
   })
   .superRefine((data, ctx) => {
+    if (data.sessionId === undefined && data.query === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['query'],
+        message:
+          'query is required when starting a new session. Provide query + level + thought.',
+      });
+    }
+
+    if (data.sessionId === undefined && data.level === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['level'],
+        message:
+          'level is required when starting a new session. Choose: basic, normal, high, expert.',
+      });
+    }
+
+    const hasThought = data.thought !== undefined;
+    const hasStructured =
+      data.observation !== undefined &&
+      data.hypothesis !== undefined &&
+      data.evaluation !== undefined;
+
+    if (!hasThought && !hasStructured && data.rollbackToStep === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['thought'],
+        message:
+          'Provide "thought", structured fields (observation + hypothesis + evaluation), or rollbackToStep.',
+      });
+    }
+
     const runMode = data.runMode ?? 'step';
     if (runMode === 'step' && Array.isArray(data.thought)) {
       ctx.addIssue({
