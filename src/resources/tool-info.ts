@@ -1,7 +1,7 @@
 import { getToolContracts } from '../lib/mcp.js';
 
 export const SERVER_ROLE =
-  'You are a reasoning assistant. Decompose queries into structured thought chains at configurable depth levels (basic, normal, high, expert).';
+  'Reasoning assistant. Decompose queries into structured thought chains at four depth levels: basic (1-3), normal (4-8), high (10-15), expert (20-25).';
 
 interface ToolEntry {
   name: string;
@@ -45,14 +45,14 @@ export function buildCoreContextPack(): string {
 
 function getSharedConstraints(): string[] {
   return [
-    'Sessions are in memory. Process restarts clear all session data.',
-    'Session TTL is 30 minutes from last update. Expired sessions cannot be recovered.',
-    'Maximum query length: 10,000 characters.',
-    'Token budget enforcement is approximate (character-count proxy, not true tokenization).',
-    'stdio transport only — no HTTP endpoint available.',
-    'Every trace thought stores model-authored reasoning from the `thought` parameter.',
-    "`targetThoughts` must be an integer inside the level's min/max range.",
-    'Session store limits are configurable via CORTEX_SESSION_TTL_MS, CORTEX_MAX_SESSIONS, and CORTEX_MAX_TOTAL_TOKENS.',
+    'In-memory sessions. Process restart clears all data.',
+    'Session TTL: 30 min from last update. Expired sessions are unrecoverable.',
+    'Max query length: 10,000 chars.',
+    'Token budget: approximate (char-count proxy, not tokenizer).',
+    'Transport: stdio only.',
+    'Each thought stores verbatim `thought` parameter content.',
+    '`targetThoughts`: integer within the level min/max range.',
+    'Configurable via CORTEX_SESSION_TTL_MS, CORTEX_MAX_SESSIONS, CORTEX_MAX_TOTAL_TOKENS.',
   ];
 }
 

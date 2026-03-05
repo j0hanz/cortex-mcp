@@ -44,33 +44,31 @@ ${SERVER_ROLE}
 </role>
 
 <capabilities>
-- Domain: Multi-level reasoning.
-- Resources: In-memory sessions (30m TTL), thought chains, progress updates.
-- Tool: \`reasoning_think\` (creates/continues sessions).
+- Single tool: \`reasoning_think\` — creates and continues reasoning sessions.
+- Sessions: in-memory, 30 min TTL, subscribable.
+- Outputs: thought chains, trace markdown, progress notifications.
 </capabilities>
 
 <prompts>
 - \`get-help\`: Returns these instructions.
 ${promptList}
 
-> **Guided templates:** Each \`reasoning.<level>\` prompt embeds a level-specific few-shot example showing expected \`thought\` depth and step count.
+> Each \`reasoning.<level>\` prompt embeds a level-specific few-shot example with expected depth and step count.
 </prompts>
 
 <resources>
 - \`internal://instructions\`: This document.
-- \`reasoning://sessions\`: List active sessions (JSON).
-- \`reasoning://sessions/{sessionId}\`: Inspect session thoughts/metadata (JSON).
-- \`reasoning://sessions/{sessionId}/trace\`: Full Markdown trace.
-- \`reasoning://sessions/{sessionId}/thoughts/{thoughtName}\`: Single thought Markdown.
-- Subscriptions (\`resources/subscribe\`):
-  - \`reasoning://sessions/{sessionId}\`: Updates on thought additions/revisions.
-  - \`reasoning://sessions\`: Aggregate session updates.
+- \`reasoning://sessions\`: Active sessions list (JSON).
+- \`reasoning://sessions/{sessionId}\`: Session thoughts and metadata (JSON).
+- \`reasoning://sessions/{sessionId}/trace\`: Full markdown trace.
+- \`reasoning://sessions/{sessionId}/thoughts/{thoughtName}\`: Single thought (markdown).
+- Subscriptions: \`reasoning://sessions/{sessionId}\` (thought updates), \`reasoning://sessions\` (aggregate).
 </resources>
 
 <progress>
-- Pass \`_meta.progressToken\` in \`tools/call\` to receive \`notifications/progress\`.
-- Progress frequency: \`high\` every 2 steps; \`basic\`/\`normal\` every step.
-- For \`runMode: "run_to_completion"\`, pass \`thought\` as a string array.
+- Requires \`_meta.progressToken\` in \`tools/call\`.
+- Frequency: every step (basic/normal), every 2 steps (high), every 5 steps (expert).
+- \`runMode: "run_to_completion"\`: pass \`thought\` as string array.
 </progress>
 
 <tool_contracts>
@@ -81,14 +79,14 @@ ${toolSections.join('\n\n')}
 ${sharedConstraints}
 </constraints>
 
-<error_handling>
-- \`E_SESSION_NOT_FOUND\`: Session is missing/expired. List sessions or start a new one.
-- \`E_INVALID_THOUGHT_COUNT\`: \`targetThoughts\` outside level range (basic: 1-3, normal: 4-8, high: 10-15, expert: 20-25).
-- \`E_INSUFFICIENT_THOUGHTS\`: Too few thought inputs for \`run_to_completion\`.
-- \`E_INVALID_RUN_MODE_ARGS\`: Invalid \`runMode\` arguments (for example, missing \`targetThoughts\`).
-- \`E_ABORTED\`: Request was cancelled. Session marked as cancelled.
-- \`E_SERVER_BUSY\`: Too many concurrent requests. Retry later.
-- \`E_REASONING\`: Internal reasoning error. Check message and retry.
-</error_handling>
+<error_codes>
+- \`E_SESSION_NOT_FOUND\`: Session missing or expired. Start new or list sessions.
+- \`E_INVALID_THOUGHT_COUNT\`: \`targetThoughts\` outside level range.
+- \`E_INSUFFICIENT_THOUGHTS\`: Too few thoughts for \`run_to_completion\`.
+- \`E_INVALID_RUN_MODE_ARGS\`: Invalid \`runMode\` argument combination.
+- \`E_ABORTED\`: Request cancelled. Session marked cancelled.
+- \`E_SERVER_BUSY\`: Concurrent request limit reached. Retry later.
+- \`E_REASONING\`: Internal error. Check message, retry.
+</error_codes>
 `;
 }

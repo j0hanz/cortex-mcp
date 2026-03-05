@@ -29,7 +29,7 @@ const ReasoningThinkInputBaseSchema = z.strictObject({
     'Question or problem to analyze.'
   ),
   level: LEVEL_SCHEMA.optional().describe(
-    `Reasoning depth level. Required for new sessions. ${getLevelDescriptionString()}.`
+    `Depth level. Required for new sessions. ${getLevelDescriptionString()}.`
   ),
   targetThoughts: z
     .number()
@@ -37,56 +37,46 @@ const ReasoningThinkInputBaseSchema = z.strictObject({
     .min(1)
     .max(25)
     .optional()
-    .describe('Exact thought count. Must fit the level range.'),
+    .describe('Exact step count. Must fit level range.'),
   sessionId: z
     .string()
     .min(1)
     .max(128)
     .optional()
-    .describe('Session ID for continuation.'),
+    .describe('Session ID to continue.'),
   runMode: z
     .enum(RUN_MODE_VALUES)
     .optional()
-    .describe('Execution mode: "step" (default) or "run_to_completion".'),
+    .describe('"step" (default) or "run_to_completion".'),
   thought: z
     .union([THOUGHT_TEXT_SCHEMA, THOUGHT_BATCH_SCHEMA])
     .optional()
     .describe(
-      'Reasoning text for this step. Stored verbatim. Use string for single-step mode, string[] for batch mode.'
+      'Reasoning text. Stored verbatim. String for step mode, string[] for batch.'
     ),
   is_conclusion: z
     .boolean()
     .optional()
-    .describe('End session early when the final answer is reached.'),
+    .describe('End session early at final answer.'),
   rollback_to_step: z
     .number()
     .int()
     .min(0)
     .max(24)
     .optional()
-    .describe(
-      '0-based thought index to rollback to. Later thoughts are discarded.'
-    ),
+    .describe('0-based index to rollback to. Discards later thoughts.'),
   step_summary: z
     .string()
     .max(500)
     .optional()
-    .describe('One-sentence summary of this step.'),
+    .describe('One-sentence step summary.'),
   observation: z
     .string()
     .min(1)
     .optional()
-    .describe('Facts known at this step.'),
-  hypothesis: z
-    .string()
-    .min(1)
-    .optional()
-    .describe('Proposed next idea or logical step.'),
-  evaluation: z
-    .string()
-    .min(1)
-    .optional()
-    .describe('Evaluation of the hypothesis.'),
+    .describe('Known facts at this step.'),
+  hypothesis: z.string().min(1).optional().describe('Proposed next idea.'),
+  evaluation: z.string().min(1).optional().describe('Critique of hypothesis.'),
 });
 
 export const ReasoningThinkInputSchema =

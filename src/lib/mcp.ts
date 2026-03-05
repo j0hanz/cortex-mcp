@@ -136,7 +136,7 @@ const TOOL_CONTRACTS: readonly ToolContract[] = [
   {
     name: 'reasoning_think',
     purpose:
-      'Structured multi-step reasoning tool. Decomposes analysis into sequential thought steps stored in a persistent session trace.',
+      'Multi-step reasoning. Decomposes queries into sequential thought steps in a persistent session trace.',
     model: 'none (engine)',
     timeoutMs: 0,
     maxOutputTokens: 0,
@@ -235,33 +235,32 @@ const PROMPT_CONTRACTS: readonly PromptContract[] = [
   {
     name: 'get-help',
     title: 'Get Help',
-    description: 'Return the server usage instructions.',
+    description: 'Return server usage instructions.',
   },
   {
     name: 'reasoning.basic',
     title: 'Reasoning Basic',
-    description: 'Prepare a basic-depth reasoning request (1–3 thoughts).',
+    description: 'Basic-depth reasoning (1-3 thoughts).',
   },
   {
     name: 'reasoning.normal',
     title: 'Reasoning Normal',
-    description: 'Prepare a normal-depth reasoning request (4–8 thoughts).',
+    description: 'Normal-depth reasoning (4-8 thoughts).',
   },
   {
     name: 'reasoning.high',
     title: 'Reasoning High',
-    description: 'Prepare a high-depth reasoning request (10–15 thoughts).',
+    description: 'High-depth reasoning (10-15 thoughts).',
   },
   {
     name: 'reasoning.expert',
     title: 'Reasoning Expert',
-    description: 'Prepare an expert-depth reasoning request (20–25 thoughts).',
+    description: 'Expert-depth reasoning (20-25 thoughts).',
   },
   {
     name: 'reasoning.continue',
     title: 'Continue Reasoning',
-    description:
-      'Continue an existing reasoning session (follow-up query optional).',
+    description: 'Continue an existing session. Optional follow-up query.',
   },
   {
     name: 'reasoning.retry',

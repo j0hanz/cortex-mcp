@@ -35,10 +35,10 @@ const BASIC_TEMPLATE = `<example>
 
 <constraints>
 - Match the example's depth and quality.
-- Use labels: [Observation], [Hypothesis], [Evaluation], [Conclusion].
-- Write concrete, self-contained thoughts. No filler.
+- Label each step: [Observation], [Hypothesis], [Evaluation], [Conclusion].
+- Write concrete, self-contained thoughts. No filler or restatements.
 - Include one 1-sentence \`step_summary\` per step.
-- Total thoughts: 1 to 3.
+- Total: 1-3 thoughts.
 </constraints>`;
 
 const NORMAL_TEMPLATE = `<example>
@@ -98,10 +98,10 @@ const NORMAL_TEMPLATE = `<example>
 
 <constraints>
 - Match the example's depth and quality.
-- Use labels: [Observation], [Hypothesis], [Evaluation], [Strategy], [Conclusion].
-- Write concrete thoughts that move the analysis forward. Do not restate earlier thoughts.
+- Label each step: [Observation], [Hypothesis], [Evaluation], [Strategy], [Conclusion].
+- Each thought must advance the analysis. Do not restate earlier steps.
 - Include one 1-sentence \`step_summary\` per step.
-- Total thoughts: 4 to 8.
+- Total: 4-8 thoughts.
 </constraints>`;
 
 const HIGH_TEMPLATE = `<example>
@@ -217,10 +217,10 @@ const HIGH_TEMPLATE = `<example>
 
 <constraints>
 - Match the example's depth and quality.
-- Use labels: [Observation], [Hypothesis], [Strategy], [Action], [Evaluation], [Mitigation], [Validation], [Conclusion].
-- Write specific thoughts that advance the investigation. No step recaps. No filler.
+- Label each step: [Observation], [Hypothesis], [Strategy], [Action], [Evaluation], [Mitigation], [Validation], [Conclusion].
+- Each thought must advance the investigation. No recaps or filler.
 - Include one 1-sentence \`step_summary\` per step.
-- Total thoughts: 10 to 15. Scale depth to complexity.
+- Total: 10-15 thoughts. Scale depth to complexity.
 </constraints>`;
 
 const EXPERT_TEMPLATE = `<example>
@@ -372,9 +372,9 @@ Implement a distributed, high-throughput event sourcing system using PostgreSQL 
 
 <constraints>
 - Match the example's depth and quality.
-- Perform exhaustive analysis of edge cases, failure modes, and trade-offs.
-- Use labels: [Decomposition], [Architecture], [Strategy], [Implementation], [Validation], [Optimization], [Security], [Conclusion].
-- Total thoughts: 20 to 25. Scale depth to extreme complexity.
+- Exhaustively analyze edge cases, failure modes, and trade-offs.
+- Label each step: [Decomposition], [Architecture], [Strategy], [Implementation], [Validation], [Optimization], [Security], [Conclusion].
+- Total: 20-25 thoughts. Scale depth to extreme complexity.
 </constraints>`;
 
 const TEMPLATES: Record<ReasoningLevel, string> = {

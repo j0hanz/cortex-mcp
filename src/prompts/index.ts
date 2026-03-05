@@ -14,7 +14,7 @@ import { getTemplate } from './templates.js';
 const LEVEL_ENUM_SCHEMA = z.enum(REASONING_LEVELS);
 const REASONING_TOOL_NAME = 'reasoning_think';
 const THOUGHT_PARAMETER_GUIDANCE =
-  'Provide complete reasoning in "thought" for every call.';
+  'Include complete reasoning in the "thought" parameter on every call.';
 
 function createTextPrompt(text: string): {
   messages: [{ role: 'user'; content: { type: 'text'; text: string } }];
@@ -92,25 +92,23 @@ function buildStartReasoningPrompt(args: {
   return buildReasoningPrompt({
     context: [
       `Query: ${JSON.stringify(query)}`,
-      `Requested level: ${level}`,
+      `Level: ${level}`,
       `Target thoughts: ${
-        targetThoughts === undefined
-          ? 'use level default'
-          : String(targetThoughts)
+        targetThoughts === undefined ? 'level default' : String(targetThoughts)
       }`,
     ],
     task: [
-      `Start new reasoning session via "${REASONING_TOOL_NAME}".`,
-      'Generate the first concrete reasoning step now.',
+      `Start a new reasoning session via "${REASONING_TOOL_NAME}".`,
+      'Generate the first concrete reasoning step.',
     ],
     constraints: [
       THOUGHT_PARAMETER_GUIDANCE,
       'Preserve sessionId for continuation.',
       'Continue until status="completed" or remainingThoughts=0.',
-      'No meta commentary.',
+      'No meta commentary or filler.',
     ],
     output: [
-      'Return exactly one tool payload. No prose.',
+      'Return exactly one tool call payload.',
       'Required fields: query, level, thought.',
     ],
     templateLevel: level,
@@ -125,24 +123,19 @@ function buildRetryReasoningPrompt(args: {
   const { query, level, targetThoughts } = args;
   return buildReasoningPrompt({
     context: [
-      `Retry query: ${JSON.stringify(query)}`,
-      `Retry level: ${level}`,
+      `Query: ${JSON.stringify(query)}`,
+      `Level: ${level}`,
       `Target thoughts: ${
-        targetThoughts === undefined
-          ? 'unchanged / default'
-          : String(targetThoughts)
+        targetThoughts === undefined ? 'default' : String(targetThoughts)
       }`,
     ],
-    task: [
-      `Retry calling "${REASONING_TOOL_NAME}" with an improved first thought.`,
-    ],
+    task: [`Retry "${REASONING_TOOL_NAME}" with an improved first thought.`],
     constraints: [
       THOUGHT_PARAMETER_GUIDANCE,
       'Write a direct, specific thought. No filler.',
-      'No meta commentary.',
     ],
     output: [
-      'Return exactly one tool payload. No prose.',
+      'Return exactly one tool call payload.',
       'Required fields: query, level, thought.',
     ],
     templateLevel: level,
@@ -159,10 +152,10 @@ function buildContinueReasoningPrompt(args: {
     context: [
       `Session: ${JSON.stringify(sessionId)}`,
       query === undefined
-        ? 'Follow-up query: none provided'
+        ? 'Follow-up query: none'
         : `Follow-up query: ${JSON.stringify(query)}`,
       level === undefined
-        ? 'Level: keep session level'
+        ? 'Level: session default'
         : `Level override: ${level}`,
     ],
     task: [
@@ -175,7 +168,7 @@ function buildContinueReasoningPrompt(args: {
       'Write concrete reasoning. No meta commentary.',
     ],
     output: [
-      'Return exactly one continuation tool payload. No prose.',
+      'Return exactly one continuation tool call payload.',
       'Required fields: sessionId, thought.',
     ],
   });
