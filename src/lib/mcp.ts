@@ -1,7 +1,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type {
   ContentBlock,
-  TextResourceContents,
+  // DISABLED: VS Code result.md rendering issue
+  // TextResourceContents,
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { sessionStore } from '../engine/reasoner.js';
@@ -95,19 +96,22 @@ function createStructuredTextBlock(structured: object): ContentBlock {
 }
 
 export function createToolResponse<T extends object>(
-  structured: T,
-  embeddedResource?: TextResourceContents
+  structured: T
+  // DISABLED: VS Code result.md rendering issue
+  // embeddedResource?: TextResourceContents
 ): {
   content: ContentBlock[];
   structuredContent: T;
 } {
-  const content: ContentBlock[] =
-    embeddedResource === undefined
-      ? [createStructuredTextBlock(structured)]
-      : [
-          createStructuredTextBlock(structured),
-          { type: 'resource', resource: embeddedResource },
-        ];
+  const content: ContentBlock[] = [createStructuredTextBlock(structured)];
+  // DISABLED: VS Code result.md rendering issue
+  // const content: ContentBlock[] =
+  //   embeddedResource === undefined
+  //     ? [createStructuredTextBlock(structured)]
+  //     : [
+  //         createStructuredTextBlock(structured),
+  //         { type: 'resource', resource: embeddedResource },
+  //       ];
 
   return {
     content,

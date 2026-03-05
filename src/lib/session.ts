@@ -1,4 +1,5 @@
-import type { TextResourceContents } from '@modelcontextprotocol/sdk/types.js';
+// DISABLED: VS Code result.md rendering issue
+// import type { TextResourceContents } from '@modelcontextprotocol/sdk/types.js';
 
 import type { Session, Thought } from './types.js';
 
@@ -259,17 +260,18 @@ export function buildSessionView(
   };
 }
 
-export function buildTraceResource(
-  session: Readonly<Session>,
-  redactContent: boolean
-): TextResourceContents {
-  const sessionView = buildSessionView(session, {
-    redactThoughtContent: redactContent,
-  });
-
-  return {
-    uri: `reasoning://sessions/${session.id}/trace`,
-    mimeType: 'text/markdown',
-    text: formatThoughtsToMarkdown(sessionView),
-  };
-}
+// DISABLED: VS Code result.md rendering issue
+// export function buildTraceResource(
+//   session: Readonly<Session>,
+//   redactContent: boolean
+// ): TextResourceContents {
+//   const sessionView = buildSessionView(session, {
+//     redactThoughtContent: redactContent,
+//   });
+//
+//   return {
+//     uri: `reasoning://sessions/${session.id}/trace`,
+//     mimeType: 'text/markdown',
+//     text: formatThoughtsToMarkdown(sessionView),
+//   };
+// }

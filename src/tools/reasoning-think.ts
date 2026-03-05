@@ -16,7 +16,8 @@ import {
 import { notifyProgress, shouldEmitProgress } from '../lib/mcp.js';
 import { createToolResponse, withIconMeta } from '../lib/mcp.js';
 import { formatProgressMessage } from '../lib/session.js';
-import { buildTraceResource } from '../lib/session.js';
+// DISABLED: VS Code result.md rendering issue
+// import { buildTraceResource } from '../lib/session.js';
 import type {
   IconMeta,
   ReasoningLevel,
@@ -36,7 +37,8 @@ import {
 import {
   getLevelDescriptionString,
   getMaxActiveReasoningTasks,
-  shouldRedactTraceContent,
+  // DISABLED: VS Code result.md rendering issue
+  // shouldRedactTraceContent,
 } from '../engine/config.js';
 import { reason, sessionStore } from '../engine/reasoner.js';
 
@@ -532,7 +534,8 @@ Errors: E_SESSION_NOT_FOUND (expired — start new), E_INVALID_THOUGHT_COUNT (ch
   );
 }
 
-const MAX_EMBED_TRACE_TOKENS = 50_000;
+// DISABLED: VS Code result.md rendering issue
+// const MAX_EMBED_TRACE_TOKENS = 50_000;
 
 async function runReasoning(args: {
   server: McpServer;
@@ -623,12 +626,14 @@ async function runReasoning(args: {
       totalThoughts: session.thoughts.length,
     });
 
-    return createToolResponse(
-      result,
-      session.tokensUsed <= MAX_EMBED_TRACE_TOKENS
-        ? buildTraceResource(session, shouldRedactTraceContent())
-        : undefined
-    );
+    // DISABLED: VS Code result.md rendering issue
+    // return createToolResponse(
+    //   result,
+    //   session.tokensUsed <= MAX_EMBED_TRACE_TOKENS
+    //     ? buildTraceResource(session, shouldRedactTraceContent())
+    //     : undefined
+    // );
+    return createToolResponse(result);
   } catch (error) {
     const originalMessage = getErrorMessage(error);
     const errorCode = getReasoningErrorCode(error);
