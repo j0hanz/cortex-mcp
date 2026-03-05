@@ -7,14 +7,6 @@ Multi-level reasoning MCP server with configurable depth levels, published as `@
 - **Manager**: npm
 - **Frameworks**: typescript, eslint, @modelcontextprotocol/sdk, @modelcontextprotocol/sdk, @trivago/prettier-plugin-sort-imports, eslint, eslint-config-prettier, eslint-plugin-de-morgan
 
-## Architecture
-
-- Tool-based
-
-## Testing Strategy
-
-- Colocated test directories (**tests**/), 11 test files found
-
 ## Commands
 
 - **Dev**: `npm run dev`
