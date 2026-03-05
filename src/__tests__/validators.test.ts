@@ -6,7 +6,7 @@ import {
   getTargetThoughtsError,
   parseBooleanEnv,
   parsePositiveIntEnv,
-} from '../lib/validators.js';
+} from '../lib/utils.js';
 
 // ---------------------------------------------------------------------------
 // getTargetThoughtsError

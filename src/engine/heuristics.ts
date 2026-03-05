@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer';
 
-import { createSegmenter } from '../lib/text.js';
 import type { LevelConfig, ReasoningLevel } from '../lib/types.js';
+import { createSegmenter } from '../lib/utils.js';
 
 import { assertTargetThoughtsInRange } from './config.js';
 

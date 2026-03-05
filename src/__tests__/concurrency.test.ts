@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { createTaskLimiter } from '../lib/concurrency.js';
+import { createTaskLimiter } from '../lib/utils.js';
 
 describe('createTaskLimiter', () => {
   it('allows acquisition up to the limit', () => {

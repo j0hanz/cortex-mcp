@@ -3,14 +3,14 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Variables } from '@modelcontextprotocol/sdk/shared/uriTemplate.js';
 import { McpError } from '@modelcontextprotocol/sdk/types.js';
 
-import { completeSessionIds } from '../lib/completions.js';
-import { formatThoughtsToMarkdown } from '../lib/formatting.js';
+import { completeSessionIds } from '../lib/mcp.js';
+import { withIconMeta } from '../lib/mcp.js';
+import { formatThoughtsToMarkdown } from '../lib/session.js';
 import {
   buildSessionView,
   getSessionLifecycle,
   requireSession,
-} from '../lib/session-utils.js';
-import { withIconMeta } from '../lib/tool-response.js';
+} from '../lib/session.js';
 import { REASONING_LEVELS } from '../lib/types.js';
 import type {
   IconMeta,

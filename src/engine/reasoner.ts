@@ -3,9 +3,9 @@ import {
   ReasoningAbortedError,
   SessionNotFoundError,
 } from '../lib/errors.js';
-import { requireSession } from '../lib/session-utils.js';
+import { requireSession } from '../lib/session.js';
 import type { ReasoningLevel, Session } from '../lib/types.js';
-import { parsePositiveIntEnv } from '../lib/validators.js';
+import { parsePositiveIntEnv } from '../lib/utils.js';
 
 import { getLevelConfig } from './config.js';
 import { runWithContext } from './context.js';

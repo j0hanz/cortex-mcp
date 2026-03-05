@@ -1,5 +1,5 @@
-import { getPromptContracts } from '../lib/prompt-contracts.js';
-import { getToolContracts } from '../lib/tool-contracts.js';
+import { getPromptContracts } from '../lib/mcp.js';
+import { getToolContracts } from '../lib/mcp.js';
 
 import { formatSharedConstraints, SERVER_ROLE } from './tool-info.js';
 

@@ -1,4 +1,4 @@
-import { getToolContracts } from '../lib/tool-contracts.js';
+import { getToolContracts } from '../lib/mcp.js';
 
 export const SERVER_ROLE =
   'You are a reasoning assistant. Decompose queries into structured thought chains at configurable depth levels (basic, normal, high, expert).';

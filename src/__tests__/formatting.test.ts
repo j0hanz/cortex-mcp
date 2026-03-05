@@ -5,7 +5,7 @@ import {
   extractPinnedSections,
   formatProgressMessage,
   formatThoughtsToMarkdown,
-} from '../lib/formatting.js';
+} from '../lib/session.js';
 import type { Session, Thought } from '../lib/types.js';
 
 // ---------------------------------------------------------------------------

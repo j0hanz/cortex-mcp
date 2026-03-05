@@ -1,18 +1,14 @@
+import type { TextResourceContents } from '@modelcontextprotocol/sdk/types.js';
+
 import type { Session, Thought } from './types.js';
 
-// ---------------------------------------------------------------------------
-// Types for extracted trace artifacts
-// ---------------------------------------------------------------------------
+// --- formatting.ts ---
 
 interface PinnedSection {
   readonly title: string;
   readonly content: string;
   readonly thoughtIndex: number;
 }
-
-// ---------------------------------------------------------------------------
-// Extraction helpers
-// ---------------------------------------------------------------------------
 
 const PIN_START = '<!-- pin:';
 const PIN_END = '<!-- /pin -->';
@@ -78,10 +74,6 @@ export function extractPinnedSections(
   return [...byTitle.values()];
 }
 
-// ---------------------------------------------------------------------------
-// Rendering helpers
-// ---------------------------------------------------------------------------
-
 function renderPinnedSections(sections: readonly PinnedSection[]): string {
   if (sections.length === 0) {
     return '';
@@ -97,10 +89,6 @@ function renderPinnedSections(sections: readonly PinnedSection[]): string {
   }
   return lines.join('\n').trimEnd();
 }
-
-// ---------------------------------------------------------------------------
-// Core formatting
-// ---------------------------------------------------------------------------
 
 function formatThoughtHeading(thought: Readonly<Thought>): string {
   const thoughtNumber = thought.index + 1;
@@ -145,7 +133,6 @@ export function formatThoughtsToMarkdown(
 
   const sections: string[] = [];
 
-  // --- Header ---
   if (hasFullTraceThoughts) {
     sections.push(
       `# Reasoning Trace — [${session.level}]\n` +
@@ -153,7 +140,6 @@ export function formatThoughtsToMarkdown(
     );
   }
 
-  // --- Pinned sections (full trace only) ---
   if (hasFullTraceThoughts) {
     const pinned = extractPinnedSections(thoughts);
     const pinnedMd = renderPinnedSections(pinned);
@@ -162,7 +148,6 @@ export function formatThoughtsToMarkdown(
     }
   }
 
-  // --- Thought narrative ---
   for (const thought of thoughts) {
     sections.push(renderThoughtSection(thought));
   }
@@ -170,13 +155,6 @@ export function formatThoughtsToMarkdown(
   return sections.join(TRACE_SEPARATOR);
 }
 
-/**
- * Format a progress message for MCP events and logs.
- *
- * Format: `toolName: context [metadata] • outcome`
- * - `metadata` is optional and rendered only if provided.
- * - `outcome` is optional; if not provided, the separator (`•`) is omitted.
- */
 export function formatProgressMessage(args: {
   toolName: string;
   context: string;
@@ -190,4 +168,79 @@ export function formatProgressMessage(args: {
     return `${toolName}: ${context}${metaPart} • ${outcome}`;
   }
   return `${toolName}: ${context}${metaPart}`;
+}
+
+// --- session-utils.ts ---
+
+const DEFAULT_REDACTED_THOUGHT_CONTENT = '[REDACTED]';
+
+interface SessionTtlStore {
+  getTtlMs(): number;
+  getExpiresAt(sessionId: string): number | undefined;
+}
+
+interface SessionLifecycleTarget {
+  id: string;
+  updatedAt: number;
+}
+
+export function requireSession(
+  sessionId: string,
+  getSession: (sessionId: string) => Readonly<Session> | undefined,
+  buildError: (sessionId: string) => Error
+): Readonly<Session> {
+  const session = getSession(sessionId);
+  if (!session) {
+    throw buildError(sessionId);
+  }
+  return session;
+}
+
+export function getSessionLifecycle(
+  session: Readonly<SessionLifecycleTarget>,
+  store: SessionTtlStore
+): { ttlMs: number; expiresAt: number } {
+  const ttlMs = store.getTtlMs();
+  return {
+    ttlMs,
+    expiresAt: store.getExpiresAt(session.id) ?? session.updatedAt + ttlMs,
+  };
+}
+
+export function buildSessionView(
+  session: Readonly<Session>,
+  options?: { redactThoughtContent?: boolean; redactedText?: string }
+): Readonly<Session> {
+  if (!options?.redactThoughtContent) {
+    return session;
+  }
+
+  const redactedText = options.redactedText ?? DEFAULT_REDACTED_THOUGHT_CONTENT;
+
+  return {
+    ...session,
+    thoughts: session.thoughts.map((thought) => ({
+      index: thought.index,
+      content: redactedText,
+      revision: thought.revision,
+      ...(thought.stepSummary !== undefined
+        ? { stepSummary: redactedText }
+        : {}),
+    })),
+  };
+}
+
+export function buildTraceResource(
+  session: Readonly<Session>,
+  redactContent: boolean
+): TextResourceContents {
+  const sessionView = buildSessionView(session, {
+    redactThoughtContent: redactContent,
+  });
+
+  return {
+    uri: `reasoning://sessions/${session.id}/trace`,
+    mimeType: 'text/markdown',
+    text: formatThoughtsToMarkdown(sessionView),
+  };
 }

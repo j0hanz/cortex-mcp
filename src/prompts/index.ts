@@ -2,12 +2,9 @@ import { completable } from '@modelcontextprotocol/sdk/server/completable.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 
-import { completeLevel, completeSessionIds } from '../lib/completions.js';
-import {
-  getPromptContracts,
-  type PromptContract,
-} from '../lib/prompt-contracts.js';
-import { withIconMeta } from '../lib/tool-response.js';
+import { completeLevel, completeSessionIds } from '../lib/mcp.js';
+import { getPromptContracts, type PromptContract } from '../lib/mcp.js';
+import { withIconMeta } from '../lib/mcp.js';
 import type { IconMeta, ReasoningLevel } from '../lib/types.js';
 import { REASONING_LEVELS } from '../lib/types.js';
 

@@ -8,7 +8,7 @@ import {
   getTargetThoughtsError,
   parseBooleanEnv,
   parsePositiveIntEnv,
-} from '../lib/validators.js';
+} from '../lib/utils.js';
 
 const LEVEL_CONFIGS = {
   basic: { ...LEVEL_BOUNDS.basic, tokenBudget: 2048 },

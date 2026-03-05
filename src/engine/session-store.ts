@@ -4,7 +4,6 @@ import {
   InvalidThoughtCountError,
   SessionNotFoundError,
 } from '../lib/errors.js';
-import { estimateTokens } from '../lib/text.js';
 import type {
   LevelConfig,
   ReasoningLevel,
@@ -12,6 +11,7 @@ import type {
   SessionSummary,
   Thought,
 } from '../lib/types.js';
+import { estimateTokens } from '../lib/utils.js';
 
 import { getLevelConfig } from './config.js';
 import { engineEvents } from './events.js';

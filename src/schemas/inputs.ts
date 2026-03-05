@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { REASONING_LEVELS } from '../lib/types.js';
-import { getTargetThoughtsError } from '../lib/validators.js';
+import { getTargetThoughtsError } from '../lib/utils.js';
 
 import { getLevelDescriptionString } from '../engine/config.js';
 

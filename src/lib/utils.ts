@@ -1,4 +1,59 @@
+import { Buffer } from 'node:buffer';
+
 import { LEVEL_BOUNDS, type ReasoningLevel } from './types.js';
+
+// --- concurrency.ts ---
+
+export interface TaskLimiter {
+  tryAcquire: () => boolean;
+  release: () => void;
+}
+
+export function createTaskLimiter(maxActiveTasks: number): TaskLimiter {
+  let activeTasks = 0;
+  return {
+    tryAcquire(): boolean {
+      if (activeTasks >= maxActiveTasks) {
+        return false;
+      }
+      activeTasks += 1;
+      return true;
+    },
+    release(): void {
+      if (activeTasks > 0) {
+        activeTasks -= 1;
+      }
+    },
+  };
+}
+
+// --- text.ts ---
+
+const TOKEN_ESTIMATE_DIVISOR = 3.5;
+
+/**
+ * Creates an Intl.Segmenter instance if available in the environment.
+ * gracefully handles missing Intl support or specific locale issues.
+ */
+export function createSegmenter(
+  granularity: 'grapheme' | 'sentence'
+): Intl.Segmenter | undefined {
+  if (typeof Intl !== 'object' || typeof Intl.Segmenter !== 'function') {
+    return undefined;
+  }
+  try {
+    return new Intl.Segmenter(undefined, { granularity });
+  } catch {
+    return undefined;
+  }
+}
+
+export function estimateTokens(text: string): number {
+  const byteLength = Buffer.byteLength(text, 'utf8');
+  return Math.max(1, Math.ceil(byteLength / TOKEN_ESTIMATE_DIVISOR));
+}
+
+// --- validators.ts ---
 
 const TRUE_ENV_VALUES = new Set(['1', 'true', 'yes', 'on']);
 const FALSE_ENV_VALUES = new Set(['0', 'false', 'no', 'off']);
