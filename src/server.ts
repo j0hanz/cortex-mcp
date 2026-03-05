@@ -21,21 +21,12 @@ const RESOURCE_LIST_CHANGED_METHOD = 'resources/list_changed';
 const RESOURCE_UPDATED_METHOD = 'resources/updated';
 const SERVER_DESCRIPTION =
   'Multi-level reasoning MCP server with configurable depth levels.';
-const SESSION_LIFECYCLE_EVENTS = [
-  'session:created',
-  'session:completed',
-  'session:cancelled',
-  'session:expired',
-  'session:evicted',
-  'session:deleted',
-] as const;
 const ICON_URL_CANDIDATES = [
   new URL('../assets/logo.svg', import.meta.url),
   new URL('./assets/logo.svg', import.meta.url),
 ];
 let cachedLocalIconData: string | null | undefined;
 let cachedVersion: string | undefined;
-let activeServerCount = 0;
 
 function getLocalIconData(): string | undefined {
   if (cachedLocalIconData !== undefined) {
@@ -157,30 +148,9 @@ function attachEngineEventHandlers(server: McpServer): () => void {
       });
   };
 
-  const onSessionLifecycle = (data: { sessionId: string }): void => {
-    void server.server.sendResourceListChanged().catch((err: unknown) => {
-      logNotificationFailure(RESOURCE_LIST_CHANGED_METHOD, err, {
-        sessionId: data.sessionId,
-      });
-    });
-  };
-
-  const registerSessionLifecycleHandlers = (): void => {
-    for (const event of SESSION_LIFECYCLE_EVENTS) {
-      engineEvents.on(event, onSessionLifecycle);
-    }
-  };
-
-  const unregisterSessionLifecycleHandlers = (): void => {
-    for (const event of SESSION_LIFECYCLE_EVENTS) {
-      engineEvents.off(event, onSessionLifecycle);
-    }
-  };
-
   engineEvents.on('resources:changed', onResourcesChanged);
   engineEvents.on('resource:updated', onResourceUpdated);
   engineEvents.on('thought:budget-exhausted', onBudgetExhausted);
-  registerSessionLifecycleHandlers();
 
   let detached = false;
   return (): void => {
@@ -191,7 +161,6 @@ function attachEngineEventHandlers(server: McpServer): () => void {
     engineEvents.off('resources:changed', onResourcesChanged);
     engineEvents.off('resource:updated', onResourceUpdated);
     engineEvents.off('thought:budget-exhausted', onBudgetExhausted);
-    unregisterSessionLifecycleHandlers();
   };
 }
 
@@ -206,21 +175,13 @@ function installCloseCleanup(server: McpServer, cleanup: () => void): void {
 
     closed = true;
     cleanup();
-
-    activeServerCount = Math.max(0, activeServerCount - 1);
-    if (activeServerCount === 0) {
-      sessionStore.dispose();
-    }
-
+    sessionStore.dispose();
     await originalClose();
   };
 }
 
 export function createServer(): McpServer {
-  if (activeServerCount === 0) {
-    sessionStore.ensureCleanupTimer();
-  }
-  activeServerCount += 1;
+  sessionStore.ensureCleanupTimer();
 
   const version = loadVersion();
   const localIcon = getLocalIconData();

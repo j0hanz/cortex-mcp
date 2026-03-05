@@ -77,8 +77,8 @@ function hasExtraStepFields(params: ReasoningThinkInput): boolean {
     params.observation !== undefined ||
     params.hypothesis !== undefined ||
     params.evaluation !== undefined ||
-    params.is_conclusion !== undefined ||
-    params.rollback_to_step !== undefined
+    params.isConclusion !== undefined ||
+    params.rollbackToStep !== undefined
   );
 }
 
@@ -101,11 +101,11 @@ function buildExecuteArgs(base: {
   if (params.observation !== undefined) args.observation = params.observation;
   if (params.hypothesis !== undefined) args.hypothesis = params.hypothesis;
   if (params.evaluation !== undefined) args.evaluation = params.evaluation;
-  if (params.step_summary !== undefined) args.stepSummary = params.step_summary;
-  if (params.is_conclusion !== undefined)
-    args.isConclusion = params.is_conclusion;
-  if (params.rollback_to_step !== undefined)
-    args.rollbackToStep = params.rollback_to_step;
+  if (params.stepSummary !== undefined) args.stepSummary = params.stepSummary;
+  if (params.isConclusion !== undefined)
+    args.isConclusion = params.isConclusion;
+  if (params.rollbackToStep !== undefined)
+    args.rollbackToStep = params.rollbackToStep;
   return args;
 }
 
@@ -374,7 +374,7 @@ function createProgressHandler(args: {
     }
 
     const message = formatProgressMessage({
-      toolName: `꩜ ${TOOL_NAME}`,
+      toolName: TOOL_NAME,
       context: 'Thought',
       ...(summary ? { metadata: summary } : {}),
       ...(isTerminal ? { outcome: 'complete' } : {}),
@@ -457,7 +457,7 @@ async function emitInitialProgress(
   level: ReasoningLevel | undefined
 ): Promise<void> {
   const message = formatProgressMessage({
-    toolName: `꩜ ${TOOL_NAME}`,
+    toolName: TOOL_NAME,
     context: level ? 'starting' : 'continuing',
     metadata: level ? `[${level}]` : 'session',
   });
@@ -483,7 +483,7 @@ USAGE PATTERN:
 
 IMPORTANT: Pass the returned sessionId on every continuation call.
 The thought parameter stores YOUR reasoning verbatim — write thorough analysis in each step.
-Use step_summary for a 1-sentence conclusion per step — these accumulate in the summary field for navigation.
+Use stepSummary for a 1-sentence conclusion per step — these accumulate in the summary field for navigation.
 
 Levels: ${getLevelDescriptionString()}.
 Alternatives: runMode="run_to_completion" (batch), or observation/hypothesis/evaluation fields (structured).
@@ -526,6 +526,44 @@ Errors: E_SESSION_NOT_FOUND (expired — start new), E_INVALID_THOUGHT_COUNT (ch
   );
 }
 
+function validateCrossFieldRules(
+  params: ReasoningThinkInput
+): CallToolResult | undefined {
+  if (params.sessionId === undefined && params.query === undefined) {
+    return createErrorResponse(
+      'E_VALIDATION',
+      'query is required when starting a new session. Provide query + level + thought.'
+    );
+  }
+  if (params.sessionId === undefined && params.level === undefined) {
+    return createErrorResponse(
+      'E_VALIDATION',
+      'level is required when starting a new session. Choose: basic, normal, high, expert.'
+    );
+  }
+  const runMode = params.runMode ?? 'step';
+  if (runMode === 'step' && Array.isArray(params.thought)) {
+    return createErrorResponse(
+      'E_VALIDATION',
+      'thought must be a string in step mode. Use runMode: "run_to_completion" for batch input.'
+    );
+  }
+  const hasThought = params.thought !== undefined;
+  const hasStructured =
+    params.observation !== undefined &&
+    params.hypothesis !== undefined &&
+    params.evaluation !== undefined;
+  if (!hasThought && !hasStructured && params.rollbackToStep === undefined) {
+    return createErrorResponse(
+      'E_VALIDATION',
+      'Provide "thought", structured fields (observation + hypothesis + evaluation), or rollbackToStep.'
+    );
+  }
+  return undefined;
+}
+
+const MAX_EMBED_TRACE_TOKENS = 50_000;
+
 async function runReasoning(args: {
   server: McpServer;
   params: ReasoningThinkInput;
@@ -539,6 +577,11 @@ async function runReasoning(args: {
   const thoughtInputs = buildThoughtInputs(params);
   const queryText = query ?? '';
   let resolvedSessionId = params.sessionId ?? sessionId;
+
+  const validationError = validateCrossFieldRules(params);
+  if (validationError) {
+    return validationError;
+  }
 
   await emitLog(server, 'info', {
     event: 'reasoning_started',
@@ -617,7 +660,9 @@ async function runReasoning(args: {
 
     return createToolResponse(
       result,
-      buildTraceResource(session, shouldRedactTraceContent())
+      session.tokensUsed <= MAX_EMBED_TRACE_TOKENS
+        ? buildTraceResource(session, shouldRedactTraceContent())
+        : undefined
     );
   } catch (error) {
     const originalMessage = getErrorMessage(error);

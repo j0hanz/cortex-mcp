@@ -85,7 +85,7 @@ export async function reason(
 
   if (!hasContent && rollbackToStep === undefined) {
     throw new InvalidRunModeArgsError(
-      'Either thought (or observation/hypothesis/evaluation) or rollback_to_step is required'
+      'Either thought (or observation/hypothesis/evaluation) or rollbackToStep is required'
     );
   }
 

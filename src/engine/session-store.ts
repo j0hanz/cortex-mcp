@@ -225,7 +225,7 @@ export class SessionStore {
 
     if (toIndex < 0 || toIndex >= session.thoughts.length) {
       throw new InvalidThoughtCountError(
-        `rollback_to_step ${String(toIndex)} out of range [0, ${String(session.thoughts.length - 1)}]`
+        `rollbackToStep ${String(toIndex)} out of range [0, ${String(session.thoughts.length - 1)}]`
       );
     }
     // No-op if already at the target position

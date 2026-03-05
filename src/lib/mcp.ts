@@ -196,19 +196,19 @@ const TOOL_CONTRACTS: readonly ToolContract[] = [
         constraints: 'optional',
       },
       {
-        name: 'step_summary',
+        name: 'stepSummary',
         type: 'string',
         required: false,
         constraints: 'optional',
       },
       {
-        name: 'is_conclusion',
+        name: 'isConclusion',
         type: 'boolean',
         required: false,
         constraints: 'optional',
       },
       {
-        name: 'rollback_to_step',
+        name: 'rollbackToStep',
         type: 'number',
         required: false,
         constraints: 'optional',

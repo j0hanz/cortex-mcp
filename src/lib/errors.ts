@@ -7,9 +7,9 @@ const INSPECT_OPTIONS = {
 const UNKNOWN_ERROR_MESSAGE = 'Unknown error';
 
 interface ErrorResponse {
-  [key: string]: unknown;
   content: { type: 'text'; text: string }[];
   isError: true;
+  [key: string]: unknown;
 }
 
 export class ReasoningError extends Error {
@@ -114,7 +114,6 @@ export function createErrorResponse(
   const text = JSON.stringify(error);
   return {
     content: [{ type: 'text' as const, text }],
-    structuredContent: error,
     isError: true as const,
   };
 }

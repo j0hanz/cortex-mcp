@@ -1,30 +1,16 @@
 import { z } from 'zod';
 
 import { REASONING_LEVELS } from '../lib/types.js';
-import { getTargetThoughtsError } from '../lib/utils.js';
 
 import { getLevelDescriptionString } from '../engine/config.js';
 
 const RUN_MODE_VALUES = ['step', 'run_to_completion'] as const;
-const DEFAULT_RUN_MODE = 'step';
 const LEVEL_SCHEMA = z.enum(REASONING_LEVELS);
 const QUERY_TEXT_SCHEMA = z.string().min(1).max(10000);
 const THOUGHT_TEXT_SCHEMA = z.string().min(1).max(100000);
 const THOUGHT_BATCH_SCHEMA = z.array(THOUGHT_TEXT_SCHEMA).min(1).max(25);
 
-function addCustomIssue(
-  ctx: z.RefinementCtx,
-  path: string[],
-  message: string
-): void {
-  ctx.addIssue({
-    code: 'custom',
-    message,
-    path,
-  });
-}
-
-const ReasoningThinkInputBaseSchema = z.strictObject({
+export const ReasoningThinkInputSchema = z.strictObject({
   query: QUERY_TEXT_SCHEMA.optional().describe(
     'Question or problem to analyze.'
   ),
@@ -54,18 +40,18 @@ const ReasoningThinkInputBaseSchema = z.strictObject({
     .describe(
       'Reasoning text. Stored verbatim. String for step mode, string[] for batch.'
     ),
-  is_conclusion: z
+  isConclusion: z
     .boolean()
     .optional()
     .describe('End session early at final answer.'),
-  rollback_to_step: z
+  rollbackToStep: z
     .number()
     .int()
     .min(0)
     .max(24)
     .optional()
     .describe('0-based index to rollback to. Discards later thoughts.'),
-  step_summary: z
+  stepSummary: z
     .string()
     .max(500)
     .optional()
@@ -78,69 +64,5 @@ const ReasoningThinkInputBaseSchema = z.strictObject({
   hypothesis: z.string().min(1).optional().describe('Proposed next idea.'),
   evaluation: z.string().min(1).optional().describe('Critique of hypothesis.'),
 });
-
-export const ReasoningThinkInputSchema =
-  ReasoningThinkInputBaseSchema.superRefine((data, ctx) => {
-    const runMode = data.runMode ?? DEFAULT_RUN_MODE;
-
-    if (data.sessionId === undefined && data.query === undefined) {
-      addCustomIssue(
-        ctx,
-        ['query'],
-        'query is required when sessionId is not provided'
-      );
-    }
-
-    if (data.sessionId === undefined && data.level === undefined) {
-      addCustomIssue(
-        ctx,
-        ['level'],
-        'level is required when sessionId is not provided'
-      );
-    }
-
-    if (
-      runMode === 'run_to_completion' &&
-      data.sessionId === undefined &&
-      data.targetThoughts === undefined
-    ) {
-      addCustomIssue(
-        ctx,
-        ['targetThoughts'],
-        'targetThoughts is required for run_to_completion when sessionId is not provided'
-      );
-    }
-
-    if (runMode === 'step' && Array.isArray(data.thought)) {
-      addCustomIssue(
-        ctx,
-        ['thought'],
-        'thought must be a string when runMode is "step"'
-      );
-    }
-
-    const hasThought = data.thought !== undefined;
-    const hasStructured =
-      data.observation !== undefined &&
-      data.hypothesis !== undefined &&
-      data.evaluation !== undefined;
-
-    if (!hasThought && !hasStructured && data.rollback_to_step === undefined) {
-      addCustomIssue(
-        ctx,
-        ['thought'],
-        'Either "thought" or structured fields ("observation", "hypothesis", "evaluation") are required, unless rolling back.'
-      );
-    }
-
-    if (data.targetThoughts === undefined || data.level === undefined) {
-      return;
-    }
-
-    const error = getTargetThoughtsError(data.level, data.targetThoughts);
-    if (error) {
-      addCustomIssue(ctx, ['targetThoughts'], error);
-    }
-  });
 
 export type ReasoningThinkInput = z.infer<typeof ReasoningThinkInputSchema>;

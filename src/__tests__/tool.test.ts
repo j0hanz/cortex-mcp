@@ -82,7 +82,7 @@ describe('reasoning_think — new session', () => {
       query: 'What is 1+1?',
       level: 'basic',
       thought: 'The answer is 2.',
-      is_conclusion: true,
+      isConclusion: true,
     });
 
     assert.ok(
@@ -187,7 +187,7 @@ describe('reasoning_think — continuation', () => {
 
 describe('reasoning_think — invalid inputs', () => {
   it('returns error when neither query nor sessionId is provided', async () => {
-    // Schema validation errors propagate as MCP protocol errors (isError=true, non-JSON content)
+    // Cross-field validation errors are returned as tool errors (isError=true)
     const result = await callTool(client, {
       level: 'basic',
       thought: 'no identifier',
@@ -217,16 +217,16 @@ describe('reasoning_think — invalid inputs', () => {
 });
 
 // ---------------------------------------------------------------------------
-// is_conclusion flag
+// isConclusion flag
 // ---------------------------------------------------------------------------
 
-describe('reasoning_think — is_conclusion', () => {
-  it('marks session as completed when is_conclusion=true', async () => {
+describe('reasoning_think — isConclusion', () => {
+  it('marks session as completed when isConclusion=true', async () => {
     const result = await callTool(client, {
       query: 'Conclude now',
       level: 'basic',
       thought: 'Final answer.',
-      is_conclusion: true,
+      isConclusion: true,
     });
     const parsed = parseText(result) as {
       ok: boolean;
@@ -242,7 +242,7 @@ describe('reasoning_think — is_conclusion', () => {
 // ---------------------------------------------------------------------------
 
 describe('reasoning_think — rollback', () => {
-  it('rollback_to_step removes subsequent thoughts', async () => {
+  it('rollbackToStep removes subsequent thoughts', async () => {
     // Create session with 2 thoughts
     const r1 = await callTool(client, {
       query: 'rollback test',
@@ -256,7 +256,7 @@ describe('reasoning_think — rollback', () => {
     await callTool(client, { sessionId, thought: 'T1 will be removed' });
 
     // Rollback to step 0
-    const rb = await callTool(client, { sessionId, rollback_to_step: 0 });
+    const rb = await callTool(client, { sessionId, rollbackToStep: 0 });
     const rbParsed = parseText(rb);
     assertOk(rbParsed);
   });

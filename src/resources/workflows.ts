@@ -35,7 +35,7 @@ ${SERVER_ROLE}
 1. Start: \`{ query, level, observation, hypothesis, evaluation }\`.
 2. Server formats structured fields into trace thought.
 3. Continue with \`{ sessionId, thought }\` or structured fields.
-4. Set \`is_conclusion: true\` to end early. Use \`rollback_to_step\` to discard and redo.
+4. Set \`isConclusion: true\` to end early. Use \`rollbackToStep\` to discard and redo.
 </workflows>
 
 <constraints>

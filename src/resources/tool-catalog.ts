@@ -4,9 +4,9 @@ const CATALOG_GUIDE = `<optional_parameters>
 - \`observation\`: Known facts at this step. Use with \`hypothesis\` + \`evaluation\` instead of \`thought\`.
 - \`hypothesis\`: Proposed idea or next logical step.
 - \`evaluation\`: Critique of the hypothesis.
-- \`step_summary\`: One-sentence step conclusion. Appended to \`summary\`.
-- \`is_conclusion\`: \`true\` to end session early.
-- \`rollback_to_step\`: 0-based index. Discards all later thoughts.
+- \`stepSummary\`: One-sentence step conclusion. Appended to \`summary\`.
+- \`isConclusion\`: \`true\` to end session early.
+- \`rollbackToStep\`: 0-based index. Discards all later thoughts.
 </optional_parameters>
 
 <data_flow>

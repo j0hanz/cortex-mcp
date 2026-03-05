@@ -37,7 +37,7 @@ const BASIC_TEMPLATE = `<example>
 - Match the example's depth and quality.
 - Label each step: [Observation], [Hypothesis], [Evaluation], [Conclusion].
 - Write concrete, self-contained thoughts. No filler or restatements.
-- Include one 1-sentence \`step_summary\` per step.
+- Include one 1-sentence \`stepSummary\` per step.
 - Total: 1-3 thoughts.
 </constraints>`;
 
@@ -100,7 +100,7 @@ const NORMAL_TEMPLATE = `<example>
 - Match the example's depth and quality.
 - Label each step: [Observation], [Hypothesis], [Evaluation], [Strategy], [Conclusion].
 - Each thought must advance the analysis. Do not restate earlier steps.
-- Include one 1-sentence \`step_summary\` per step.
+- Include one 1-sentence \`stepSummary\` per step.
 - Total: 4-8 thoughts.
 </constraints>`;
 
@@ -219,7 +219,7 @@ const HIGH_TEMPLATE = `<example>
 - Match the example's depth and quality.
 - Label each step: [Observation], [Hypothesis], [Strategy], [Action], [Evaluation], [Mitigation], [Validation], [Conclusion].
 - Each thought must advance the investigation. No recaps or filler.
-- Include one 1-sentence \`step_summary\` per step.
+- Include one 1-sentence \`stepSummary\` per step.
 - Total: 10-15 thoughts. Scale depth to complexity.
 </constraints>`;
 
