@@ -155,19 +155,48 @@ export function formatThoughtsToMarkdown(
   return sections.join(TRACE_SEPARATOR);
 }
 
-export function formatProgressMessage(args: {
-  toolName: string;
-  context: string;
-  metadata?: string;
-  outcome?: string;
-}): string {
-  const { toolName, context, metadata, outcome } = args;
-  const metaPart = metadata ? ` ${metadata}` : '';
+export type ProgressMessagePhase = 'start' | 'update' | 'complete';
 
-  if (outcome) {
-    return `${toolName}: ${context}${metaPart} • ${outcome}`;
+function normalizeProgressSummary(summary?: string): string | undefined {
+  if (!summary) {
+    return undefined;
   }
-  return `${toolName}: ${context}${metaPart}`;
+
+  const normalized = summary.replace(/\s+/g, ' ').trim();
+  if (normalized.length < 8) {
+    return undefined;
+  }
+  if (/^(step|thought)\s*\d+$/i.test(normalized)) {
+    return undefined;
+  }
+  if (/^[\W_]+$/.test(normalized)) {
+    return undefined;
+  }
+  if (normalized.length > 90) {
+    return `${normalized.slice(0, 87).trimEnd()}...`;
+  }
+  return normalized;
+}
+
+export function formatProgressMessage(args: {
+  phase: ProgressMessagePhase;
+  summary?: string;
+  isContinuation?: boolean;
+}): string {
+  const { phase, summary, isContinuation } = args;
+
+  if (phase === 'start') {
+    return isContinuation ? 'Continuing reasoning...' : 'Starting reasoning...';
+  }
+  if (phase === 'complete') {
+    return 'Reasoning complete.';
+  }
+
+  const conciseSummary = normalizeProgressSummary(summary);
+  if (conciseSummary) {
+    return `Reasoning: ${conciseSummary}`;
+  }
+  return 'Reasoning in progress...';
 }
 
 // --- session-utils.ts ---

@@ -374,10 +374,8 @@ function createProgressHandler(args: {
     }
 
     const message = formatProgressMessage({
-      toolName: TOOL_NAME,
-      context: 'Thought',
-      ...(summary ? { metadata: summary } : {}),
-      ...(isTerminal ? { outcome: 'complete' } : {}),
+      phase: isTerminal ? 'complete' : 'update',
+      ...(summary ? { summary } : {}),
     });
 
     await notifyProgress({
@@ -466,9 +464,8 @@ async function emitInitialProgress(
   level: ReasoningLevel | undefined
 ): Promise<void> {
   const message = formatProgressMessage({
-    toolName: TOOL_NAME,
-    context: level ? 'starting' : 'continuing',
-    metadata: level ? `[${level}]` : 'session',
+    phase: 'start',
+    isContinuation: level === undefined,
   });
   await notifyProgress({ server, progressToken, progress: 0, total, message });
 }

@@ -155,39 +155,52 @@ describe('extractPinnedSections', () => {
 // ---------------------------------------------------------------------------
 
 describe('formatProgressMessage', () => {
-  it('formats start/mid message without outcome', () => {
+  it('formats a start message for new sessions', () => {
     const msg = formatProgressMessage({
-      toolName: 'reasoning_think',
-      context: 'step 1 of 3',
+      phase: 'start',
     });
-    assert.equal(msg, 'reasoning_think: step 1 of 3');
+    assert.equal(msg, 'Starting reasoning...');
   });
 
-  it('appends metadata when provided', () => {
+  it('formats a start message for continuation sessions', () => {
     const msg = formatProgressMessage({
-      toolName: 'tool',
-      context: 'context',
-      metadata: '[1/3]',
+      phase: 'start',
+      isContinuation: true,
     });
-    assert.equal(msg, 'tool: context [1/3]');
+    assert.equal(msg, 'Continuing reasoning...');
   });
 
-  it('appends outcome separated by bullet when provided', () => {
+  it('uses progress fallback when summary is missing', () => {
     const msg = formatProgressMessage({
-      toolName: 'tool',
-      context: 'context',
-      metadata: '[3/3]',
-      outcome: 'completed',
+      phase: 'update',
     });
-    assert.equal(msg, 'tool: context [3/3] • completed');
+    assert.equal(msg, 'Reasoning in progress...');
   });
 
-  it('formats with outcome and no metadata', () => {
+  it('uses concise summary when it is meaningful', () => {
     const msg = formatProgressMessage({
-      toolName: 'tool',
-      context: 'done',
-      outcome: 'ok',
+      phase: 'update',
+      summary: 'Validated assumptions against known constraints.',
     });
-    assert.equal(msg, 'tool: done • ok');
+    assert.equal(
+      msg,
+      'Reasoning: Validated assumptions against known constraints.'
+    );
+  });
+
+  it('filters out low-value summary text', () => {
+    const msg = formatProgressMessage({
+      phase: 'update',
+      summary: 'Step 3',
+    });
+    assert.equal(msg, 'Reasoning in progress...');
+  });
+
+  it('formats a terminal completion message', () => {
+    const msg = formatProgressMessage({
+      phase: 'complete',
+      summary: 'This should not be used',
+    });
+    assert.equal(msg, 'Reasoning complete.');
   });
 });
