@@ -110,9 +110,11 @@ export function createErrorResponse(
   code: string,
   message: string
 ): ErrorResponse {
-  const text = JSON.stringify({ ok: false, error: { code, message } });
+  const error = { ok: false as const, error: { code, message } };
+  const text = JSON.stringify(error);
   return {
     content: [{ type: 'text' as const, text }],
+    structuredContent: error,
     isError: true as const,
   };
 }

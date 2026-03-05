@@ -27,6 +27,7 @@ import {
 import { sessionStore } from '../engine/reasoner.js';
 import { buildServerInstructions } from './instructions.js';
 import { buildToolCatalog } from './tool-catalog.js';
+import { getToolInfo, getToolNames } from './tool-info.js';
 import { buildWorkflowGuide } from './workflows.js';
 
 const SESSIONS_RESOURCE_URI = 'reasoning://sessions';
@@ -223,6 +224,46 @@ export function registerAllResources(
     priority: 0.7,
     iconMeta,
   });
+
+  const toolNames = getToolNames();
+
+  server.registerResource(
+    'tool-info',
+    new ResourceTemplate('internal://tool-info/{toolName}', {
+      list: () => ({
+        resources: toolNames.map((name) => ({
+          uri: `internal://tool-info/${name}`,
+          name: `tool-info-${name}`,
+          title: `Tool Info: ${name}`,
+          description: `Contract details for ${name}.`,
+          mimeType: 'text/markdown',
+        })),
+      }),
+      complete: {
+        toolName: (value: string) =>
+          toolNames.filter((n) => n.startsWith(value)),
+      },
+    }),
+    {
+      title: 'Tool Info',
+      description: 'Per-tool contract details.',
+      mimeType: 'text/markdown',
+      annotations: { audience: ['assistant'], priority: 0.6 },
+      ...(withIconMeta(iconMeta) ?? {}),
+    },
+    (uri, variables) => {
+      const toolName = extractStringVariable(variables, 'toolName', uri);
+      const info = getToolInfo(toolName);
+      if (!info) {
+        throw new McpError(-32002, `Tool info not found: ${toolName}`);
+      }
+      return {
+        contents: [
+          { uri: uri.toString(), mimeType: 'text/markdown', text: info },
+        ],
+      };
+    }
+  );
 
   registerStaticMarkdownResource({
     server,

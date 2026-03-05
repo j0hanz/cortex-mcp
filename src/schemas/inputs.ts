@@ -62,12 +62,14 @@ const ReasoningThinkInputBaseSchema = z.strictObject({
     .number()
     .int()
     .min(0)
+    .max(24)
     .optional()
     .describe(
       '0-based thought index to rollback to. Later thoughts are discarded.'
     ),
   step_summary: z
     .string()
+    .max(500)
     .optional()
     .describe('One-sentence summary of this step.'),
   observation: z

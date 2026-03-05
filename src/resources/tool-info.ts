@@ -71,3 +71,34 @@ export function buildToolReference(): string {
     )
     .join('\n\n');
 }
+
+export function getToolNames(): readonly string[] {
+  return Object.keys(ENTRIES);
+}
+
+export function getToolInfo(toolName: string): string | undefined {
+  const entry = ENTRIES[toolName];
+  if (!entry) {
+    return undefined;
+  }
+  const contract = getToolContracts().find((c) => c.name === toolName);
+  if (!contract) {
+    return undefined;
+  }
+  const params = contract.params
+    .map((p) => {
+      const req = p.required ? 'required' : 'optional';
+      return `  - \`${p.name}\` (${p.type}, ${req}): ${p.constraints}`;
+    })
+    .join('\n');
+  return [
+    `### \`${entry.name}\``,
+    `- **Purpose:** ${entry.purpose}`,
+    `- **Model:** ${entry.model}`,
+    `- **Timeout:** ${entry.timeout}`,
+    `- **Max output tokens:** ${entry.maxOutputTokens}`,
+    '- **Parameters:**',
+    params,
+    `- **Output:** \`${contract.outputShape}\``,
+  ].join('\n');
+}

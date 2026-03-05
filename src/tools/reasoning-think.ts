@@ -305,18 +305,14 @@ function buildSummary(
 async function emitLog(
   server: McpServer,
   level: LoggingLevel,
-  data: Record<string, unknown>,
-  sessionId?: string
+  data: Record<string, unknown>
 ): Promise<void> {
   try {
-    await server.sendLoggingMessage(
-      {
-        level,
-        logger: TOOL_NAME,
-        data,
-      },
-      sessionId
-    );
+    await server.sendLoggingMessage({
+      level,
+      logger: TOOL_NAME,
+      data,
+    });
   } catch {
     // Logging should never fail a tool call.
   }
@@ -481,7 +477,7 @@ export function registerReasoningThinkTool(
       description: `Structured multi-step reasoning tool. Decomposes analysis into sequential thought steps stored in a persistent session trace.
 
 USAGE PATTERN:
-1. Start: { query: "...", level: "basic"|"normal"|"high", thought: "your analysis..." }
+1. Start: { query: "...", level: "basic"|"normal"|"high"|"expert", thought: "your analysis..." }
 2. Continue: { sessionId: "<from response>", thought: "next step..." } — level is optional; session level is used
 3. Repeat until status: "completed" — the summary field contains the exact next call to make
 
@@ -544,19 +540,14 @@ async function runReasoning(args: {
   const queryText = query ?? '';
   let resolvedSessionId = params.sessionId ?? sessionId;
 
-  await emitLog(
-    server,
-    'info',
-    {
-      event: 'reasoning_started',
-      level,
-      runMode,
-      hasSessionId: params.sessionId !== undefined,
-      targetThoughts: targetThoughts ?? null,
-      thoughtInputs: thoughtInputs.length,
-    },
-    resolvedSessionId
-  );
+  await emitLog(server, 'info', {
+    event: 'reasoning_started',
+    level,
+    runMode,
+    hasSessionId: params.sessionId !== undefined,
+    targetThoughts: targetThoughts ?? null,
+    thoughtInputs: thoughtInputs.length,
+  });
 
   try {
     if (runMode === 'run_to_completion') {
@@ -603,12 +594,7 @@ async function runReasoning(args: {
 
     if (controller.signal.aborted) {
       sessionStore.markCancelled(resolvedSessionId);
-      await emitLog(
-        server,
-        'notice',
-        { event: 'reasoning_cancelled' },
-        resolvedSessionId
-      );
+      await emitLog(server, 'notice', { event: 'reasoning_cancelled' });
       return createErrorResponse('E_ABORTED', 'Request cancelled by client');
     }
 
@@ -622,17 +608,12 @@ async function runReasoning(args: {
       targetThoughts
     );
 
-    await emitLog(
-      server,
-      'info',
-      {
-        event: 'reasoning_completed',
-        sessionId: session.id,
-        generatedThoughts,
-        totalThoughts: session.thoughts.length,
-      },
-      session.id
-    );
+    await emitLog(server, 'info', {
+      event: 'reasoning_completed',
+      sessionId: session.id,
+      generatedThoughts,
+      totalThoughts: session.thoughts.length,
+    });
 
     return createToolResponse(
       result,
@@ -647,12 +628,11 @@ async function runReasoning(args: {
       sessionStore.markCancelled(resolvedSessionId);
     }
 
-    await emitLog(
-      server,
-      errorCode === 'E_ABORTED' ? 'notice' : 'error',
-      { event: 'reasoning_failed', code: errorCode, message },
-      resolvedSessionId
-    );
+    await emitLog(server, errorCode === 'E_ABORTED' ? 'notice' : 'error', {
+      event: 'reasoning_failed',
+      code: errorCode,
+      message,
+    });
 
     return createErrorResponse(errorCode, message);
   }
