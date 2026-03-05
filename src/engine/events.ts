@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 import { getErrorMessage } from '../lib/errors.js';
 import type { ReasoningLevel } from '../lib/types.js';
 
-const ENGINE_ERROR_PREFIX = '[engine] ';
+const ENGINE_ERROR_PREFIX = '[cortex-mcp.engine] ';
 
 export interface ThoughtBudgetExhaustedPayload {
   sessionId: string;

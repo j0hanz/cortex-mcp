@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { findPackageJSON } from 'node:module';
 
-import { InMemoryTaskStore } from '@modelcontextprotocol/sdk/experimental/tasks';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import { getErrorMessage } from './lib/errors.js';
@@ -224,7 +223,6 @@ export function createServer(): McpServer {
   activeServerCount += 1;
 
   const version = loadVersion();
-  const taskStore = new InMemoryTaskStore();
   const localIcon = getLocalIconData();
   const iconMeta: IconMeta | undefined = localIcon
     ? { src: localIcon, mimeType: ICON_MIME }
@@ -247,17 +245,7 @@ export function createServer(): McpServer {
         prompts: {},
         completions: {},
         resources: { subscribe: true, listChanged: true },
-        tasks: {
-          list: {},
-          cancel: {},
-          requests: {
-            tools: {
-              call: {},
-            },
-          },
-        },
       },
-      taskStore,
       instructions:
         'Multi-level reasoning MCP server. Use reasoning_think to decompose queries into sequential thought steps at basic (1–3), normal (4–8), high (10–15), or expert (20–25) depth. Full usage guide: read internal://instructions or invoke get-help.',
     }

@@ -67,14 +67,11 @@ ${promptList}
   - \`reasoning://sessions\`: Aggregate session updates.
 </resources>
 
-<tasks_and_progress>
-- Pass \`_meta.progressToken\` to receive \`notifications/progress\`.
-- \`reasoning_think\` supports tasks (\`execution.taskSupport: "optional"\`):
-  - Send \`task\` in \`tools/call\` to receive \`taskId\`.
-  - Poll \`tasks/get\`, read \`tasks/result\`, abort via \`tasks/cancel\`.
+<progress>
+- Pass \`_meta.progressToken\` in \`tools/call\` to receive \`notifications/progress\`.
 - Progress frequency: \`high\` every 2 steps; \`basic\`/\`normal\` every step.
 - For \`runMode: "run_to_completion"\`, pass \`thought\` as a string array.
-</tasks_and_progress>
+</progress>
 
 <tool_contracts>
 ${toolSections.join('\n\n')}
@@ -89,8 +86,8 @@ ${sharedConstraints}
 - \`E_INVALID_THOUGHT_COUNT\`: \`targetThoughts\` outside level range (basic: 1-3, normal: 4-8, high: 10-15, expert: 20-25).
 - \`E_INSUFFICIENT_THOUGHTS\`: Too few thought inputs for \`run_to_completion\`.
 - \`E_INVALID_RUN_MODE_ARGS\`: Invalid \`runMode\` arguments (for example, missing \`targetThoughts\`).
-- \`E_ABORTED\`: Task/session was cancelled.
-- \`E_SERVER_BUSY\`: Too many concurrent tasks. Retry later or use sync mode.
+- \`E_ABORTED\`: Request was cancelled. Session marked as cancelled.
+- \`E_SERVER_BUSY\`: Too many concurrent requests. Retry later.
 - \`E_REASONING\`: Internal reasoning error. Check message and retry.
 </error_handling>
 `;

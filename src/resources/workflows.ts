@@ -28,18 +28,12 @@ ${SERVER_ROLE}
 2. Repeat with \`sessionId\` and \`thought\` until \`totalThoughts\` reached.
    NOTE: \`targetThoughts\` must fit level range (basic: 1-3, normal: 4-8, high: 10-15, expert: 20-25).
 
-### WORKFLOW D: Async Task
-1. Call \`reasoning_think\` as task (send \`task\` field) for long \`high\`-level reasoning.
-2. Poll \`tasks/get\` until \`completed\`/\`failed\`.
-3. Read final output via \`tasks/result\`.
-4. Abort via \`tasks/cancel\`.
-
-### WORKFLOW E: Batched Run-To-Completion
+### WORKFLOW D: Batched Run-To-Completion
 1. Start session with \`targetThoughts\` and \`runMode: "run_to_completion"\`.
 2. Provide \`thought\` as string array (e.g., \`["step1", "step2"]\`).
 3. The server consumes inputs until completion, token exhaustion, or cancellation.
 
-### WORKFLOW F: Structured Reasoning
+### WORKFLOW E: Structured Reasoning
 1. Call \`reasoning_think\` with \`{ query: "...", level: "normal", observation: "...", hypothesis: "...", evaluation: "..." }\`.
 2. Server formats into structured thought in trace.
 3. Continue with \`sessionId\` using \`thought\` or structured fields.

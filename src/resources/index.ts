@@ -18,10 +18,12 @@ import type {
   Session,
   SessionSummary as StoreSessionSummary,
 } from '../lib/types.js';
-import { parsePositiveIntEnv } from '../lib/validators.js';
 
 import { shouldRedactTraceContent } from '../engine/config.js';
-import { getLevelConfig } from '../engine/config.js';
+import {
+  getLevelConfig,
+  getMaxActiveReasoningTasks,
+} from '../engine/config.js';
 import { sessionStore } from '../engine/reasoner.js';
 import { buildServerInstructions } from './instructions.js';
 import { buildToolCatalog } from './tool-catalog.js';
@@ -233,11 +235,7 @@ export function registerAllResources(
     iconMeta,
   });
 
-  const DEFAULT_MAX_ACTIVE_REASONING_TASKS = 32;
-  const maxActiveTasks = parsePositiveIntEnv(
-    'CORTEX_MAX_ACTIVE_REASONING_TASKS',
-    DEFAULT_MAX_ACTIVE_REASONING_TASKS
-  );
+  const maxActiveTasks = getMaxActiveReasoningTasks();
   server.registerResource(
     'server-config',
     'internal://server-config',

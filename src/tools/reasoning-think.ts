@@ -2,7 +2,6 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type {
   CallToolResult,
   LoggingLevel,
-  Task,
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { createTaskLimiter } from '../lib/concurrency.js';
@@ -11,7 +10,6 @@ import {
   getErrorMessage,
   InsufficientThoughtsError,
   InvalidRunModeArgsError,
-  ReasoningAbortedError,
   ReasoningError,
   ServerBusyError,
   SessionNotFoundError,
@@ -19,12 +17,6 @@ import {
 import { formatProgressMessage } from '../lib/formatting.js';
 import { notifyProgress, shouldEmitProgress } from '../lib/progress.js';
 import { buildTraceResource } from '../lib/session-utils.js';
-import type {
-  CancellationController,
-  ProgressToken,
-  TaskContext,
-  TaskStoreLike,
-} from '../lib/task.js';
 import { createToolResponse, withIconMeta } from '../lib/tool-response.js';
 import type {
   IconMeta,
@@ -32,7 +24,6 @@ import type {
   ReasoningRunMode,
   Session,
 } from '../lib/types.js';
-import { parsePositiveIntEnv } from '../lib/validators.js';
 import {
   type ReasoningThinkInput,
   ReasoningThinkInputSchema,
@@ -44,22 +35,19 @@ import {
 
 import {
   getLevelDescriptionString,
+  getMaxActiveReasoningTasks,
   shouldRedactTraceContent,
 } from '../engine/config.js';
 import { reason, sessionStore } from '../engine/reasoner.js';
-import {
-  assertCallToolResult,
-  assertReasoningTaskExtra,
-} from './reasoning-validators.js';
 
-const DEFAULT_MAX_ACTIVE_REASONING_TASKS = 32;
+type ProgressToken = string | number;
 
-const reasoningTaskLimiter = createTaskLimiter(
-  parsePositiveIntEnv(
-    'CORTEX_MAX_ACTIVE_REASONING_TASKS',
-    DEFAULT_MAX_ACTIVE_REASONING_TASKS
-  )
-);
+interface CancellationController {
+  controller: AbortController;
+  cleanup: () => void;
+}
+
+const reasoningTaskLimiter = createTaskLimiter(getMaxActiveReasoningTasks());
 
 function getReasoningErrorCode(error: unknown): string {
   if (error instanceof ReasoningError) {
@@ -97,8 +85,6 @@ function hasExtraStepFields(params: ReasoningThinkInput): boolean {
 type ExecuteArgs = Parameters<typeof executeReasoningSteps>[0];
 
 function buildExecuteArgs(base: {
-  taskStore: ExecuteArgs['taskStore'];
-  taskId: string;
   controller: AbortController;
   queryText: string;
   level: ReasoningLevel | undefined;
@@ -136,8 +122,6 @@ function shouldStopReasoningLoop(
 }
 
 async function executeReasoningSteps(args: {
-  taskStore: TaskStoreLike;
-  taskId: string;
   controller: AbortController;
   queryText: string;
   level: ReasoningLevel | undefined;
@@ -158,8 +142,6 @@ async function executeReasoningSteps(args: {
   rollbackToStep?: number;
 }): Promise<Readonly<Session>> {
   const {
-    taskStore,
-    taskId,
     controller,
     queryText,
     level,
@@ -207,7 +189,9 @@ async function executeReasoningSteps(args: {
   };
 
   for (let index = 0; index < maxSteps; index++) {
-    await ensureTaskIsActive(taskStore, taskId, controller);
+    if (controller.signal.aborted) {
+      break;
+    }
 
     const inputThought = thoughtInputs[index];
     // Break if no thought and no structured input (only valid for first step if structured)
@@ -365,63 +349,25 @@ function createCancellationController(
   return { controller, cleanup };
 }
 
-async function isTaskCancelled(
-  taskStore: TaskStoreLike,
-  taskId: string
-): Promise<boolean> {
-  try {
-    const task = await taskStore.getTask(taskId);
-    return task.status === 'cancelled';
-  } catch {
-    return false;
-  }
-}
-
-async function ensureTaskIsActive(
-  taskStore: TaskStoreLike,
-  taskId: string,
-  controller: AbortController
-): Promise<void> {
-  if (await isTaskCancelled(taskStore, taskId)) {
-    controller.abort();
-    throw new ReasoningAbortedError('Reasoning task cancelled');
-  }
-}
-
 function createProgressHandler(args: {
   server: McpServer;
-  taskStore: TaskStoreLike;
-  taskId: string;
   level: ReasoningLevel | undefined;
   progressToken?: ProgressToken;
-  controller: AbortController;
   startingCount: number;
   batchTotal: number;
 }): (progress: number, total: number, summary?: string) => Promise<void> {
-  const {
-    server,
-    taskStore,
-    taskId,
-    level,
-    progressToken,
-    controller,
-    startingCount,
-    batchTotal,
-  } = args;
+  const { server, level, progressToken, startingCount, batchTotal } = args;
 
   return async (
     progress: number,
     _total: number,
     summary?: string
   ): Promise<void> => {
-    await ensureTaskIsActive(taskStore, taskId, controller);
-
     if (progressToken === undefined) {
       return;
     }
 
     const currentBatchIndex = Math.max(0, progress - startingCount);
-    // Ensure we don't exceed batchTotal for the progress bar (though technically logic shouldn't)
     const displayProgress = Math.min(currentBatchIndex, batchTotal);
     const isTerminal = displayProgress >= batchTotal;
     if (
@@ -446,45 +392,6 @@ function createProgressHandler(args: {
       message,
     });
   };
-}
-
-async function storeTaskFailure(
-  taskStore: TaskStoreLike,
-  taskId: string,
-  response: CallToolResult
-): Promise<void> {
-  try {
-    await taskStore.storeTaskResult(taskId, 'failed', response);
-  } catch {
-    // No-op if the task has already reached a terminal state.
-  }
-}
-
-async function setTaskFailureStatusMessage(
-  taskStore: TaskStoreLike,
-  taskId: string,
-  statusMessage: string
-): Promise<void> {
-  try {
-    await taskStore.updateTaskStatus(taskId, 'working', statusMessage);
-  } catch {
-    // No-op if task is already terminal.
-  }
-}
-
-async function notifyTaskStatus(
-  server: McpServer,
-  taskId: string,
-  status: 'completed' | 'failed'
-): Promise<void> {
-  try {
-    await server.server.notification({
-      method: 'notifications/tasks/status',
-      params: { taskId, status },
-    });
-  } catch {
-    // Notification failure must never fail the task operation.
-  }
 }
 
 function assertRunToCompletionInputCount(
@@ -535,102 +442,6 @@ function getActionableMessage(
   }
 }
 
-async function handleTaskFailure(args: {
-  server: McpServer;
-  taskStore: TaskStoreLike;
-  taskId: string;
-  sessionId?: string;
-  error: unknown;
-}): Promise<void> {
-  const { server, taskStore, taskId, sessionId, error } = args;
-  const originalMessage = getErrorMessage(error);
-  const errorCode = getReasoningErrorCode(error);
-  const message = getActionableMessage(errorCode, originalMessage);
-  const response = createErrorResponse(errorCode, message);
-
-  if (await isTaskCancelled(taskStore, taskId)) {
-    if (sessionId) {
-      sessionStore.markCancelled(sessionId);
-    }
-    await emitLog(
-      server,
-      'notice',
-      { event: 'task_cancelled', taskId, reason: message },
-      sessionId
-    );
-    return;
-  }
-
-  await setTaskFailureStatusMessage(taskStore, taskId, message);
-
-  if (errorCode === 'E_ABORTED') {
-    if (sessionId) {
-      sessionStore.markCancelled(sessionId);
-    }
-    await storeTaskFailure(taskStore, taskId, response);
-    await notifyTaskStatus(server, taskId, 'failed');
-    await emitLog(
-      server,
-      'notice',
-      { event: 'task_aborted', taskId, reason: message },
-      sessionId
-    );
-    return;
-  }
-
-  await storeTaskFailure(taskStore, taskId, response);
-  await notifyTaskStatus(server, taskId, 'failed');
-  await emitLog(
-    server,
-    'error',
-    { event: 'task_failed', taskId, code: errorCode, message },
-    sessionId
-  );
-}
-
-async function handleTaskSuccess(args: {
-  server: McpServer;
-  taskStore: TaskStoreLike;
-  taskId: string;
-  session: Readonly<Session>;
-  startingCount: number;
-  targetThoughts: number | undefined;
-}): Promise<void> {
-  const { server, taskStore, taskId, session, startingCount, targetThoughts } =
-    args;
-  const generatedThoughts = Math.max(
-    0,
-    session.thoughts.length - startingCount
-  );
-  const result = buildStructuredResult(
-    session,
-    generatedThoughts,
-    targetThoughts
-  );
-
-  await taskStore.storeTaskResult(
-    taskId,
-    'completed',
-    createToolResponse(
-      result,
-      buildTraceResource(session, shouldRedactTraceContent())
-    )
-  );
-  await notifyTaskStatus(server, taskId, 'completed');
-  await emitLog(
-    server,
-    'info',
-    {
-      event: 'task_completed',
-      taskId,
-      sessionId: session.id,
-      generatedThoughts,
-      totalThoughts: session.thoughts.length,
-    },
-    session.id
-  );
-}
-
 function computeBatchTotal(
   runMode: ReasoningRunMode,
   thoughtCount: number,
@@ -657,24 +468,76 @@ async function emitInitialProgress(
   await notifyProgress({ server, progressToken, progress: 0, total, message });
 }
 
-async function runReasoningTask(args: {
+const TOOL_NAME = 'reasoning_think';
+
+export function registerReasoningThinkTool(
+  server: McpServer,
+  iconMeta?: IconMeta
+): void {
+  server.registerTool(
+    TOOL_NAME,
+    {
+      title: 'Reasoning Think',
+      description: `Structured multi-step reasoning tool. Decomposes analysis into sequential thought steps stored in a persistent session trace.
+
+USAGE PATTERN:
+1. Start: { query: "...", level: "basic"|"normal"|"high", thought: "your analysis..." }
+2. Continue: { sessionId: "<from response>", thought: "next step..." } — level is optional; session level is used
+3. Repeat until status: "completed" — the summary field contains the exact next call to make
+
+IMPORTANT: Pass the returned sessionId on every continuation call.
+The thought parameter stores YOUR reasoning verbatim — write thorough analysis in each step.
+Use step_summary for a 1-sentence conclusion per step — these accumulate in the summary field for navigation.
+
+Levels: ${getLevelDescriptionString()}.
+Alternatives: runMode="run_to_completion" (batch), or observation/hypothesis/evaluation fields (structured).
+Errors: E_SESSION_NOT_FOUND (expired — start new), E_INVALID_THOUGHT_COUNT (check level ranges).`,
+      inputSchema: ReasoningThinkInputSchema,
+      outputSchema: ReasoningThinkToolOutputSchema,
+      annotations: {
+        readOnlyHint: false,
+        idempotentHint: false,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+      ...(withIconMeta(iconMeta) ?? {}),
+    },
+    async (params, extra) => {
+      if (!reasoningTaskLimiter.tryAcquire()) {
+        return createErrorResponse(
+          'E_SERVER_BUSY',
+          new ServerBusyError().message
+        );
+      }
+
+      const cancellation = createCancellationController(extra.signal);
+      const progressToken = extra._meta?.progressToken;
+      try {
+        return await runReasoning({
+          server,
+          params,
+          controller: cancellation.controller,
+          ...(progressToken !== undefined ? { progressToken } : {}),
+          ...(extra.sessionId !== undefined
+            ? { sessionId: extra.sessionId }
+            : {}),
+        });
+      } finally {
+        cancellation.cleanup();
+        reasoningTaskLimiter.release();
+      }
+    }
+  );
+}
+
+async function runReasoning(args: {
   server: McpServer;
-  taskStore: TaskStoreLike;
-  taskId: string;
   params: ReasoningThinkInput;
   progressToken?: ProgressToken;
   controller: AbortController;
   sessionId?: string;
-}): Promise<void> {
-  const {
-    server,
-    taskStore,
-    taskId,
-    params,
-    progressToken,
-    controller,
-    sessionId,
-  } = args;
+}): Promise<CallToolResult> {
+  const { server, params, progressToken, controller, sessionId } = args;
   const { query, level, targetThoughts } = params;
   const runMode = params.runMode ?? 'step';
   const thoughtInputs = buildThoughtInputs(params);
@@ -685,8 +548,7 @@ async function runReasoningTask(args: {
     server,
     'info',
     {
-      event: 'task_started',
-      taskId,
+      event: 'reasoning_started',
       level,
       runMode,
       hasSessionId: params.sessionId !== undefined,
@@ -717,22 +579,15 @@ async function runReasoningTask(args: {
       );
     }
 
-    const progressArgs: Parameters<typeof createProgressHandler>[0] = {
+    const onProgress = createProgressHandler({
       server,
-      taskStore,
-      taskId,
       level,
-      controller,
       startingCount,
       batchTotal: normalizedBatchTotal,
-    };
-    if (progressToken !== undefined) {
-      progressArgs.progressToken = progressToken;
-    }
-    const onProgress = createProgressHandler(progressArgs);
+      ...(progressToken !== undefined ? { progressToken } : {}),
+    });
+
     const executeArgs = buildExecuteArgs({
-      taskStore,
-      taskId,
       controller,
       queryText,
       level,
@@ -746,153 +601,59 @@ async function runReasoningTask(args: {
     const session = await executeReasoningSteps(executeArgs);
     resolvedSessionId = session.id;
 
-    if (await isTaskCancelled(taskStore, taskId)) {
+    if (controller.signal.aborted) {
       sessionStore.markCancelled(resolvedSessionId);
-      const cancelResponse = createErrorResponse(
-        'E_ABORTED',
-        'Task cancelled by client'
-      );
-      await storeTaskFailure(taskStore, taskId, cancelResponse);
-      await notifyTaskStatus(server, taskId, 'failed');
       await emitLog(
         server,
         'notice',
-        { event: 'task_cancelled_before_result', taskId },
+        { event: 'reasoning_cancelled' },
         resolvedSessionId
       );
-      return;
+      return createErrorResponse('E_ABORTED', 'Request cancelled by client');
     }
 
-    await handleTaskSuccess({
-      server,
-      taskStore,
-      taskId,
+    const generatedThoughts = Math.max(
+      0,
+      session.thoughts.length - startingCount
+    );
+    const result = buildStructuredResult(
       session,
-      startingCount,
-      targetThoughts,
-    });
-  } catch (error) {
-    const failureArgs: Parameters<typeof handleTaskFailure>[0] = {
+      generatedThoughts,
+      targetThoughts
+    );
+
+    await emitLog(
       server,
-      taskStore,
-      taskId,
-      error,
-    };
-    if (resolvedSessionId !== undefined) {
-      failureArgs.sessionId = resolvedSessionId;
+      'info',
+      {
+        event: 'reasoning_completed',
+        sessionId: session.id,
+        generatedThoughts,
+        totalThoughts: session.thoughts.length,
+      },
+      session.id
+    );
+
+    return createToolResponse(
+      result,
+      buildTraceResource(session, shouldRedactTraceContent())
+    );
+  } catch (error) {
+    const originalMessage = getErrorMessage(error);
+    const errorCode = getReasoningErrorCode(error);
+    const message = getActionableMessage(errorCode, originalMessage);
+
+    if (controller.signal.aborted && resolvedSessionId) {
+      sessionStore.markCancelled(resolvedSessionId);
     }
-    await handleTaskFailure(failureArgs);
+
+    await emitLog(
+      server,
+      errorCode === 'E_ABORTED' ? 'notice' : 'error',
+      { event: 'reasoning_failed', code: errorCode, message },
+      resolvedSessionId
+    );
+
+    return createErrorResponse(errorCode, message);
   }
-}
-
-function getTaskId(extra: TaskContext): string {
-  if (typeof extra.taskId !== 'string' || extra.taskId.length === 0) {
-    throw new InvalidRunModeArgsError('Task ID missing in request context.');
-  }
-  return extra.taskId;
-}
-
-const TOOL_NAME = 'reasoning_think';
-
-export function registerReasoningThinkTool(
-  server: McpServer,
-  iconMeta?: IconMeta
-): void {
-  server.experimental.tasks.registerToolTask(
-    TOOL_NAME,
-    {
-      title: 'Reasoning Think',
-      description: `Structured multi-step reasoning tool. Decomposes analysis into sequential thought steps stored in a persistent session trace.
-
-USAGE PATTERN:
-1. Start: { query: "...", level: "basic"|"normal"|"high", thought: "your analysis..." }
-2. Continue: { sessionId: "<from response>", thought: "next step..." } — level is optional; session level is used
-3. Repeat until status: "completed" — the summary field contains the exact next call to make
-
-IMPORTANT: Pass the returned sessionId on every continuation call.
-The thought parameter stores YOUR reasoning verbatim — write thorough analysis in each step.
-Use step_summary for a 1-sentence conclusion per step — these accumulate in the summary field for navigation.
-
-Levels: ${getLevelDescriptionString()}.
-Alternatives: runMode="run_to_completion" (batch), or observation/hypothesis/evaluation fields (structured).
-Errors: E_SESSION_NOT_FOUND (expired — start new), E_INVALID_THOUGHT_COUNT (check level ranges).
-Protocol validation: malformed task metadata/arguments fail at request level before task start; runtime reasoning failures return tool isError=true payloads.`,
-      inputSchema: ReasoningThinkInputSchema,
-      outputSchema: ReasoningThinkToolOutputSchema,
-      annotations: {
-        readOnlyHint: false,
-        idempotentHint: false,
-        destructiveHint: false,
-        openWorldHint: false,
-      },
-      execution: { taskSupport: 'optional' },
-      ...(withIconMeta(iconMeta) ?? {}),
-    },
-    {
-      async createTask(rawParams, rawExtra) {
-        // Enforce fail-fast for budget before creating tasks if possible,
-        // but session check requires sessionId which might not be present (new session).
-        // So we rely on reason() logic.
-
-        const parseResult = ReasoningThinkInputSchema.safeParse(rawParams);
-        if (!parseResult.success) {
-          throw new Error(
-            `Invalid reasoning_think params: ${parseResult.error.message}`
-          );
-        }
-        const params = parseResult.data;
-        const extra = assertReasoningTaskExtra(rawExtra);
-        const progressToken = extra._meta?.progressToken;
-
-        if (!reasoningTaskLimiter.tryAcquire()) {
-          throw new ServerBusyError();
-        }
-
-        let task: Task;
-        try {
-          task = await extra.taskStore.createTask({
-            ttl: extra.taskRequestedTtl ?? null,
-            pollInterval: 500,
-          });
-        } catch (error) {
-          reasoningTaskLimiter.release();
-          throw error;
-        }
-
-        const cancellation = createCancellationController(extra.signal);
-        const runReasoningArgs: Parameters<typeof runReasoningTask>[0] = {
-          server,
-          taskStore: extra.taskStore,
-          taskId: task.taskId,
-          params,
-          controller: cancellation.controller,
-        };
-        if (progressToken !== undefined) {
-          runReasoningArgs.progressToken = progressToken;
-        }
-        if (extra.sessionId !== undefined) {
-          runReasoningArgs.sessionId = extra.sessionId;
-        }
-
-        void runReasoningTask(runReasoningArgs).finally(() => {
-          cancellation.cleanup();
-          reasoningTaskLimiter.release();
-        });
-
-        return { task };
-      },
-
-      getTask(_params, rawExtra) {
-        const extra = assertReasoningTaskExtra(rawExtra);
-        return extra.taskStore.getTask(getTaskId(extra));
-      },
-
-      async getTaskResult(_params, rawExtra) {
-        const extra = assertReasoningTaskExtra(rawExtra);
-        const result = await extra.taskStore.getTaskResult(getTaskId(extra));
-        assertCallToolResult(result);
-        return result;
-      },
-    }
-  );
 }

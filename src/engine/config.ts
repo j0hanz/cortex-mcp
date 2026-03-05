@@ -4,7 +4,11 @@ import {
   type LevelConfig,
   type ReasoningLevel,
 } from '../lib/types.js';
-import { getTargetThoughtsError, parseBooleanEnv } from '../lib/validators.js';
+import {
+  getTargetThoughtsError,
+  parseBooleanEnv,
+  parsePositiveIntEnv,
+} from '../lib/validators.js';
 
 const LEVEL_CONFIGS = {
   basic: { ...LEVEL_BOUNDS.basic, tokenBudget: 2048 },
@@ -31,6 +35,14 @@ export function assertTargetThoughtsInRange(
   }
 
   throw new InvalidThoughtCountError(errorMessage);
+}
+
+export function getMaxActiveReasoningTasks(): number {
+  const DEFAULT_MAX_ACTIVE_REASONING_TASKS = 32;
+  return parsePositiveIntEnv(
+    'CORTEX_MAX_ACTIVE_REASONING_TASKS',
+    DEFAULT_MAX_ACTIVE_REASONING_TASKS
+  );
 }
 
 export function getLevelDescriptionString(): string {
