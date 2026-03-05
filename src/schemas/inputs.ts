@@ -10,59 +10,75 @@ const QUERY_TEXT_SCHEMA = z.string().min(1).max(10000);
 const THOUGHT_TEXT_SCHEMA = z.string().min(1).max(100000);
 const THOUGHT_BATCH_SCHEMA = z.array(THOUGHT_TEXT_SCHEMA).min(1).max(25);
 
-export const ReasoningThinkInputSchema = z.strictObject({
-  query: QUERY_TEXT_SCHEMA.optional().describe(
-    'Question or problem to analyze.'
-  ),
-  level: LEVEL_SCHEMA.optional().describe(
-    `Depth level. Required for new sessions. ${getLevelDescriptionString()}.`
-  ),
-  targetThoughts: z
-    .number()
-    .int()
-    .min(1)
-    .max(25)
-    .optional()
-    .describe('Exact step count. Must fit level range.'),
-  sessionId: z
-    .string()
-    .min(1)
-    .max(128)
-    .optional()
-    .describe('Session ID to continue.'),
-  runMode: z
-    .enum(RUN_MODE_VALUES)
-    .optional()
-    .describe('"step" (default) or "run_to_completion".'),
-  thought: z
-    .union([THOUGHT_TEXT_SCHEMA, THOUGHT_BATCH_SCHEMA])
-    .optional()
-    .describe(
-      'Reasoning text. Stored verbatim. String for step mode, string[] for batch.'
+export const ReasoningThinkInputSchema = z
+  .strictObject({
+    query: QUERY_TEXT_SCHEMA.optional().describe(
+      'Question or problem to analyze.'
     ),
-  isConclusion: z
-    .boolean()
-    .optional()
-    .describe('End session early at final answer.'),
-  rollbackToStep: z
-    .number()
-    .int()
-    .min(0)
-    .max(24)
-    .optional()
-    .describe('0-based index to rollback to. Discards later thoughts.'),
-  stepSummary: z
-    .string()
-    .max(500)
-    .optional()
-    .describe('One-sentence step summary.'),
-  observation: z
-    .string()
-    .min(1)
-    .optional()
-    .describe('Known facts at this step.'),
-  hypothesis: z.string().min(1).optional().describe('Proposed next idea.'),
-  evaluation: z.string().min(1).optional().describe('Critique of hypothesis.'),
-});
+    level: LEVEL_SCHEMA.optional().describe(
+      `Depth level. Required for new sessions. ${getLevelDescriptionString()}.`
+    ),
+    targetThoughts: z
+      .number()
+      .int()
+      .min(1)
+      .max(25)
+      .optional()
+      .describe('Exact step count. Must fit level range.'),
+    sessionId: z
+      .string()
+      .min(1)
+      .max(128)
+      .optional()
+      .describe('Session ID to continue.'),
+    runMode: z
+      .enum(RUN_MODE_VALUES)
+      .optional()
+      .describe('"step" (default) or "run_to_completion".'),
+    thought: z
+      .union([THOUGHT_TEXT_SCHEMA, THOUGHT_BATCH_SCHEMA])
+      .optional()
+      .describe(
+        'Reasoning text. Stored verbatim. String for step mode, string[] for batch.'
+      ),
+    isConclusion: z
+      .boolean()
+      .optional()
+      .describe('End session early at final answer.'),
+    rollbackToStep: z
+      .number()
+      .int()
+      .min(0)
+      .max(24)
+      .optional()
+      .describe('0-based index to rollback to. Discards later thoughts.'),
+    stepSummary: z
+      .string()
+      .max(500)
+      .optional()
+      .describe('One-sentence step summary.'),
+    observation: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Known facts at this step.'),
+    hypothesis: z.string().min(1).optional().describe('Proposed next idea.'),
+    evaluation: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Critique of hypothesis.'),
+  })
+  .superRefine((data, ctx) => {
+    const runMode = data.runMode ?? 'step';
+    if (runMode === 'step' && Array.isArray(data.thought)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['thought'],
+        message:
+          'thought must be a string in step mode. Use runMode: "run_to_completion" for batch input.',
+      });
+    }
+  });
 
 export type ReasoningThinkInput = z.infer<typeof ReasoningThinkInputSchema>;

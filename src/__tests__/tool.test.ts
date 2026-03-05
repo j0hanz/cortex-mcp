@@ -181,6 +181,37 @@ describe('reasoning_think — continuation', () => {
   });
 });
 
+describe('reasoning_think — run_to_completion', () => {
+  it('accepts structured-only input for a single remaining step', async () => {
+    const first = await callTool(client, {
+      query: 'structured completion',
+      level: 'basic',
+      targetThoughts: 2,
+      thought: 'Step one.',
+    });
+    const firstParsed = parseText(first) as {
+      ok: boolean;
+      result: { sessionId: string; status: string; thoughts: unknown[] };
+    };
+    assertOk(firstParsed);
+
+    const second = await callTool(client, {
+      sessionId: firstParsed.result.sessionId,
+      runMode: 'run_to_completion',
+      observation: 'Known fact',
+      hypothesis: 'Possible answer',
+      evaluation: 'Most likely true',
+    });
+    const secondParsed = parseText(second) as {
+      ok: boolean;
+      result: { status: string; thoughts: unknown[] };
+    };
+    assertOk(secondParsed);
+    assert.equal(secondParsed.result.status, 'completed');
+    assert.equal(secondParsed.result.thoughts.length, 2);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Input validation — schema rejections
 // ---------------------------------------------------------------------------

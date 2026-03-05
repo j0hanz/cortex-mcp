@@ -134,7 +134,11 @@ async function typeCheck() {
 }
 
 async function test(args) {
-  await build();
+  const shouldBuild = args.includes('--build');
+  const testArgs = args.filter((arg) => arg !== '--build');
+  if (shouldBuild) {
+    await build();
+  }
 
   const dirResults = await Promise.all(
     TEST_PATTERNS.map(async (p) => ({
@@ -157,7 +161,7 @@ async function test(args) {
       ? ['--loader', 'ts-node/esm']
       : [];
 
-  const coverage = args.includes('--coverage')
+  const coverage = testArgs.includes('--coverage')
     ? ['--experimental-test-coverage']
     : [];
 
@@ -175,6 +179,7 @@ const ROUTES = {
   build,
   'type-check': typeCheck,
   test: (restArgs) => test(restArgs),
+  'test:dist': (restArgs) => test(['--build', ...restArgs]),
 };
 
 const taskName = process.argv[2] ?? 'build';

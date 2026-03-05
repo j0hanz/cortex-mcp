@@ -126,12 +126,12 @@ describe('ReasoningThinkInputSchema — step mode', () => {
     valid({ sessionId: 'id', thought: 'single', runMode: 'step' });
   });
 
-  it('runMode=step with array thought passes schema (handler validates)', () => {
-    valid({ sessionId: 'id', thought: ['a', 'b'], runMode: 'step' });
+  it('runMode=step with array thought is invalid', () => {
+    invalid({ sessionId: 'id', thought: ['a', 'b'], runMode: 'step' });
   });
 
-  it('default (no runMode) with array thought passes schema', () => {
-    valid({ sessionId: 'id', thought: ['a', 'b'] });
+  it('default (no runMode) with array thought is invalid', () => {
+    invalid({ sessionId: 'id', thought: ['a', 'b'] });
   });
 });
 

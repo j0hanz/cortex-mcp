@@ -401,6 +401,13 @@ function assertRunToCompletionInputCount(
     );
   }
 
+  const hasStructuredInput =
+    params.observation !== undefined &&
+    params.hypothesis !== undefined &&
+    params.evaluation !== undefined;
+  const hasStructuredOnlyFirstStep =
+    thoughtInputs.length === 0 && hasStructuredInput;
+
   let requiredInputs = targetThoughts ?? 0;
   if (sessionId) {
     const existing = sessionStore.get(sessionId);
@@ -413,11 +420,13 @@ function assertRunToCompletionInputCount(
     );
   }
 
-  if (thoughtInputs.length < requiredInputs) {
+  const providedInputs =
+    thoughtInputs.length + (hasStructuredOnlyFirstStep ? 1 : 0);
+  if (providedInputs < requiredInputs) {
     throw new InsufficientThoughtsError(
       `run_to_completion requires at least ${String(
         requiredInputs
-      )} thought inputs; received ${String(thoughtInputs.length)}`
+      )} thought inputs; received ${String(providedInputs)}`
     );
   }
 }
