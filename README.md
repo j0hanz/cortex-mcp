@@ -6,7 +6,7 @@
 
 [![Add to LM Studio](https://files.lmstudio.ai/deeplink/mcp-install-light.svg)](https://lmstudio.ai/install-mcp?name=cortex-mcp&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqMGhhbnovY29ydGV4LW1jcEBsYXRlc3QiXX0%3D) [![Install in Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=cortex-mcp&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqMGhhbnovY29ydGV4LW1jcEBsYXRlc3QiXX0%3D) [![Install in Goose](https://block.github.io/goose/img/extension-install-dark.svg)](https://block.github.io/goose/extension?cmd=npx&arg=-y&arg=%40j0hanz%2Fcortex-mcp%40latest&id=%40j0hanz%2Fcortex-mcp&name=cortex-mcp&description=cortex-mcp%20MCP%20server)
 
-Multi-level reasoning MCP server with configurable depth levels, published as `@j0hanz/cortex-mcp`.
+Multi-level reasoning MCP server with configurable depth levels, session-based state management, structured thought input, and real-time trace resources.
 
 ## Overview
 
