@@ -172,14 +172,16 @@ export class SessionStore {
     return this.totalTokens;
   }
 
-  updateQuery(sessionId: string, query: string): void {
+  updateQuery(sessionId: string, query: string): Readonly<Session> {
     const session = this.sessions.get(sessionId);
-    if (!session || session.query === query) {
-      return;
+    if (!session) {
+      throw new SessionNotFoundError(sessionId);
     }
-
-    session.query = query;
-    this.markSessionTouched(session);
+    if (session.query !== query) {
+      session.query = query;
+      this.markSessionTouched(session);
+    }
+    return this.snapshotSession(session);
   }
 
   delete(id: string): boolean {
@@ -196,7 +198,7 @@ export class SessionStore {
     sessionId: string,
     content: string,
     stepSummary?: string
-  ): Thought {
+  ): { thought: Thought; session: Readonly<Session> } {
     const session = this.sessions.get(sessionId);
     if (!session) {
       throw new SessionNotFoundError(sessionId);
@@ -214,10 +216,13 @@ export class SessionStore {
     session.tokensUsed += tokens;
     this.totalTokens += tokens;
     this.markSessionTouched(session);
-    return this.snapshotThought(thought);
+    return {
+      thought: this.snapshotThought(thought),
+      session: this.snapshotSession(session),
+    };
   }
 
-  rollback(sessionId: string, toIndex: number): void {
+  rollback(sessionId: string, toIndex: number): Readonly<Session> {
     const session = this.sessions.get(sessionId);
     if (!session) {
       throw new SessionNotFoundError(sessionId);
@@ -230,7 +235,7 @@ export class SessionStore {
     }
     // No-op if already at the target position
     if (toIndex === session.thoughts.length - 1) {
-      return;
+      return this.snapshotSession(session);
     }
 
     const removedThoughts = session.thoughts.slice(toIndex + 1);
@@ -244,6 +249,7 @@ export class SessionStore {
     session.tokensUsed -= removedTokens;
     this.totalTokens -= removedTokens;
     this.markSessionTouched(session);
+    return this.snapshotSession(session);
   }
 
   reviseThought(
@@ -292,8 +298,13 @@ export class SessionStore {
     return snapshotted;
   }
 
-  markCompleted(sessionId: string): void {
+  markCompleted(sessionId: string): Readonly<Session> {
     this.updateSessionStatus(sessionId, 'completed');
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      throw new SessionNotFoundError(sessionId);
+    }
+    return this.snapshotSession(session);
   }
 
   markCancelled(sessionId: string): void {

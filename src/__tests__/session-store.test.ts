@@ -124,7 +124,7 @@ describe('SessionStore — addThought', () => {
 
   it('addThought appends to session and returns a snapshot', () => {
     const s = store.create('basic');
-    const t = store.addThought(s.id, 'first thought');
+    const { thought: t } = store.addThought(s.id, 'first thought');
     assert.equal(t.index, 0);
     assert.equal(t.content, 'first thought');
     assert.equal(t.revision, 0);
@@ -141,7 +141,11 @@ describe('SessionStore — addThought', () => {
 
   it('addThought stores stepSummary when provided', () => {
     const s = store.create('basic');
-    const t = store.addThought(s.id, 'thought with summary', 'key point');
+    const { thought: t } = store.addThought(
+      s.id,
+      'thought with summary',
+      'key point'
+    );
     assert.equal(t.stepSummary, 'key point');
   });
 

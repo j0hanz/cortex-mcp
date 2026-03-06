@@ -76,14 +76,14 @@ export async function reason(
     onProgress,
   } = options ?? {};
 
-  const hasStructuredInput =
-    observation !== undefined &&
-    hypothesis !== undefined &&
-    evaluation !== undefined;
+  const content = resolveThoughtContent(
+    thought,
+    observation,
+    hypothesis,
+    evaluation
+  );
 
-  const hasContent = thought !== undefined || hasStructuredInput;
-
-  if (!hasContent && rollbackToStep === undefined) {
+  if (!content && rollbackToStep === undefined) {
     throw new InvalidRunModeArgsError(
       'Either thought (or observation/hypothesis/evaluation) or rollbackToStep is required'
     );
@@ -98,19 +98,14 @@ export async function reason(
     withSessionLock(session.id, async () => {
       throwIfReasoningAborted(abortSignal);
 
+      let current = getSessionOrThrow(session.id);
+
       if (rollbackToStep !== undefined) {
-        sessionStore.rollback(session.id, rollbackToStep);
+        current = sessionStore.rollback(session.id, rollbackToStep);
       }
 
       if (shouldUpdateQuery) {
-        sessionStore.updateQuery(session.id, query);
-      }
-
-      const current = getSessionOrThrow(session.id);
-
-      let content = thought;
-      if (!content && hasStructuredInput) {
-        content = `**Observation:** ${observation}\n\n**Hypothesis:** ${hypothesis}\n\n**Evaluation:** ${evaluation}`;
+        current = sessionStore.updateQuery(session.id, query);
       }
 
       if (!content) {
@@ -134,18 +129,14 @@ export async function reason(
         return current;
       }
 
-      const addedThought = sessionStore.addThought(
-        session.id,
-        content,
-        stepSummary
-      );
+      const { thought: addedThought, session: updated } =
+        sessionStore.addThought(session.id, content, stepSummary);
       engineEvents.emit('thought:added', {
         sessionId: session.id,
         index: addedThought.index,
         content: addedThought.content,
       });
 
-      const updated = getSessionOrThrow(session.id);
       emitBudgetExhaustedIfNeeded({
         session: updated,
         tokenBudget: config.tokenBudget,
@@ -153,22 +144,20 @@ export async function reason(
         requestedThoughts: totalThoughts,
       });
 
+      let finalSession = updated;
       if (isConclusion || updated.thoughts.length >= totalThoughts) {
-        sessionStore.markCompleted(session.id);
+        finalSession = sessionStore.markCompleted(session.id);
       }
 
-      if (onProgress) {
-        try {
-          await onProgress(addedThought.index + 1, totalThoughts, stepSummary);
-        } catch (progressError) {
-          // Log but don't propagate transport errors — re-throw only on abort
-          engineEvents.emit('error', progressError);
-          throwIfReasoningAborted(abortSignal);
-        }
-        throwIfReasoningAborted(abortSignal);
-      }
+      await reportProgress(
+        onProgress,
+        addedThought.index + 1,
+        totalThoughts,
+        stepSummary,
+        abortSignal
+      );
 
-      return getSessionOrThrow(session.id);
+      return finalSession;
     })
   );
 }
@@ -282,4 +271,49 @@ function throwIfReasoningAborted(signal?: AbortSignal): void {
   } catch {
     throw new ReasoningAbortedError();
   }
+}
+
+function resolveThoughtContent(
+  thought: string | undefined,
+  observation: string | undefined,
+  hypothesis: string | undefined,
+  evaluation: string | undefined
+): string | undefined {
+  if (thought) {
+    return thought;
+  }
+  if (
+    observation !== undefined &&
+    hypothesis !== undefined &&
+    evaluation !== undefined
+  ) {
+    return `**Observation:** ${observation}\n\n**Hypothesis:** ${hypothesis}\n\n**Evaluation:** ${evaluation}`;
+  }
+  return undefined;
+}
+
+type ProgressCallback = (
+  progress: number,
+  total: number,
+  stepSummary?: string
+) => void | Promise<void>;
+
+async function reportProgress(
+  onProgress: ProgressCallback | undefined,
+  step: number,
+  total: number,
+  summary: string | undefined,
+  abortSignal: AbortSignal | undefined
+): Promise<void> {
+  if (!onProgress) {
+    return;
+  }
+  try {
+    await onProgress(step, total, summary);
+  } catch (progressError) {
+    // Log but don't propagate transport errors — re-throw only on abort
+    engineEvents.emit('error', progressError);
+    throwIfReasoningAborted(abortSignal);
+  }
+  throwIfReasoningAborted(abortSignal);
 }
