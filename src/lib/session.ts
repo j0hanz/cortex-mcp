@@ -172,8 +172,8 @@ function normalizeProgressSummary(summary?: string): string | undefined {
   if (/^[\W_]+$/.test(normalized)) {
     return undefined;
   }
-  if (normalized.length > 90) {
-    return `${normalized.slice(0, 87).trimEnd()}...`;
+  if (normalized.length > 60) {
+    return `${normalized.slice(0, 57).trimEnd()}...`;
   }
   return normalized;
 }
@@ -182,21 +182,36 @@ export function formatProgressMessage(args: {
   phase: ProgressMessagePhase;
   summary?: string;
   isContinuation?: boolean;
+  progress?: number;
+  total?: number;
 }): string {
-  const { phase, summary, isContinuation } = args;
+  const { phase, summary, isContinuation, progress, total } = args;
 
   if (phase === 'start') {
-    return isContinuation ? 'Continuing reasoning...' : 'Starting reasoning...';
-  }
-  if (phase === 'complete') {
-    return 'Reasoning complete.';
+    return isContinuation ? 'Resuming...' : 'Thinking...';
   }
 
-  const conciseSummary = normalizeProgressSummary(summary);
-  if (conciseSummary) {
-    return `Reasoning: ${conciseSummary}`;
+  if (phase === 'complete') {
+    return 'Done';
   }
-  return 'Reasoning in progress...';
+
+  // update phase
+  const conciseSummary = normalizeProgressSummary(summary);
+  const tag =
+    progress !== undefined && total !== undefined
+      ? `[${String(progress)}/${String(total)}]`
+      : undefined;
+
+  if (tag && conciseSummary) {
+    return `${tag} ${conciseSummary}`;
+  }
+  if (tag) {
+    return tag;
+  }
+  if (conciseSummary) {
+    return conciseSummary;
+  }
+  return 'Thinking...';
 }
 
 // --- session-utils.ts ---

@@ -378,6 +378,8 @@ function createProgressHandler(args: {
     const message = formatProgressMessage({
       phase: isTerminal ? 'complete' : 'update',
       ...(summary ? { summary } : {}),
+      progress: displayProgress,
+      total: batchTotal,
     });
 
     await notifyProgress({
