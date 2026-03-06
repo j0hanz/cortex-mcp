@@ -163,7 +163,7 @@ const TOOL_CONTRACTS: readonly ToolContract[] = [
         name: 'runMode',
         type: 'string',
         required: false,
-        constraints: 'step | run_to_completion',
+        constraints: 'step (default) | run_to_completion (basic only)',
       },
       {
         name: 'thought',

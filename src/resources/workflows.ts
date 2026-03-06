@@ -27,9 +27,10 @@ ${SERVER_ROLE}
 2. Continue with \`{ sessionId, thought }\` until \`totalThoughts\` reached.
    Ranges: basic 1-3, normal 4-8, high 10-15, expert 20-25.
 
-### D: Batch Run-To-Completion
-1. Start: \`{ query, level, targetThoughts, runMode: "run_to_completion", thought: ["step1", "step2", ...] }\`.
+### D: Batch Run-To-Completion (Basic Level Only)
+1. Start: \`{ query, level: "basic", targetThoughts, runMode: "run_to_completion", thought: ["step1", "step2", ...] }\`.
 2. Server processes all inputs until completion, token exhaustion, or cancellation.
+3. **Restriction:** \`run_to_completion\` is only available for basic level. Normal/high/expert require sequential step mode (workflows A–C).
 
 ### E: Structured Reasoning
 1. Start: \`{ query, level, observation, hypothesis, evaluation }\`.

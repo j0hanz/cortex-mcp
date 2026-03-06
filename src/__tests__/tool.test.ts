@@ -210,6 +210,43 @@ describe('reasoning_think — run_to_completion', () => {
     assert.equal(secondParsed.result.status, 'completed');
     assert.equal(secondParsed.result.thoughts.length, 2);
   });
+
+  it('rejects run_to_completion on non-basic level (new session)', async () => {
+    const result = await callTool(client, {
+      query: 'test',
+      level: 'normal',
+      thought: 'step',
+      runMode: 'run_to_completion',
+    });
+    assert.ok(
+      result.isError === true,
+      'Expected isError=true for run_to_completion on non-basic level'
+    );
+  });
+
+  it('rejects run_to_completion continuation on non-basic session', async () => {
+    const first = await callTool(client, {
+      query: 'continuation test',
+      level: 'normal',
+      targetThoughts: 5,
+      thought: 'Step one.',
+    });
+    const firstParsed = parseText(first) as {
+      ok: boolean;
+      result: { sessionId: string };
+    };
+    assertOk(firstParsed);
+
+    const second = await callTool(client, {
+      sessionId: firstParsed.result.sessionId,
+      runMode: 'run_to_completion',
+      thought: 'batch attempt',
+    });
+    assert.ok(
+      second.isError === true,
+      'Expected isError=true for run_to_completion on normal-level session'
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

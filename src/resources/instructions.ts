@@ -69,7 +69,7 @@ ${promptList}
 <progress>
 - Optional \`_meta.progressToken\` in \`tools/call\` enables progress notifications.
 - Frequency: every step (basic/normal), every 2 steps (high), every 5 steps (expert).
-- \`runMode: "run_to_completion"\`: pass \`thought\` as string array.
+- \`runMode: "run_to_completion"\`: pass \`thought\` as string array. **Basic level only** — normal/high/expert require step mode.
 </progress>
 
 <tool_contracts>
@@ -84,7 +84,7 @@ ${sharedConstraints}
 - \`E_SESSION_NOT_FOUND\`: Session missing or expired. Start new or list sessions.
 - \`E_INVALID_THOUGHT_COUNT\`: \`targetThoughts\` outside level range.
 - \`E_INSUFFICIENT_THOUGHTS\`: Too few thoughts for \`run_to_completion\`.
-- \`E_INVALID_RUN_MODE_ARGS\`: Invalid \`runMode\` argument combination.
+- \`E_INVALID_RUN_MODE_ARGS\`: Invalid \`runMode\` argument combination (e.g. \`run_to_completion\` on non-basic level).
 - \`E_ABORTED\`: Request cancelled. Session marked cancelled.
 - \`E_SERVER_BUSY\`: Concurrent request limit reached. Retry later.
 - \`E_REASONING\`: Internal error. Check message, retry.

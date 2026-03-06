@@ -115,6 +115,33 @@ describe('ReasoningThinkInputSchema — run_to_completion', () => {
       targetThoughts: 2,
     });
   });
+
+  it('runMode=run_to_completion with normal level is rejected', () => {
+    invalid({
+      query: 'q',
+      level: 'normal',
+      thought: 't',
+      runMode: 'run_to_completion',
+    });
+  });
+
+  it('runMode=run_to_completion with high level is rejected', () => {
+    invalid({
+      query: 'q',
+      level: 'high',
+      thought: 't',
+      runMode: 'run_to_completion',
+    });
+  });
+
+  it('runMode=run_to_completion with expert level is rejected', () => {
+    invalid({
+      query: 'q',
+      level: 'expert',
+      thought: 't',
+      runMode: 'run_to_completion',
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -140,13 +167,23 @@ describe('ReasoningThinkInputSchema — step mode', () => {
 // ---------------------------------------------------------------------------
 
 describe('ReasoningThinkInputSchema — batch thought array', () => {
-  it('array of thoughts is valid for run_to_completion new session', () => {
+  it('array of thoughts is valid for run_to_completion new session (basic)', () => {
     valid({
       query: 'q',
       level: 'basic',
       thought: ['t1', 't2'],
       runMode: 'run_to_completion',
       targetThoughts: 2,
+    });
+  });
+
+  it('array of thoughts is rejected for run_to_completion with non-basic level', () => {
+    invalid({
+      query: 'q',
+      level: 'normal',
+      thought: ['t1', 't2'],
+      runMode: 'run_to_completion',
+      targetThoughts: 5,
     });
   });
 });

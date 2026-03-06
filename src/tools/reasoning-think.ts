@@ -390,6 +390,18 @@ function createProgressHandler(args: {
   };
 }
 
+function assertRunToCompletionLevel(params: ReasoningThinkInput): void {
+  let effectiveLevel = params.level;
+  if (effectiveLevel === undefined && params.sessionId) {
+    effectiveLevel = sessionStore.get(params.sessionId)?.level;
+  }
+  if (effectiveLevel !== undefined && effectiveLevel !== 'basic') {
+    throw new InvalidRunModeArgsError(
+      `run_to_completion is only available for basic level (current: ${effectiveLevel}). Use runMode: "step" for normal/high/expert.`
+    );
+  }
+}
+
 function assertRunToCompletionInputCount(
   params: ReasoningThinkInput,
   thoughtInputs: string[]
@@ -441,7 +453,7 @@ function getActionableMessage(
     case 'E_INSUFFICIENT_THOUGHTS':
       return `${originalMessage} Fix: provide enough thought inputs for the remaining steps, or use runMode: "step".`;
     case 'E_INVALID_RUN_MODE_ARGS':
-      return `${originalMessage} Fix: set targetThoughts when starting a new session with runMode: "run_to_completion".`;
+      return `${originalMessage} Fix: run_to_completion is only available for basic level. For other levels, use runMode: "step".`;
     default:
       return originalMessage;
   }
@@ -494,7 +506,7 @@ The thought parameter stores YOUR reasoning verbatim — write thorough analysis
 Use stepSummary for a 1-sentence conclusion per step — these accumulate in the summary field for navigation.
 
 Levels: ${getLevelDescriptionString()}.
-Alternatives: runMode="run_to_completion" (batch), or observation/hypothesis/evaluation fields (structured).
+Alternatives: runMode="run_to_completion" (batch, basic level only), or observation/hypothesis/evaluation fields (structured).
 Errors: E_SESSION_NOT_FOUND (expired — start new), E_INVALID_THOUGHT_COUNT (check level ranges).`,
       inputSchema: ReasoningThinkInputSchema,
       outputSchema: ReasoningThinkToolOutputSchema,
@@ -562,6 +574,7 @@ async function runReasoning(args: {
 
   try {
     if (runMode === 'run_to_completion') {
+      assertRunToCompletionLevel(params);
       assertRunToCompletionInputCount(params, thoughtInputs);
     }
 

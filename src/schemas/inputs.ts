@@ -34,7 +34,7 @@ export const ReasoningThinkInputSchema = z
     runMode: z
       .enum(RUN_MODE_VALUES)
       .optional()
-      .describe('"step" (default) or "run_to_completion".'),
+      .describe('"step" (default) or "run_to_completion" (basic level only).'),
     thought: z
       .union([THOUGHT_TEXT_SCHEMA, THOUGHT_BATCH_SCHEMA])
       .optional()
@@ -104,12 +104,25 @@ export const ReasoningThinkInputSchema = z
     }
 
     const runMode = data.runMode ?? 'step';
+    if (
+      runMode === 'run_to_completion' &&
+      data.level !== undefined &&
+      data.level !== 'basic'
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['runMode'],
+        message:
+          'run_to_completion is only available for basic level. Use runMode: "step" for normal/high/expert.',
+      });
+    }
+
     if (runMode === 'step' && Array.isArray(data.thought)) {
       ctx.addIssue({
         code: 'custom',
         path: ['thought'],
         message:
-          'thought must be a string in step mode. Use runMode: "run_to_completion" for batch input.',
+          'thought must be a string in step mode. Use runMode: "run_to_completion" for batch input (basic level only).',
       });
     }
   });
