@@ -8,6 +8,7 @@ interface ToolEntry {
   model: string;
   timeout: string;
   maxOutputTokens: string;
+  taskSupport: 'forbidden' | 'optional' | 'required';
   purpose: string;
 }
 
@@ -23,6 +24,7 @@ function toEntry(
         : 'N/A',
     maxOutputTokens:
       contract.maxOutputTokens > 0 ? String(contract.maxOutputTokens) : 'N/A',
+    taskSupport: contract.taskSupport,
     purpose: contract.purpose,
   };
 }
@@ -38,9 +40,9 @@ export function buildCoreContextPack(): string {
     if (!entry) {
       return [];
     }
-    return `| \`${entry.name}\` | ${entry.model} | ${entry.timeout} | ${entry.maxOutputTokens} | ${entry.purpose} |`;
+    return `| \`${entry.name}\` | ${entry.model} | ${entry.timeout} | ${entry.maxOutputTokens} | ${entry.taskSupport} | ${entry.purpose} |`;
   });
-  return `<core_context_pack>\n| Tool | Model | Timeout | Max Output Tokens | Purpose |\n|------|-------|---------|-------------------|---------|\n${rows.join('\n')}\n</core_context_pack>`;
+  return `<core_context_pack>\n| Tool | Model | Timeout | Max Output Tokens | Task Support | Purpose |\n|------|-------|---------|-------------------|--------------|---------|\n${rows.join('\n')}\n</core_context_pack>`;
 }
 
 function getSharedConstraints(): string[] {
@@ -97,6 +99,7 @@ export function getToolInfo(toolName: string): string | undefined {
     `- **Model:** ${entry.model}`,
     `- **Timeout:** ${entry.timeout}`,
     `- **Max output tokens:** ${entry.maxOutputTokens}`,
+    `- **Task support:** \`${entry.taskSupport}\``,
     '- **Parameters:**',
     params,
     `- **Output:** \`${contract.outputShape}\``,

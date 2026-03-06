@@ -87,7 +87,7 @@ describe('ServerBusyError', () => {
 // ---------------------------------------------------------------------------
 
 describe('createErrorResponse', () => {
-  it('returns isError: true with parseable JSON content and structuredContent', () => {
+  it('returns isError: true with parseable JSON content and no structuredContent', () => {
     const res = createErrorResponse('E_TEST', 'test message');
     assert.equal(res.isError, true);
     assert.equal(res.content.length, 1);
@@ -100,7 +100,7 @@ describe('createErrorResponse', () => {
     assert.equal(parsed.ok, false);
     assert.equal(parsed.error.code, 'E_TEST');
     assert.equal(parsed.error.message, 'test message');
-    assert.deepEqual(res.structuredContent, parsed);
+    assert.equal('structuredContent' in res, false);
   });
 
   it('content type is text', () => {

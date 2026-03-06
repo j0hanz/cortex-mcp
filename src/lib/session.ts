@@ -1,6 +1,5 @@
 // DISABLED: VS Code result.md rendering issue
 // import type { TextResourceContents } from '@modelcontextprotocol/sdk/types.js';
-
 import type { Session, Thought } from './types.js';
 
 // --- formatting.ts ---

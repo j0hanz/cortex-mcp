@@ -127,6 +127,7 @@ export interface ToolContract {
   model: string;
   timeoutMs: number;
   maxOutputTokens: number;
+  taskSupport: 'forbidden' | 'optional' | 'required';
   params: {
     name: string;
     type: string;
@@ -144,6 +145,7 @@ const TOOL_CONTRACTS: readonly ToolContract[] = [
     model: 'none (engine)',
     timeoutMs: 0,
     maxOutputTokens: 0,
+    taskSupport: 'forbidden',
     params: [
       {
         name: 'query',

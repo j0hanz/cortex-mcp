@@ -45,6 +45,7 @@ ${SERVER_ROLE}
 
 <capabilities>
 - Single tool: \`reasoning_think\` — creates and continues reasoning sessions.
+- Task support: \`forbidden\` for \`reasoning_think\` (no \`tasks/*\` lifecycle methods).
 - Sessions: in-memory, 30 min TTL, subscribable.
 - Outputs: thought chains, trace markdown, progress notifications.
 </capabilities>
