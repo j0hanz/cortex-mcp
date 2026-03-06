@@ -4,6 +4,10 @@ import { after, before, describe, it } from 'node:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import {
+  ResourceListChangedNotificationSchema,
+  ResourceUpdatedNotificationSchema,
+} from '@modelcontextprotocol/sdk/types.js';
 
 import { createServer } from '../server.js';
 
@@ -57,6 +61,29 @@ async function createSession(): Promise<string> {
   };
   assert.ok(parsed.ok, 'Failed to create test session');
   return parsed.result.sessionId;
+}
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  message: string,
+  timeoutMs = 2000
+): Promise<T> {
+  return await new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    );
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +185,41 @@ describe('resources — reasoning://sessions', () => {
       `Session ${sessionId} not found in list`
     );
   });
+
+  it('emits list_changed and updated notifications when a session is created', async () => {
+    const listChanged = new Promise<void>((resolve) => {
+      client.setNotificationHandler(
+        ResourceListChangedNotificationSchema,
+        () => {
+          resolve();
+        }
+      );
+    });
+    const updated = new Promise<string>((resolve) => {
+      client.setNotificationHandler(
+        ResourceUpdatedNotificationSchema,
+        (notification) => {
+          if (notification.params.uri === 'reasoning://sessions') {
+            resolve(notification.params.uri);
+          }
+        }
+      );
+    });
+
+    await createSession();
+
+    assert.equal(
+      await withTimeout(
+        updated,
+        'Expected reasoning://sessions update notification'
+      ),
+      'reasoning://sessions'
+    );
+    await withTimeout(
+      listChanged,
+      'Expected resources/list_changed notification after session creation'
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -175,6 +237,57 @@ describe('resources — reasoning://sessions/{sessionId}', () => {
     const session = JSON.parse(content.text) as { id: string; level: string };
     assert.equal(session.id, sessionId);
     assert.equal(typeof session.level, 'string');
+  });
+
+  it('emits an updated notification for a subscribed session resource', async () => {
+    const initial = await callToolRaw({
+      query: 'resource update session',
+      level: 'basic',
+      targetThoughts: 2,
+      thought: 'resource first thought',
+    });
+    const block = initial.content.find((item) => item.type === 'text');
+    assert.ok(block?.text);
+    const parsed = JSON.parse(block.text) as {
+      ok: boolean;
+      result: { sessionId: string };
+    };
+    assert.ok(parsed.ok);
+
+    const sessionId = parsed.result.sessionId;
+    const sessionUri = `reasoning://sessions/${sessionId}`;
+    const updated = new Promise<string>((resolve) => {
+      client.setNotificationHandler(
+        ResourceUpdatedNotificationSchema,
+        (notification) => {
+          if (notification.params.uri === sessionUri) {
+            resolve(notification.params.uri);
+          }
+        }
+      );
+    });
+
+    await callToolRaw({ sessionId, thought: 'resource follow-up thought' });
+
+    assert.equal(
+      await withTimeout(
+        updated,
+        'Expected session resource update notification'
+      ),
+      sessionUri
+    );
+
+    const result = await client.readResource({ uri: sessionUri });
+    const content = result.contents[0];
+    assert.ok(content && 'text' in content && typeof content.text === 'string');
+    const session = JSON.parse(content.text) as {
+      thoughts: Array<{ content: string }>;
+    };
+    assert.ok(session.thoughts.length >= 2);
+    assert.equal(
+      session.thoughts.at(-1)?.content,
+      'resource follow-up thought'
+    );
   });
 });
 

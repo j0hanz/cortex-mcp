@@ -63,7 +63,7 @@ ${promptList}
 - \`reasoning://sessions/{sessionId}\`: Session thoughts and metadata (JSON).
 - \`reasoning://sessions/{sessionId}/trace\`: Full markdown trace.
 - \`reasoning://sessions/{sessionId}/thoughts/{thoughtName}\`: Single thought (markdown).
-- Subscriptions: \`reasoning://sessions/{sessionId}\` (thought updates), \`reasoning://sessions\` (aggregate).
+- Notifications: \`notifications/resources/updated\` for session/list updates and \`notifications/resources/list_changed\` for collection changes.
 </resources>
 
 <progress>
@@ -85,6 +85,7 @@ ${sharedConstraints}
 - \`E_INVALID_THOUGHT_COUNT\`: \`targetThoughts\` outside level range.
 - \`E_INSUFFICIENT_THOUGHTS\`: Too few thoughts for \`run_to_completion\`.
 - \`E_INVALID_RUN_MODE_ARGS\`: Invalid \`runMode\` argument combination (e.g. \`run_to_completion\` on non-basic level).
+- \`E_INVALID_INPUT\`: Missing or incompatible argument combination handled by the tool.
 - \`E_ABORTED\`: Request cancelled. Session marked cancelled.
 - \`E_SERVER_BUSY\`: Concurrent request limit reached. Retry later.
 - \`E_REASONING\`: Internal error. Check message, retry.

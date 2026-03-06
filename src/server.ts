@@ -205,7 +205,7 @@ export function createServer(): McpServer {
         logging: {},
         prompts: {},
         completions: {},
-        resources: { subscribe: true, listChanged: true },
+        resources: { listChanged: true },
       },
       instructions:
         'Multi-level reasoning MCP server. Use reasoning_think to decompose queries into sequential thought steps at basic (1–3), normal (4–8), high (10–15), or expert (20–25) depth. Full usage guide: read internal://instructions or invoke get-help.',

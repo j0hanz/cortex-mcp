@@ -8,6 +8,7 @@ import {
   createErrorResponse,
   getErrorMessage,
   InsufficientThoughtsError,
+  InvalidInputError,
   InvalidRunModeArgsError,
   ReasoningError,
   ServerBusyError,
@@ -82,6 +83,44 @@ function hasExtraStepFields(params: ReasoningThinkInput): boolean {
     params.isConclusion !== undefined ||
     params.rollbackToStep !== undefined
   );
+}
+
+function hasStructuredInput(params: ReasoningThinkInput): boolean {
+  return (
+    params.observation !== undefined &&
+    params.hypothesis !== undefined &&
+    params.evaluation !== undefined
+  );
+}
+
+function validateCrossFieldRules(params: ReasoningThinkInput): void {
+  if (params.sessionId === undefined && params.query === undefined) {
+    throw new InvalidInputError(
+      'query is required when starting a new session. Provide query + level + thought.'
+    );
+  }
+
+  if (params.sessionId === undefined && params.level === undefined) {
+    throw new InvalidInputError(
+      'level is required when starting a new session. Choose: basic, normal, high, expert.'
+    );
+  }
+
+  if (
+    params.thought === undefined &&
+    !hasStructuredInput(params) &&
+    params.rollbackToStep === undefined
+  ) {
+    throw new InvalidInputError(
+      'Provide "thought", structured fields (observation + hypothesis + evaluation), or rollbackToStep.'
+    );
+  }
+
+  if ((params.runMode ?? 'step') === 'step' && Array.isArray(params.thought)) {
+    throw new InvalidInputError(
+      'thought must be a string in step mode. Use runMode: "run_to_completion" for batch input (basic level only).'
+    );
+  }
 }
 
 type ExecuteArgs = Parameters<typeof executeReasoningSteps>[0];
@@ -575,6 +614,8 @@ async function runReasoning(args: {
   });
 
   try {
+    validateCrossFieldRules(params);
+
     if (runMode === 'run_to_completion') {
       assertRunToCompletionLevel(params);
       assertRunToCompletionInputCount(params, thoughtInputs);

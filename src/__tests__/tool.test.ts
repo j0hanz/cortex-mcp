@@ -4,6 +4,8 @@ import { after, before, describe, it } from 'node:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { RequestOptions } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import type { Progress } from '@modelcontextprotocol/sdk/types.js';
 
 import { createServer } from '../server.js';
 
@@ -18,6 +20,8 @@ type RawToolResult = {
   structuredContent?: unknown;
 };
 
+type ToolCallOptions = Pick<RequestOptions, 'onprogress' | 'signal'>;
+
 async function callTool(
   client: Client,
   args: Record<string, unknown>
@@ -26,6 +30,21 @@ async function callTool(
     name: 'reasoning_think',
     arguments: args,
   }) as Promise<RawToolResult>;
+}
+
+async function callToolWithOptions(
+  client: Client,
+  args: Record<string, unknown>,
+  options: ToolCallOptions
+): Promise<RawToolResult> {
+  return client.callTool(
+    {
+      name: 'reasoning_think',
+      arguments: args,
+    },
+    undefined,
+    options
+  ) as Promise<RawToolResult>;
 }
 
 function parseText(result: RawToolResult): unknown {
@@ -47,9 +66,10 @@ function assertOk(
 
 function assertError(
   parsed: unknown
-): asserts parsed is { ok: false; error: { code: string } } {
+): asserts parsed is { ok: false; error: { code: string; message: string } } {
   assert.ok(typeof parsed === 'object' && parsed !== null && 'ok' in parsed);
   assert.equal((parsed as { ok: unknown }).ok, false);
+  assert.ok('error' in (parsed as Record<string, unknown>));
 }
 
 // ---------------------------------------------------------------------------
@@ -218,10 +238,10 @@ describe('reasoning_think — run_to_completion', () => {
       thought: 'step',
       runMode: 'run_to_completion',
     });
-    assert.ok(
-      result.isError === true,
-      'Expected isError=true for run_to_completion on non-basic level'
-    );
+    assert.ok(result.isError === true);
+    const parsed = parseText(result);
+    assertError(parsed);
+    assert.equal(parsed.error.code, 'E_INVALID_RUN_MODE_ARGS');
   });
 
   it('rejects run_to_completion continuation on non-basic session', async () => {
@@ -242,10 +262,10 @@ describe('reasoning_think — run_to_completion', () => {
       runMode: 'run_to_completion',
       thought: 'batch attempt',
     });
-    assert.ok(
-      second.isError === true,
-      'Expected isError=true for run_to_completion on normal-level session'
-    );
+    assert.ok(second.isError === true);
+    const parsed = parseText(second);
+    assertError(parsed);
+    assert.equal(parsed.error.code, 'E_INVALID_RUN_MODE_ARGS');
   });
 });
 
@@ -254,24 +274,28 @@ describe('reasoning_think — run_to_completion', () => {
 // ---------------------------------------------------------------------------
 
 describe('reasoning_think — invalid inputs', () => {
-  it('returns error when neither query nor sessionId is provided', async () => {
-    // Cross-field validation errors are returned as tool errors (isError=true)
+  it('returns structured error when neither query nor sessionId is provided', async () => {
     const result = await callTool(client, {
       level: 'basic',
       thought: 'no identifier',
     });
-    assert.ok(
-      result.isError === true,
-      'Expected isError=true for schema validation failure'
-    );
+    assert.ok(result.isError === true);
+    const parsed = parseText(result);
+    assertError(parsed);
+    assert.equal(parsed.error.code, 'E_INVALID_INPUT');
+    assert.match(parsed.error.message, /query is required/);
   });
 
-  it('returns error when thought is missing for new session', async () => {
+  it('returns structured error when thought is missing for new session', async () => {
     const result = await callTool(client, {
       query: 'missing thought',
       level: 'basic',
     });
     assert.ok(result.isError === true);
+    const parsed = parseText(result);
+    assertError(parsed);
+    assert.equal(parsed.error.code, 'E_INVALID_INPUT');
+    assert.match(parsed.error.message, /Provide "thought"/);
   });
 
   it('returns error for invalid level', async () => {
@@ -281,6 +305,113 @@ describe('reasoning_think — invalid inputs', () => {
       thought: 'thought',
     });
     assert.ok(result.isError === true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Progress and cancellation
+// ---------------------------------------------------------------------------
+
+describe('reasoning_think — progress notifications', () => {
+  it('emits monotonic progress updates when requested', async () => {
+    const updates: Progress[] = [];
+    const result = await callToolWithOptions(
+      client,
+      {
+        query: 'progress test',
+        level: 'basic',
+        targetThoughts: 2,
+        runMode: 'run_to_completion',
+        thought: ['Step one.', 'Step two.'],
+      },
+      {
+        onprogress: async (update) => {
+          updates.push(update);
+        },
+      }
+    );
+
+    const parsed = parseText(result);
+    assertOk(parsed);
+    assert.ok(updates.length >= 2, 'Expected progress notifications');
+    assert.equal(updates[0]?.progress, 0);
+    assert.equal(updates[0]?.message, 'Thinking...');
+
+    for (let index = 1; index < updates.length; index++) {
+      const previous = updates[index - 1];
+      const current = updates[index];
+      assert.ok(current && previous);
+      assert.ok(
+        current.progress >= previous.progress,
+        'Progress must be monotonic'
+      );
+    }
+
+    const finalUpdate = updates.at(-1);
+    assert.equal(finalUpdate?.progress, 2);
+    assert.equal(finalUpdate?.total, 2);
+    assert.equal(finalUpdate?.message, 'Done');
+  });
+});
+
+describe('reasoning_think — cancellation', () => {
+  it('marks the session cancelled when the client aborts the request', async () => {
+    const initial = await callTool(client, {
+      query: 'cancel test',
+      level: 'basic',
+      targetThoughts: 3,
+      thought: 'One.',
+    });
+    const parsedInitial = parseText(initial);
+    assertOk(parsedInitial);
+    const sessionId = parsedInitial.result.sessionId;
+    assert.equal(typeof sessionId, 'string');
+
+    const controller = new AbortController();
+    const request = callToolWithOptions(
+      client,
+      {
+        sessionId,
+        runMode: 'run_to_completion',
+        thought: ['Two.', 'Three.'],
+      },
+      {
+        signal: controller.signal,
+        onprogress: async () => {
+          if (!controller.signal.aborted) {
+            controller.abort('cancel test');
+          }
+        },
+      }
+    );
+
+    await assert.rejects(request, /cancel/i);
+
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const resource = await client.readResource({
+        uri: `reasoning://sessions/${sessionId}`,
+      });
+      const content = resource.contents[0];
+      assert.ok(
+        content && 'text' in content && typeof content.text === 'string'
+      );
+      const session = JSON.parse(content.text) as {
+        status: string;
+        thoughts: Array<{ content: string }>;
+      };
+
+      if (session.status === 'cancelled') {
+        assert.ok(session.thoughts.length >= 1);
+        assert.equal(session.thoughts[0]?.content, 'One.');
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    assert.fail(
+      'Expected session status to become cancelled after client abort'
+    );
   });
 });
 

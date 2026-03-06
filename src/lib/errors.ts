@@ -50,6 +50,13 @@ export class InvalidRunModeArgsError extends ReasoningError {
   }
 }
 
+export class InvalidInputError extends ReasoningError {
+  constructor(message: string) {
+    super('E_INVALID_INPUT', message);
+    this.name = 'InvalidInputError';
+  }
+}
+
 export class ReasoningAbortedError extends ReasoningError {
   constructor(message = 'Reasoning aborted') {
     super('E_ABORTED', message);

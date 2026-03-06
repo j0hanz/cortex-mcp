@@ -116,8 +116,8 @@ describe('ReasoningThinkInputSchema — run_to_completion', () => {
     });
   });
 
-  it('runMode=run_to_completion with normal level is rejected', () => {
-    invalid({
+  it('runMode=run_to_completion with normal level passes schema', () => {
+    valid({
       query: 'q',
       level: 'normal',
       thought: 't',
@@ -125,8 +125,8 @@ describe('ReasoningThinkInputSchema — run_to_completion', () => {
     });
   });
 
-  it('runMode=run_to_completion with high level is rejected', () => {
-    invalid({
+  it('runMode=run_to_completion with high level passes schema', () => {
+    valid({
       query: 'q',
       level: 'high',
       thought: 't',
@@ -134,8 +134,8 @@ describe('ReasoningThinkInputSchema — run_to_completion', () => {
     });
   });
 
-  it('runMode=run_to_completion with expert level is rejected', () => {
-    invalid({
+  it('runMode=run_to_completion with expert level passes schema', () => {
+    valid({
       query: 'q',
       level: 'expert',
       thought: 't',
@@ -153,12 +153,12 @@ describe('ReasoningThinkInputSchema — step mode', () => {
     valid({ sessionId: 'id', thought: 'single', runMode: 'step' });
   });
 
-  it('runMode=step with array thought is invalid', () => {
-    invalid({ sessionId: 'id', thought: ['a', 'b'], runMode: 'step' });
+  it('runMode=step with array thought passes schema', () => {
+    valid({ sessionId: 'id', thought: ['a', 'b'], runMode: 'step' });
   });
 
-  it('default (no runMode) with array thought is invalid', () => {
-    invalid({ sessionId: 'id', thought: ['a', 'b'] });
+  it('default (no runMode) with array thought passes schema', () => {
+    valid({ sessionId: 'id', thought: ['a', 'b'] });
   });
 });
 
@@ -177,8 +177,8 @@ describe('ReasoningThinkInputSchema — batch thought array', () => {
     });
   });
 
-  it('array of thoughts is rejected for run_to_completion with non-basic level', () => {
-    invalid({
+  it('array of thoughts is valid for run_to_completion with non-basic level', () => {
+    valid({
       query: 'q',
       level: 'normal',
       thought: ['t1', 't2'],
@@ -192,21 +192,21 @@ describe('ReasoningThinkInputSchema — batch thought array', () => {
 // Missing required combinations
 // ---------------------------------------------------------------------------
 
-describe('ReasoningThinkInputSchema — invalid missing fields', () => {
-  it('missing both query and sessionId is invalid', () => {
-    invalid({ level: 'basic', thought: 'something' });
+describe('ReasoningThinkInputSchema — missing cross-field combinations', () => {
+  it('missing both query and sessionId passes schema', () => {
+    valid({ level: 'basic', thought: 'something' });
   });
 
-  it('missing both level and sessionId is invalid', () => {
-    invalid({ query: 'q', thought: 'something' });
+  it('missing both level and sessionId passes schema', () => {
+    valid({ query: 'q', thought: 'something' });
   });
 
-  it('missing thought + structured + rollbackToStep is invalid', () => {
-    invalid({ query: 'q', level: 'basic' });
+  it('missing thought + structured + rollbackToStep passes schema', () => {
+    valid({ query: 'q', level: 'basic' });
   });
 
-  it('empty object is invalid', () => {
-    invalid({});
+  it('empty object passes schema', () => {
+    valid({});
   });
 });
 
